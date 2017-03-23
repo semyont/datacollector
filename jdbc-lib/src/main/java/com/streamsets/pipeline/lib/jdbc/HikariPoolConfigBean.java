@@ -182,7 +182,7 @@ public class HikariPoolConfigBean {
       label = "Idle Timeout",
       description = "Maximum amount of time that a connection is allowed to sit idle in the pool. 0 means don't " +
           "remove idle connections.",
-      min = 1,
+      min = 0,
       defaultValue = DEFAULT_IDLE_TIMEOUT_EL,
       elDefs = {TimeEL.class},
       displayPosition = 40,
@@ -203,6 +203,17 @@ public class HikariPoolConfigBean {
       group = "ADVANCED"
   )
   public int maxLifetime = DEFAULT_MAX_LIFETIME;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Auto Commit",
+      description = "Whether the connection should have property auto-commit set to true or not.",
+      defaultValue = "false",
+      displayPosition = 55,
+      group = "ADVANCED"
+  )
+  public boolean autoCommit = false;
 
   @ConfigDef(
       required = true,

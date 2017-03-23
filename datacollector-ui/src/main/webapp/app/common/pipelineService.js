@@ -272,6 +272,26 @@ angular.module('dataCollectorApp.common')
       });
     };
 
+    /**
+     * Share Pipeline Configuration Command Handler
+     */
+    this.sharePipelineConfigCommand = function(pipelineInfo, $event) {
+      $modal.open({
+        templateUrl: 'app/home/library/share/share.tpl.html',
+        controller: 'ShareModalInstanceController',
+        size: 'lg',
+        backdrop: 'static',
+        resolve: {
+          pipelineInfo: function () {
+            return pipelineInfo;
+          }
+        }
+      });
+
+      if ($event) {
+        $event.stopPropagation();
+      }
+    };
 
     /**
      * Delete Pipeline Configuration Command Handler
@@ -368,7 +388,7 @@ angular.module('dataCollectorApp.common')
     /**
      * Download Remote Pipeline Command Handler
      */
-    this.downloadRemotePipelineConfigCommand = function($event, existingPipelineNames) {
+    this.downloadRemotePipelineConfigCommand = function($event, existingDPMPipelineIds) {
       var defer = $q.defer(),
         modalInstance = $modal.open({
           templateUrl: 'app/home/library/download_remote/downloadRemoteModal.tpl.html',
@@ -376,8 +396,8 @@ angular.module('dataCollectorApp.common')
           size: 'lg',
           backdrop: 'static',
           resolve: {
-            existingPipelineNames: function() {
-              return existingPipelineNames;
+            existingDPMPipelineIds: function() {
+              return existingDPMPipelineIds;
             }
           }
         });

@@ -429,6 +429,11 @@
          <li>OAuth - Uses OAuth 1.0 authentication. Requires OAuth credentials.</li>
         </ul></entry>
       </row>
+      <row id="HTTP-OAuth2">
+       <entry>Use OAuth 2</entry>
+       <entry>Enables using OAuth 2 authorization to request access tokens. <p>You can use OAuth 2
+         authorization with none, basic, digest, or universal authentication.</p></entry>
+      </row>
       <row id="HTTP-UseProxy">
        <entry>Use Proxy</entry>
        <entry>
@@ -439,6 +444,94 @@
     </tgroup>
    </table>
   </p>
+  <draft-comment author="alisontaylor">OAuth 2 table for HTTP Client origin and
+   processor</draft-comment>
+  <table frame="all" rowsep="1" colsep="1" id="HTTP_OAuth2">
+   <tgroup cols="2">
+    <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+    <colspec colname="c2" colnum="2" colwidth="3.5*"/>
+    <thead>
+     <row>
+      <entry>OAuth 2 Property</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>Credentials Grant Type</entry>
+      <entry>Type of client credentials grant type required by the HTTP service:<ul
+        id="ul_m3c_t1f_5y">
+        <li>Client credentials grant</li>
+        <li>Resource owner password credentials grant</li>
+        <li>JSON Web Tokens (JWT)</li>
+       </ul></entry>
+     </row>
+     <row>
+      <entry>Token URL</entry>
+      <entry>URL to request the access token.</entry>
+     </row>
+     <row>
+      <entry>Client ID</entry>
+      <entry>Client ID that the HTTP service uses to identify the HTTP client.<p>For client
+        credentials grant that uses a client ID and secret for authentication. Or, for resource
+        owner password credentials grant that requires a client ID and secret.</p></entry>
+     </row>
+     <row>
+      <entry>Client Secret</entry>
+      <entry>Client secret that the HTTP service uses to authenticate the HTTP client.<p>For client
+        credentials grant that uses a client ID and secret for authentication. Or, for resource
+        owner password credentials grant that requires a client ID and secret.</p><note
+        conref="ReusablePhrases.dita#concept_vhs_5tz_xp/Tip_ClientID"/></entry>
+     </row>
+     <row>
+      <entry>User Name</entry>
+      <entry>Resource owner user name.<p>For resource owner password credentials grant.</p></entry>
+     </row>
+     <row>
+      <entry>Password</entry>
+      <entry>Resource owner password.<p>For resource owner password credentials grant.</p><note
+        conref="ReusablePhrases.dita#concept_vhs_5tz_xp/Tip_Usernames"/></entry>
+     </row>
+     <row>
+      <entry>JWT Signing Algorithm</entry>
+      <entry>Algorithm used to sign the JSON Web Token (JWT).<p>Default is none. For JSON Web Tokens
+        grant.</p></entry>
+     </row>
+     <row>
+      <entry>JWT Signing Key</entry>
+      <entry>Base64 encoded key used to sign the JSON Web Token, if you selected a signing
+        algorithm.<note conref="ReusablePhrases.dita#concept_vhs_5tz_xp/Tip_JWTKey"/><p>For JSON Web
+        Tokens grant.</p></entry>
+     </row>
+     <row>
+      <entry>JWT Claims</entry>
+      <entry>Claims to use in the JSON Web Token request, entered in JSON format. Enter each claim
+       required by the HTTP service. You can include the expression language in the JWT
+        claims.<p>For example, to read from Google service accounts, enter the following claims with
+        the appropriate
+        values:</p><codeblock>{
+  "iss":"my_name@my_account.iam.gserviceaccount.com",
+  "scope":"https://www.googleapis.com/auth/drive",
+  "aud":"https://www.googleapis.com/oauth2/v4/token",
+  "exp":${(time:dateTimeToMilliseconds(time:now())/1000) + 50 * 60},
+  "iat":${time:dateTimeToMilliseconds(time:now())/1000}
+}</codeblock><p>For
+        JSON Web Tokens grant.</p></entry>
+     </row>
+     <row>
+      <entry>Request Transfer Encoding</entry>
+      <entry>Form of encoding to use when the stage requests an access token: buffered or
+        chunked.<p>Default is buffered.</p></entry>
+     </row>
+     <row>
+      <entry>Additional Key-Value Pairs</entry>
+      <entry>Optional key-value pairs to send to the token URL when requesting an access token. For
+       example, you can define the OAuth 2 <codeph>scope</codeph> request parameter.<p>Use the
+         <uicontrol>Add</uicontrol> icon to add additional key-value pairs.</p></entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
   <p>
    <draft-comment author="Loretta">PROCESSOR rows</draft-comment>
    <table frame="all" rowsep="1" colsep="1" id="table_u2r_4x5_lv">
@@ -674,9 +767,10 @@
    </table>
   </p>
   <p>
-   <draft-comment author="alisontaylor"><b>table-JDBCProps</b> - JDBC Consumer, Lookup, Producer,
-    and Tee use most rows in this table. Oracle CDC is using a couple too. JDBC Query executor also
-    uses some.</draft-comment>
+   <draft-comment author="alisontaylor"><b>table-JDBCProps</b> - JDBC Query Consumer, Multi Table
+    JDBC Consumer, JDBC Lookup, JDBC Producer, and JDBC Tee use most rows in this table. Oracle CDC
+    is using a couple too. JDBC Query executor also uses some. – no one uses the whole table AFAI
+    can tell.&lt;lc></draft-comment>
    <table frame="all" rowsep="1" colsep="1" id="table_vwl_qcq_tw">
     <tgroup cols="2">
      <colspec colname="c1" colnum="1" colwidth="1.5*"/>
@@ -705,20 +799,43 @@
          function.</p><p>Use the <uicontrol>Add</uicontrol> icon to create additional field to
          column mappings.</p></entry>
       </row>
+      <row id="JDBCQueryInterval">
+       <entry>Query Interval</entry>
+       <entry>Amount of time to wait between queries. Enter an expression based on a unit of time.
+        You can use SECONDS, MINUTES, or HOURS.<p>Default is 10 seconds: ${10 * SECONDS}.
+        </p></entry>
+      </row>
       <row id="JDBCUseCredentials_row">
        <entry>Use Credentials</entry>
        <entry>Enables entering credentials on the Credentials tab. Use when you do not include
         credentials in the JDBC connection string.</entry>
+      </row>
+      <row id="JDBCMaxBatch_row">
+       <entry>Max Batch Size (records)</entry>
+       <entry>Maximum number of records to include in a batch.</entry>
       </row>
       <row id="JDBCMaxClob_row">
        <entry>Max Clob Size (characters)</entry>
        <entry>Maximum number of characters to be read in a Clob field. Larger data is
         truncated.</entry>
       </row>
+      <row id="JDBCMaxBlob_row">
+       <entry>Max Blob Size (bytes)</entry>
+       <entry>
+        <p>Maximum number of bytes to be read in a Blob field. </p>
+       </entry>
+      </row>
       <row id="LogFormat_row">
        <entry>Change Log Format</entry>
-       <entry>Format of the change capture log. Use to specify the log format of origin data when
-        processing change capture data.</entry>
+       <entry>Format of change capture data. Use when processing change capture data. </entry>
+      </row>
+      <row>
+       <entry>Default Operation </entry>
+       <entry>&lt;&lt; using conref to elasticsearch>></entry>
+      </row>
+      <row>
+       <entry>Unsupported Operation Handling  </entry>
+       <entry>&lt;&lt; using conref to elasticsearch>></entry>
       </row>
       <row id="RollbackBatch_row">
        <entry>Rollback Batch On Error</entry>
@@ -743,9 +860,9 @@
      </tbody>
     </tgroup>
    </table>
-   <draft-comment author="Loretta"><b>table-JDBCAdvProps</b> - JDBC Consumer, JDBC Lookup, and JDBC
-    Tee use the whole table, row by row. Producer uses all rows but last. Oracle CDC uses the whole
-    table. </draft-comment>
+   <draft-comment author="Loretta"><b>table-JDBCAdvProps</b> - JDBC Lookup uses the whole table.
+    JDBC Consumer uses rows but has its own. JDBC Tee uses some rows. Producer uses a bunch of rows.
+    Oracle CDC uses all rows but Auto Commit. – note updated LC 2/9/17</draft-comment>
    <table frame="all" rowsep="1" colsep="1" id="table-JDBCAdvProps">
     <tgroup cols="2">
      <colspec colname="c1" colnum="1" colwidth="1.5*"/>
@@ -785,10 +902,15 @@
         time increment. <p>Use 0 to avoid removing any idle connections.</p><p>Default is 30
          seconds, defined as follows: <codeblock>${30 * SECONDS}</codeblock></p></entry>
       </row>
+      <row id="row-AutoCommit">
+       <entry>Auto Commit</entry>
+       <entry>Determines whether auto-commit mode is enabled or disabled for the
+         connection.<p>Disabled by default.</p></entry>
+      </row>
       <row id="row-EnReadOnly">
        <entry>Enforce Read-only Connection</entry>
-       <entry>Creates read-only connections to avoid any type of write. <p>Selected by default.
-         Clearing this property is not recommended. </p></entry>
+       <entry>Creates read-only connections to avoid any type of write. <p>Enabled by default.
+         Disabling this property is not recommended. </p></entry>
       </row>
       <row id="row-TransactionIsolation">
        <entry>Transaction Isolation</entry>
@@ -1168,7 +1290,7 @@
      </row>
        <row id="MongoDB_SSLInvalid_row">
       <entry>SSL Invalid Host Name Allowed</entry>
-      <entry>Specifies whether invalid host names are allowed in SSL certificates.</entry>
+      <entry>Specifies whether invalid host names are allowed in SSL/TLS certificates.</entry>
      </row>
       </tbody>
      </tgroup>
@@ -1195,8 +1317,7 @@
      <row id="SalesforcePassword">
       <entry>Password</entry>
       <entry>Salesforce password. <note
-       conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/Tip_Usernames"
-      /></entry>
+        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/Tip_Usernames"/></entry>
      </row>
      <row id="SalesforceEndpoint">
       <entry>Auth Endpoint</entry>
@@ -1217,42 +1338,185 @@
    </tgroup>
   </table>
   <draft-comment author="alisontaylor">Description of each role is conref'd in the LDAP and File
-   Authentication sections.</draft-comment>
-  <table frame="all" rowsep="1" colsep="1" id="table_x2c_kwy_9x">
+   Authentication sections. The whole table is conrefed by the Roles topic. (LC
+   2/17)</draft-comment>
+  <table frame="all" rowsep="1" colsep="1" id="Role_table">
    <tgroup cols="2">
-    <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+    <colspec colname="c1" colnum="1" colwidth="1.0*"/>
     <colspec colname="c2" colnum="2" colwidth="3.0*"/>
     <thead>
      <row>
       <entry>Role</entry>
-      <entry>Description</entry>
+      <entry>Tasks</entry>
      </row>
     </thead>
     <tbody>
      <row>
       <entry>admin</entry>
       <entry id="entry_adminRole">Perform any <ph
-       conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
-      /> task. </entry>
+        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"/> task. Can
+       perform all tasks listed below, as well as start and stop <ph
+        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"/>, view <ph
+        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"/>
+       configuration, JVM metrics, and log information. Install libraries using the Package
+       Manager.</entry>
      </row>
      <row>
       <entry>manager</entry>
-      <entry id="entry_managerRole">Manage pipelines. As a manager, users can start and stop pipelines,
-       monitor pipelines, configure and reset alerts, and review snapshots.
-       Users cannot configure pipelines or preview data.</entry>
+      <entry id="entry_managerRole">Start and stop pipelines, monitor pipelines, configure and reset
+       alerts. Take, review, and manage snapshots. </entry>
      </row>
      <row>
       <entry>creator</entry>
-      <entry id="entry_creatorRole">Configure pipelines. As a creator, users can configure pipelines and
-       alerts, preview data, and monitor the pipeline. Users cannot review
-       snapshots or reset alerts.</entry>
+      <entry id="entry_creatorRole">Create and configure pipelines and alerts, preview data, and
+       monitor the pipeline. Import pipelines.</entry>
      </row>
      <row>
       <entry>guest</entry>
-      <entry id="entry_guestRole">Read-only access. As a guest, users can view pipeline and alert
-       configuration, view general monitoring and log information. Users cannot
-       preview data or review snapshots, or configure pipelines or
-       alerts.</entry>
+      <entry id="entry_guestRole">View pipelines and alerts, and general monitoring information.
+       Export a pipeline. </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+  <p>
+   <draft-comment author="Loretta">Permissions table - used in Pipeline Maintenance > Sharing
+    Pipelines and Configuring > Users, Groups, blah blah > Pipeline Permissions</draft-comment>
+  </p>
+  <p>
+   <table frame="all" rowsep="1" colsep="1" id="Permissions_pipe">
+    <tgroup cols="2">
+     <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+     <colspec colname="c2" colnum="2" colwidth="3.5*"/>
+     <thead>
+      <row>
+       <entry>Permission</entry>
+       <entry>Description</entry>
+      </row>
+     </thead>
+     <tbody>
+      <row>
+       <entry>Read</entry>
+       <entry>View and monitor the pipeline, and see alerts. View existing snapshot data.</entry>
+      </row>
+      <row>
+       <entry>Write</entry>
+       <entry>Edit the pipeline and alerts.</entry>
+      </row>
+      <row>
+       <entry>Execute</entry>
+       <entry>Start and stop the pipeline. Preview data and take a snapshot.</entry>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+  </p>
+  <p>
+   <draft-comment author="Loretta">The following User-Roles table used in Users, Groups, Roles,
+    Perms > Users and also in File-Based Authentication > Step 2.</draft-comment>
+  </p>
+  <p>
+   <table frame="all" rowsep="1" colsep="1" id="User-Roles">
+    <tgroup cols="3">
+     <colspec colname="newCol3" colnum="1" colwidth="1*"/>
+     <colspec colname="c1" colnum="2" colwidth="1*"/>
+     <colspec colname="c2" colnum="3" colwidth="3.0*"/>
+     <thead>
+      <row>
+       <entry>User Login</entry>
+       <entry>Role</entry>
+       <entry>Tasks</entry>
+      </row>
+     </thead>
+     <tbody>
+      <row>
+       <entry><codeph>admin</codeph> / <codeph>admin</codeph></entry>
+       <entry>Admin</entry>
+       <entry conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/entry_adminRole"/>
+      </row>
+      <row>
+       <entry><codeph>manager</codeph> / <codeph>manager</codeph></entry>
+       <entry>Manager</entry>
+       <entry conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/entry_managerRole"
+       />
+      </row>
+      <row>
+       <entry><codeph>creator</codeph> / <codeph>creator</codeph></entry>
+       <entry>Creator</entry>
+       <entry conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/entry_creatorRole"
+       />
+      </row>
+      <row>
+       <entry><codeph>guest</codeph> / <codeph>guest</codeph></entry>
+       <entry>Guest</entry>
+       <entry conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/entry_guestRole"/>
+      </row>
+     </tbody>
+    </tgroup>
+   </table>
+  </p>
+  <draft-comment author="Loretta">The following User-Roles table used in Users, Groups, Roles, Perms
+   > Users and also in File-Based Authentication > Step 2.</draft-comment>
+  <table frame="all" rowsep="1" colsep="1" id="User-Groups">
+   <tgroup cols="3">
+    <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+    <colspec colname="c2" colnum="2" colwidth="2.0*"/>
+    <colspec colname="newCol3" colnum="3" colwidth="1.5*"/>
+    <thead>
+     <row>
+      <entry>User Login</entry>
+      <entry>Roles</entry>
+      <entry>Group</entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry><codeph>user1</codeph> / <codeph>user1</codeph></entry>
+      <entry>Manager and Creator</entry>
+      <entry>dev</entry>
+     </row>
+     <row>
+      <entry><codeph>user2</codeph> / <codeph>user2</codeph></entry>
+      <entry>Manager and Creator</entry>
+      <entry>dev</entry>
+     </row>
+     <row>
+      <entry><codeph>user3</codeph> / <codeph>user3</codeph></entry>
+      <entry>Manager and Creator</entry>
+      <entry>test</entry>
+     </row>
+     <row>
+      <entry><codeph>user4</codeph> / <codeph>user4</codeph></entry>
+      <entry>Manager and Creator</entry>
+      <entry>test</entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+  <draft-comment author="alisontaylor">Descriptions are used in MapR DB JSON origin and
+   destination</draft-comment>
+  <table frame="all" rowsep="1" colsep="1" id="table_rcs_gcd_ty">
+   <tgroup cols="2">
+    <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+    <colspec colname="c2" colnum="2" colwidth="3.5*"/>
+    <thead>
+     <row>
+      <entry>MapR DB JSON Property</entry>
+      <entry>Description</entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>Table Name</entry>
+      <entry>
+       <p id="MapRDBJSON_Table1">If you do not include a path to the table, the stage assumes that
+        the table exists in the user's home directory. For example, <codeph>/user/&lt;user
+         name>/&lt;table name></codeph>.</p>
+       <p id="MapRDBJSON_Table2">You can include a path relative to the user's home directory or an absolute path when you
+        enter the table name. For tables in a default cluster, specify the absolute path as
+         <codeph>/&lt;table path></codeph>. For tables in a specific cluster, specify the absolute
+        path as <codeph>/mapr/&lt;cluster name>/&lt;table path></codeph>.</p>
+      </entry>
      </row>
     </tbody>
    </tgroup>

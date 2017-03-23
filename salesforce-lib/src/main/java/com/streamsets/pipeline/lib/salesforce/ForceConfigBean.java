@@ -19,10 +19,13 @@
  */
 package com.streamsets.pipeline.lib.salesforce;
 
+import com.streamsets.pipeline.api.Dependency;
 import com.streamsets.pipeline.lib.el.VaultEL;
 import com.streamsets.pipeline.api.ConfigDef;
 
 public class ForceConfigBean {
+  public static final String CONF_PREFIX = "forceConfig.";
+
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
@@ -61,7 +64,7 @@ public class ForceConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
-      defaultValue = "36.0",
+      defaultValue = "38.0",
       label = "API Version",
       description = "Salesforce API Version",
       displayPosition = 40,
@@ -72,7 +75,89 @@ public class ForceConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.BOOLEAN,
-      defaultValue = "true",
+      label = "Use Proxy",
+      description = "Connect to Salesforce via a proxy server.",
+      defaultValue = "false",
+      displayPosition = 400,
+      group = "ADVANCED"
+  )
+  public boolean useProxy = false;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.STRING,
+      label = "Proxy Hostname",
+      description = "Proxy Server Hostname",
+      defaultValue = "",
+      displayPosition = 410,
+      group = "ADVANCED",
+      dependsOn = "useProxy",
+      triggeredByValue = "true"
+  )
+  public String proxyHostname = "";
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.NUMBER,
+      label = "Proxy Port",
+      description = "Proxy Server Port Number",
+      defaultValue = "",
+      displayPosition = 420,
+      group = "ADVANCED",
+      dependsOn = "useProxy",
+      triggeredByValue = "true"
+  )
+  public int proxyPort = 0;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Proxy Requires Credentials",
+      description = "Enable if you need to supply a username/password to connect via the proxy server.",
+      defaultValue = "false",
+      displayPosition = 430,
+      group = "ADVANCED",
+      dependsOn = "useProxy",
+      triggeredByValue = "true"
+  )
+  public boolean useProxyCredentials = false;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.STRING,
+      defaultValue = "",
+      label = "Proxy Username",
+      description = "Username for the proxy server.",
+      displayPosition = 440,
+      elDefs = VaultEL.class,
+      group = "ADVANCED",
+      dependencies = {
+          @Dependency(configName = "useProxy", triggeredByValues = "true"),
+          @Dependency(configName = "useProxyCredentials", triggeredByValues = "true")
+      }
+  )
+  public String proxyUsername;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.STRING,
+      defaultValue = "",
+      label = "Proxy Password",
+      description = "Password for the proxy server, or an EL to load the password from a resource, for example, ${runtime:loadResource('proxyPassword.txt',true)}",
+      displayPosition = 450,
+      elDefs = VaultEL.class,
+      group = "ADVANCED",
+      dependencies = {
+          @Dependency(configName = "useProxy", triggeredByValues = "true"),
+          @Dependency(configName = "useProxyCredentials", triggeredByValues = "true")
+      }
+  )
+  public String proxyPassword;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      defaultValue = "false",
       label = "Use Compression",
       displayPosition = 1000
   )
@@ -81,7 +166,7 @@ public class ForceConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.BOOLEAN,
-      defaultValue = "true",
+      defaultValue = "false",
       label = "Show Debug Trace",
       displayPosition = 1010
   )

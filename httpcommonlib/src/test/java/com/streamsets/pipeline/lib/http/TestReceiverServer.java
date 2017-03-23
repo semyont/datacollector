@@ -89,6 +89,11 @@ public class TestReceiverServer {
       }
 
       @Override
+      public boolean isAppIdViaQueryParamAllowed() {
+        return false;
+      }
+
+      @Override
       public String getKeyStoreFile() {
         return null;
       }
@@ -99,7 +104,7 @@ public class TestReceiverServer {
       }
     };
 
-    HttpReceiver receiver = Mockito.mock(HttpReceiver.class);
+    HttpReceiver receiver = Mockito.mock(HttpReceiverWithFragmenterWriter.class);
     Mockito.when(receiver.getAppId()).thenReturn("id");
     Mockito.when(receiver.getUriPath()).thenReturn("/path");
     BlockingQueue<Exception> exQueue = new ArrayBlockingQueue<>(10);
@@ -203,6 +208,11 @@ public class TestReceiverServer {
       }
 
       @Override
+      public boolean isAppIdViaQueryParamAllowed() {
+        return false;
+      }
+
+      @Override
       public String getKeyStoreFile() {
         return keyStore.getAbsolutePath();
       }
@@ -213,7 +223,7 @@ public class TestReceiverServer {
       }
     };
 
-    HttpReceiver receiver = Mockito.mock(HttpReceiver.class);
+    HttpReceiver receiver = Mockito.mock(HttpReceiverWithFragmenterWriter.class);
     Mockito.when(receiver.getAppId()).thenReturn("id");
     Mockito.when(receiver.getUriPath()).thenReturn("/path");
     BlockingQueue<Exception> exQueue = new ArrayBlockingQueue<>(10);

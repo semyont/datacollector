@@ -28,8 +28,10 @@ import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.Field;
+import com.streamsets.pipeline.api.OnRecordError;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.config.ChecksumAlgorithm;
 import com.streamsets.pipeline.config.DataFormat;
@@ -38,6 +40,7 @@ import com.streamsets.pipeline.lib.hashing.HashingUtil;
 import com.streamsets.pipeline.lib.io.fileref.FileRefUtil;
 import com.streamsets.pipeline.lib.io.fileref.LocalFileRef;
 import com.streamsets.pipeline.sdk.RecordCreator;
+import com.streamsets.pipeline.sdk.StageRunner;
 import com.streamsets.pipeline.sdk.TargetRunner;
 import com.streamsets.pipeline.stage.common.FakeS3;
 import com.streamsets.pipeline.stage.common.TestUtil;
@@ -88,7 +91,6 @@ public class TestAmazonS3TargetForWholeFile {
   private static final Map<String, String> SAMPLE_TEXT_FOR_FILE =
       ImmutableMap.of(FILE_NAME_1, SAMPLE_TEXT_TO_FILE_PATH_1, FILE_NAME_2, SAMPLE_TEXT_TO_FILE_PATH_2);
 
-
   private static String fakeS3Root;
   private static FakeS3 fakeS3;
   private static AmazonS3Client s3client;
@@ -119,7 +121,7 @@ public class TestAmazonS3TargetForWholeFile {
     this.checksumAlgorithm = checksumAlgorithm;
   }
 
-  @Parameterized.Parameters(name = "File Name Prefix : {1}, Source Type: {2}, , Checksum Algorithm: {2}")
+  @Parameterized.Parameters(name = "File Name Prefix : {1}, Source Type: {2}, , Checksum Algorithm: {3}")
   public static Collection<Object[]> data() throws Exception {
     List<Object[]> finalData = new ArrayList<>();
     List<Object[]> array = Arrays.asList(new Object[][]{
@@ -220,6 +222,7 @@ public class TestAmazonS3TargetForWholeFile {
               new LocalFileRef.Builder()
                   .filePath(testDir.getAbsolutePath() + "/" + fileName)
                   .bufferSize(1024)
+                  .verifyChecksum(false)
                   .build(),
               getLocalFileMetadata(testDir.getAbsolutePath() + "/" + fileName)
           )
@@ -260,7 +263,7 @@ public class TestAmazonS3TargetForWholeFile {
                   .s3Client(s3client)
                   .s3ObjectSummary(s3ObjectSummary)
                   .useSSE(false)
-                  .verifyChecksum(true)
+                  .verifyChecksum(false)
                   .bufferSize(1024)
                   .build(),
               metadata
@@ -372,6 +375,7 @@ public class TestAmazonS3TargetForWholeFile {
 
       while (eventRecordIterator.hasNext()) {
         Record eventRecord = eventRecordIterator.next();
+
         Assert.assertTrue(eventRecord.has(FileRefUtil.WHOLE_FILE_SOURCE_FILE_INFO_PATH));
         Assert.assertTrue(eventRecord.has(FileRefUtil.WHOLE_FILE_TARGET_FILE_INFO_PATH));
         Map<String, Field> targetFileInfo = eventRecord.get(FileRefUtil.WHOLE_FILE_TARGET_FILE_INFO_PATH).getValueAsMap();
@@ -398,6 +402,23 @@ public class TestAmazonS3TargetForWholeFile {
             .hashString(SAMPLE_TEXT_FOR_FILE.get(objectKey), Charset.defaultCharset()).toString();
         Assert.assertEquals(checksum, eventRecord.get("/" + FileRefUtil.WHOLE_FILE_CHECKSUM).getValueAsString());
       }
+    } finally {
+      targetRunner.runDestroy();
+    }
+  }
+
+  @Test
+  public void testWholeFileInvalidRecord() throws Exception {
+    AmazonS3Target amazonS3Target = createS3targetWithWholeFile();
+    TargetRunner targetRunner = new TargetRunner.Builder(AmazonS3DTarget.class, amazonS3Target)
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
+    targetRunner.runInit();
+    try {
+      Record invalidRecord = getRecords().get(0);
+      invalidRecord.set(Field.create(new HashMap<String, Field>()));
+      targetRunner.runWrite(ImmutableList.of(invalidRecord));
+      Assert.assertEquals(1, targetRunner.getErrorRecords().size());
     } finally {
       targetRunner.runDestroy();
     }

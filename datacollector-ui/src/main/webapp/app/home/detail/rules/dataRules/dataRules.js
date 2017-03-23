@@ -37,6 +37,10 @@ angular
           labelMap[outputLane] = stageInstance.uiInfo.label + ' Output Stream ' + (index + 1);
         });
 
+        angular.forEach(stageInstance.eventLanes, function(eventLane, index) {
+          labelMap[eventLane] = stageInstance.uiInfo.label + ' Event Stream ' + (index + 1);
+        });
+
         return labelMap;
       }, {}),
 
@@ -45,7 +49,7 @@ angular
        */
       createDataRule: function() {
         if((!$scope.fieldPaths || $scope.fieldPaths.length === 0 ) && $scope.selectedType === pipelineConstant.LINK &&
-          !$rootScope.common.isSlaveNode && !$scope.isPipelineRunning) {
+          !$rootScope.common.isSlaveNode && !$scope.isPipelineRunning && $rootScope.$storage.runPreviewForFieldPaths) {
           updateFieldDataForStage($scope.selectedObject);
         }
 
@@ -59,7 +63,7 @@ angular
           resolve: {
             laneName: function () {
               if($scope.selectedType === pipelineConstant.LINK) {
-                return $scope.selectedObject.outputLane;
+                return $scope.selectedObject.outputLane || $scope.selectedObject.eventLane;
               } else {
                 var firstStage = stageInstances.length ? stageInstances[0] : undefined;
                 return firstStage && firstStage.outputLanes && firstStage.outputLanes.length ?
@@ -167,7 +171,7 @@ angular
       getFilteredDataRules: function() {
         if($scope.selectedType === pipelineConstant.LINK) {
           return _.filter($scope.pipelineRules.dataRuleDefinitions, function(rule) {
-            return rule.lane === $scope.selectedObject.outputLane;
+            return (rule.lane === $scope.selectedObject.outputLane || rule.lane === $scope.selectedObject.eventLane);
           });
         } else {
           return $scope.pipelineRules.dataRuleDefinitions;
@@ -205,9 +209,10 @@ angular
 
   })
 
-  .controller('CreateDataRuleModalInstanceController', function ($scope, $modalInstance, $translate, $timeout,
-                                                                 pipelineService, laneName, rulesElMetadata, fieldPaths,
-                                                                 streamLabelMap, alertTextElMetadata) {
+  .controller('CreateDataRuleModalInstanceController', function (
+    $scope, $modalInstance, $translate, $timeout, pipelineService, laneName, rulesElMetadata, fieldPaths,
+    streamLabelMap, alertTextElMetadata
+  ) {
 
     angular.extend($scope, {
       showLoading: false,
@@ -263,9 +268,10 @@ angular
     $scope.$broadcast('show-errors-check-validity');
   })
 
-  .controller('EditDataRuleModalInstanceController', function ($scope, $modalInstance, $translate, pipelineService,
-                                                               $timeout, dataRuleDefn, rulesElMetadata, fieldPaths,
-                                                               streamLabelMap, alertTextElMetadata) {
+  .controller('EditDataRuleModalInstanceController', function (
+    $scope, $modalInstance, $translate, pipelineService, $timeout, dataRuleDefn, rulesElMetadata, fieldPaths,
+    streamLabelMap, alertTextElMetadata
+  ) {
 
     angular.extend($scope, {
       showLoading: false,

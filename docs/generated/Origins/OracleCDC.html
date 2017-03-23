@@ -1,12 +1,13 @@
 
 <!DOCTYPE html
   SYSTEM "about:legacy-compat">
-<html xml:lang="en-us" lang="en-us">
-<head><meta name="description" content="The Oracle CDC Client processes change data capture (CDC) information provided by Oracle LogMiner redo logs. The Oracle CDC Client origin produces records with a map of fields and record header ..."></meta><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></meta><meta name="copyright" content="(C) Copyright 2005"></meta><meta name="DC.rights.owner" content="(C) Copyright 2005"></meta><meta name="DC.Type" content="concept"></meta><meta name="DC.Title" content="Oracle CDC Client"></meta><meta name="DC.Relation" scheme="URI" content="../Origins/Origins_title.html"></meta><meta name="DC.Format" content="XHTML"></meta><meta name="DC.Identifier" content="concept_rs5_hjj_tw"></meta><link rel="stylesheet" type="text/css" href="../oxygen-webhelp/resources/css/commonltr.css"><!----></link><title>Oracle CDC Client</title><!--  Generated with Oxygen version 17.1, build number 2016020417.  --><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></meta><link rel="stylesheet" type="text/css" href="../oxygen-webhelp/resources/css/webhelp_topic.css"><!----></link><link rel="stylesheet" type="text/css" href="../oxygen-webhelp/resources/skins/skin.css"><!----></link><link rel="stylesheet" type="text/css" href="../skin.css"></link><script type="text/javascript"><!--
-          
-          var prefix = "../index.html";
-          
-          --></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery-1.8.2.min.js"><!----></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery.cookie.js"><!----></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery-ui.custom.min.js"><!----></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery.highlight-3.js"><!----></script><script type="text/javascript" charset="utf-8" src="../oxygen-webhelp/resources/js/webhelp_topic.js"><!----></script><!--
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><meta name="description" content="The Oracle CDC Client processes change data capture (CDC) information provided by Oracle LogMiner redo logs. Use Oracle CDC Client to process data from Oracle version 12c. When needed, you can use a ..." /><meta name="copyright" content="(C) Copyright 2005" /><meta name="DC.rights.owner" content="(C) Copyright 2005" /><meta name="DC.Type" content="concept" /><meta name="DC.Title" content="Oracle CDC Client" /><meta name="DC.Relation" scheme="URI" content="../Origins/Origins_title.html" /><meta name="DC.Format" content="XHTML" /><meta name="DC.Identifier" content="concept_rs5_hjj_tw" /><link rel="stylesheet" type="text/css" href="../oxygen-webhelp/resources/css/commonltr.css"><!----></link><title>Oracle CDC Client</title><!--  Generated with Oxygen version 18.1, build number 2016112217.  --><link rel="stylesheet" type="text/css" href="../oxygen-webhelp/resources/css/webhelp_topic.css"><!----></link><link rel="stylesheet" type="text/css" href="../oxygen-webhelp/resources/skins/skin.css" /><link rel="stylesheet" type="text/css" href="../skin.css" /><script type="text/javascript"><!--
+            
+            var prefix = "../index.html";
+            
+            --></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery-1.11.3.min.js"><!----></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery.cookie.js"><!----></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery-ui.custom.min.js"><!----></script><script type="text/javascript" src="../oxygen-webhelp/resources/js/jquery.highlight-3.js"><!----></script><script type="text/javascript" charset="utf-8" src="../oxygen-webhelp/resources/js/webhelp_topic.js"><!----></script>
+<!--
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
@@ -18,28 +19,37 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
---></head>
+-->
+</head>
 <body onload="highlightSearchTerm()" class="frmBody">
-<table class="nav"><tbody><tr><td colspan="2"><div id="printlink"><a href="javascript:window.print();" title="Print this page"></a></div><div id="permalink"><a href="#" title="Link to this page"></a></div></td></tr><tr><td width="75%"><a class="navheader_parent_path" href="../Origins/Origins_title.html" title="Origins">Origins</a></td><td><div class="navheader">
-<span class="navparent"><a class="link" href="../Origins/Origins_title.html" title="Origins"><span class="navheader_label">Parent topic</span><span class="navheader_separator">: </span><span class="navheader_linktext">Origins</span></a></span>  </div></td></tr></tbody></table>
+<table class="nav"><tbody><tr><td colspan="2"><div id="printlink"><a href="javascript:window.print();" title="Print this page"></a></div><div id="permalink"><a href="#" title="Link to this page"></a></div></td></tr><tr><td style="width:75%;"><span class="topic_breadcrumb_links"><span class="topic_breadcrumb_link"><a class="navheader_parent_path" href="../Origins/Origins_title.html" title="Origins">Origins</a></span></span></td><td><span id="topic_navigation_links" class="navheader">
+<span class="navparent"><a class="link" href="../Origins/Origins_title.html" title="Origins"><span class="navheader_label">Parent topic</span><span class="navheader_separator">: </span><span class="navheader_linktext">Origins</span></a></span>  </span></td></tr></tbody></table>
 <div class="nested0" id="concept_rs5_hjj_tw">
     <h1 class="title topictitle1">Oracle CDC Client</h1>
 
     <div class="body conbody">
         <p class="p">The Oracle CDC Client
             processes change data capture (CDC) information provided by Oracle LogMiner redo logs.
-            The Oracle CDC Client origin produces records with a map of fields and record header
-            attributes with CDC information. Use Oracle CDC Client to process data from Oracle
-            version 12c.</p>
+            Use Oracle CDC Client to process data from Oracle version 12c.</p>
 
-        <p class="p">When needed, you can use a separate pipeline with the JDBC Consumer origin to read
-            existing data before you start a pipeline with Oracle CDC Client.</p>
+        <p class="p">When needed, you can use a separate pipeline with the JDBC Query Consumer or JDBC
+            Multitable  Consumer origin to read existing data before you start a pipeline with
+            Oracle CDC Client.</p>
 
         <p class="p">Oracle CDC Client processes data based on the commit number, in ascending order. </p>
 
-        <p class="p">The Oracle CDC Client origin can create records for insert, update, select-for-update,
-            and delete operations for one or more tables in a database. You can select the
-            operations that you want to use.</p>
+        <p class="p">To read the redo logs, Oracle CDC Client requires the LogMiner dictionary. The origin can
+            use the dictionary in redo logs or in an online catalog. When using the dictionary in
+            redo logs, the origin captures and adjusts to schema changes. The origin can also
+            generate events when using redo log dictionaries. </p>
+
+        <p class="p">The origin can create records for the INSERT, UPDATE, SELECT_FOR_UPDATE, and DELETE
+            operations for one or more tables in a database. You can select the operations that you
+            want to use. The origin also includes CDC and CRUD information in record header
+            attributes so generated records can be easily processed by CRUD-enabled destinations.
+            For an overview of <span class="ph">Data
+                  Collector</span>
+            changed data processing and a list of CRUD-enabled destinations, see <a class="xref" href="../Pipeline_Design/CDC-Overview.html#concept_apw_l2c_ty">Processing Changed Data</a>.</p>
 
         <div class="p">
             <div class="note note"><span class="notetitle">Note:</span> To use Oracle CDC Client, you must enable LogMiner for the database that you want
@@ -64,217 +74,6 @@
     </div>
 
 <div class="related-links"></div>
-<div class="topic concept nested1" id="concept_xwg_33w_cx">
- <h2 class="title topictitle2">Oracle CDC Client Prerequisites</h2>
-
- <div class="body conbody">
-  <p class="p">Before using the Oracle
-            CDC Client origin, complete the following tasks: </p>
-
-        <div class="p">
-            <dl class="dl">
-                
-                    <dt class="dt dlterm">Task 1. Enable LogMiner</dt>
-
-                    <dd class="dd"><p class="p">LogMiner provides redo logs that summarize database activity. The origin
-                            uses these logs to generate records.</p>
-LogMiner requires an open
-                        database in ARCHIVELOG mode with archiving enabled. To determine the status
-                        of the database and enable LogMiner, use the following steps:<ol class="ol" id="concept_xwg_33w_cx__ol_xwd_pp1_jx">
-                            <li class="li">Log into the database as a user with DBA privileges.</li>
-
-                            <li class="li">Check the database logging
-                                    mode:<pre class="pre codeblock">select log_mode from v$database;</pre>
-<p class="p">If
-                                    the command returns ARCHIVELOG, you can skip to Task 2.
-                                    </p>
-<p class="p">If the command returns NOARCHIVELOG, continue with the
-                                    following steps:</p>
-</li>
-
-                            <li class="li">Shut down the
-                                database:<pre class="pre codeblock">shutdown immediate</pre>
-</li>
-
-                            <li class="li">Start up and mount the
-                                database:<pre class="pre codeblock">startup mount</pre>
-</li>
-
-                            <li class="li">Configure enable archiving and open the
-                                database:<pre class="pre codeblock">alter database archivelog;
-alter database open;</pre>
-</li>
-
-                        </ol>
-</dd>
-
-                
-                
-                    <dt class="dt dlterm">Task 2. Enable supplemental logging for the database or tables</dt>
-
-                    <dd class="dd">To retrieve data from redo logs, LogMiner requires supplemental logging for
-                        the database or tables. </dd>
-
-                    <dd class="dd">
-                        <p class="p">The Oracle CDC Client recommends at least primary key or "identification
-                            key" logging at a table level for each table that you want to use. With
-                            identification key logging, records include only the primary key and
-                            changed fields.</p>
-
-                        <p class="p">To include all fields in the records the origin generates, enable full
-                            supplemental logging at a table or database level. Full supplemental
-                            logging provides data from all columns, those with unchanged data as
-                            well as the primary key and changed columns. For details on the data
-                            included in records based on the supplemental logging type, see <a class="xref" href="OracleCDC.html#concept_db1_3sj_fx">Generated Records</a>.</p>
-
-                    </dd>
-
-                    <dd class="dd">
-                        <ol class="ol" id="concept_xwg_33w_cx__ol_nrv_ds1_jx">
-                            <li class="li">To verify if supplemental logging is enabled for the
-                                    database:<pre class="pre codeblock">SELECT supplemental_log_data_min, supplemental_log_data_pk, supplemental_log_data_all FROM v$database </pre>
-<p class="p">If
-                                    the command returns Yes or Implicit for all three columns, then
-                                    supplemental logging is enabled with both identification key and
-                                    full supplemental logging. You can skip to Task 3.</p>
-<p class="p">If the
-                                    command returns Yes or Implicit for the first two columns, then
-                                    supplemental logging is enabled with identification key logging.
-                                    If this is what you want, you can skip to task 3.</p>
-</li>
-
-                            <li class="li">Enable identification key or full supplemental logging. You do not
-                                need to enable both:<ul class="ul" id="concept_xwg_33w_cx__ul_ocz_dfb_jx">
-                                    <li class="li">To enable identification key logging:<div class="p">For minimal logging,
-                                            enable identification key logging at a table level for
-                                            each table that you want to
-                                            use:<pre class="pre codeblock">ALTER TABLE &lt;schema name&gt;.&lt;table name&gt; ADD SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS;</pre>
-</div>
-<div class="p">Or,
-                                            to enable identification key logging for all tables,
-                                            enable it for the entire
-                                            database:<pre class="pre codeblock">ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS;</pre>
-</div>
-</li>
-
-                                    <li class="li">To enable full supplemental logging:<p class="p">Use full supplemental
-                                            logging when you want records to include data from all
-                                            columns, those with unchanged data as well as the
-                                            primary key and changed columns. </p>
-<div class="p">For full
-                                            supplemental logging at a table level, enable it for
-                                            each table that you want to
-                                            use:<pre class="pre codeblock">ALTER TABLE &lt;schema name&gt;.&lt;table name&gt; ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;</pre>
-</div>
-<p class="p">Or,
-                                            to enable full supplemental logging for all tables,
-                                            enable it for the entire
-                                        database:</p>
-<pre class="pre codeblock">ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;</pre>
-</li>
-
-                                </ul>
-</li>
-
-                            <li class="li">To submit the
-                                changes:<pre class="pre codeblock">ALTER SYSTEM SWITCH LOGFILE;</pre>
-</li>
-
-                        </ol>
-
-                    </dd>
-
-                
-                
-                    <dt class="dt dlterm">Task 3. Create a user account with the required roles and privileges</dt>
-
-                    <dd class="dd">Create a user account to use with the Oracle CDC Client origin. You need the
-                        account to access the database through JDBC. </dd>
-
-                    <dd class="dd">You create accounts differently based on the Oracle version that you use:<dl class="dl">
-                            
-                                <dt class="dt dlterm">Oracle 12c multitenant databases</dt>
-
-                                <dd class="dd">For multitenant Oracle 12c databases, create a common user
-                                    account. Common user accounts are created in cdb$root and must
-                                    use the convention: <samp class="ph codeph">c##&lt;name&gt;</samp>. </dd>
-
-                                <dd class="dd">
-                                    <ol class="ol" id="concept_xwg_33w_cx__ol_oxw_qy1_jx">
-                                        <li class="li">Log into the database as a user with DBA
-                                            privileges.</li>
-
-                                        <li class="li">Create the common user
-                                                account:<pre class="pre codeblock">ALTER SESSION SET CONTAINER=cdb$root;
-CREATE USER &lt;user name&gt; IDENTIFIED BY &lt;password&gt; CONTAINER=all;
-GRANT create session, alter session, set container, select any dictionary, logmining, execute_catalog_role TO &lt;username&gt; CONTAINER=all;
-ALTER SESSION SET CONTAINER=&lt;pdb&gt;
-GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;</pre>
-<p class="p">Repeat
-                                                the final command for each table that you want to
-                                                use.</p>
-</li>
-
-                                    </ol>
-
-                                </dd>
-
-                                <dd class="dd">
-                                    <p class="p">When you configure the origin, use this user account for the
-                                        JDBC credentials. Use the entire user name, including the
-                                        "c##", as the JDBC user name.</p>
-
-                                </dd>
-
-                            
-                            
-                                <dt class="dt dlterm">Oracle 12c standard databases</dt>
-
-                                <dd class="dd">For standard Oracle 12c databases, create a user account with
-                                    the necessary privileges: <ol class="ol" id="concept_xwg_33w_cx__ol_jx5_4g3_jx">
-                                        <li class="li">Log into the database as a user with DBA
-                                            privileges.</li>
-
-                                        <li class="li">Create the user
-                                                account:<pre class="pre codeblock">CREATE USER &lt;user name&gt; IDENTIFIED BY &lt;password&gt;;
-GRANT create session, alter session, select any dictionary, logmining, execute_catalog_role TO &lt;username&gt;;
-GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
-<p class="p">Repeat
-                                                the final command for each table that you want to
-                                                use.</p>
-</li>
-
-                                    </ol>
-</dd>
-
-                                <dd class="dd">
-                                    <p class="p">When you configure the origin, use this user account for the
-                                        JDBC credentials. </p>
-
-                                </dd>
-
-                            
-                        </dl>
-</dd>
-
-                
-                
-                    <dt class="dt dlterm">Task 4. Install the Oracle JDBC driver </dt>
-
-                    <dd class="dd">The Oracle CDC Client origin connects to Oracle through JDBC. You cannot
-                        access the database until you install the required driver. </dd>
-
-                    <dd class="dd">Install the Oracle JDBC driver for the Oracle database version that you use.
-                        For more information, see <a class="xref" href="../Install_Config/AdditionalDrivers.html#concept_pdv_qlw_ft">Additional Drivers</a>.</dd>
-
-                
-            </dl>
-
-        </div>
-
- </div>
-
-</div>
 <div class="topic concept nested1" id="concept_eq5_wh2_dx">
  <h2 class="title topictitle2">LogMiner Dictionary Source</h2>
 
@@ -283,24 +82,312 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
             process redo logs. LogMiner can store dictionaries in several locations. </p>
 
         <div class="p">The Oracle CDC Client can use the following dictionary source locations:<ul class="ul" id="concept_eq5_wh2_dx__ul_dn5_qyc_fx">
-                <li class="li">Online catalog - Oracle recommends using the online catalog when table
-                    structures are not expected to change.</li>
+                <li class="li">Online catalog - Use the online catalog when table structures are not expected
+                    to change.</li>
 
-                <li class="li">Redo logs - Oracle recommends using redo logs when table structures are expected
-                    to change. <div class="note important"><span class="importanttitle">Important:</span> When using dictionaries stored in redo logs,
-                        make sure to extract the latest dictionary to the redo logs each time table
-                        structures change. For more information, see <a class="xref" href="https://docs.oracle.com/cd/B19306_01/server.102/b14215/logminer.htm#i1014735" target="_blank">Extracting a LogMiner Dictionary to the
-                            Redo Log Files</a>.</div>
+                <li class="li">Redo logs - Use redo logs when table structures are expected to change. When
+                    reading the dictionary from redo logs, the Oracle CDC Client origin determines
+                    when schema changes occur and refreshes the schema that it uses to create
+                    records. The origin can also generate events for each DDL it reads in the redo
+                    logs. <div class="note important"><span class="importanttitle">Important:</span> When using the dictionary in redo logs, make sure
+                        to extract the latest dictionary to the redo logs each time table structures
+                        change. For more information, see <a class="xref" href="OracleCDC.html#concept_ypm_fv1_vy">Task 4. Extract a Log Miner Dictionary (Redo Logs)</a> .</div>
 </li>
 
             </ul>
 </div>
+
+        <p class="p">Note that using the dictionary in redo logs can have significantly higher latency than
+            using the dictionary in the online catalog. But using the online catalog does not allow
+            for schema changes. </p>
 
         <p class="p">For more information about dictionary options and configuring LogMiner, see the Oracle
             LogMiner documentation. </p>
 
  </div>
 
+</div>
+<div class="topic concept nested1" id="concept_xwg_33w_cx">
+ <h2 class="title topictitle2">Oracle CDC Client Prerequisites</h2>
+
+ <div class="body conbody">
+  <div class="p">Before using the Oracle
+            CDC Client origin, complete the following tasks: <ol class="ol" id="concept_xwg_33w_cx__ol_b3w_cc2_3y">
+                <li class="li">Enable LogMiner.</li>
+
+                <li class="li">Enable supplemental logging for the database or tables.</li>
+
+                <li class="li">Create a user account with the required roles and privileges.</li>
+
+                <li class="li">To use the dictionary in redo logs, extract the Log Miner dictionary.</li>
+
+                <li class="li">Install the Oracle JDBC driver.</li>
+
+            </ol>
+</div>
+
+ </div>
+
+<div class="topic concept nested2" id="concept_gt5_xb2_3y">
+ <h3 class="title topictitle3">Task 1. Enable LogMiner</h3>
+
+ <div class="body conbody">
+  <p class="p">LogMiner
+            provides redo logs that summarize database activity. The origin uses these logs to
+            generate records.</p>
+
+        <div class="p">LogMiner requires an open database in ARCHIVELOG mode with archiving enabled. To
+            determine the status of the database and enable LogMiner, use the following steps:<ol class="ol" id="concept_gt5_xb2_3y__ol_xwd_pp1_jx">
+                <li class="li">Log into the database as a user with DBA privileges.</li>
+
+                <li class="li">Check the database logging
+                        mode:<pre class="pre codeblock">select log_mode from v$database;</pre>
+<p class="p">If the
+                        command returns ARCHIVELOG, you can skip to <a class="xref" href="OracleCDC.html#concept_gvh_3c2_3y">Task 2</a>.
+                        </p>
+<p class="p">If the command returns NOARCHIVELOG, continue with the following
+                        steps:</p>
+</li>
+
+                <li class="li">Shut down the database:<pre class="pre codeblock">shutdown immediate;</pre>
+</li>
+
+                <li class="li">Start up and mount the database:<pre class="pre codeblock">startup mount;</pre>
+</li>
+
+                <li class="li">Configure enable archiving and open the
+                    database:<pre class="pre codeblock">alter database archivelog;
+alter database open;</pre>
+</li>
+
+            </ol>
+</div>
+
+ </div>
+
+</div>
+<div class="topic concept nested2" id="concept_gvh_3c2_3y">
+ <h3 class="title topictitle3">Task 2. Enable Supplemental Logging</h3>
+
+ <div class="body conbody">
+  <p class="p">To retrieve data from redo logs, LogMiner requires
+            supplemental logging for the database or tables. </p>
+
+        <p class="p">Enable at least primary key or "identification key" logging at a table level for each
+            table that you want to use. With identification key logging, records include only the
+            primary key and changed fields. </p>
+
+        <p class="p">Due to an Oracle known issue, to enable supplemental logging for a table, you must first
+            enable minimum supplemental logging for the database. </p>
+
+        <div class="p">To include all fields in the records the origin generates, enable full supplemental
+            logging at a table or database level. Full supplemental logging provides data from all
+            columns, those with unchanged data as well as the primary key and changed columns. For
+            details on the data included in records based on the supplemental logging type, see
+                <a class="xref" href="OracleCDC.html#concept_vfw_bjz_ty">Generated Records</a>.<ol class="ol" id="concept_gvh_3c2_3y__ol_nrv_ds1_jx">
+                <li class="li">To verify if supplemental logging is enabled for the database, run the following
+                        command:<pre class="pre codeblock">SELECT supplemental_log_data_min, supplemental_log_data_pk, supplemental_log_data_all FROM v$database;</pre>
+<p class="p">If
+                        the command returns Yes or Implicit for all three columns, then supplemental
+                        logging is enabled with both identification key and full supplemental
+                        logging. You can skip to <a class="xref" href="OracleCDC.html#concept_jnz_bd2_3y">Task
+                        3.</a></p>
+<p class="p">If the command returns Yes or Implicit for the first two
+                        columns, then supplemental logging is enabled with identification key
+                        logging. If this is what you want, you can skip to <a class="xref" href="OracleCDC.html#concept_jnz_bd2_3y">Task
+                    3</a>.</p>
+</li>
+
+                <li class="li">Enable identification key or full supplemental logging. <div class="p">For multitenant
+                        databases, best practice is to enable logging for the container for the
+                        tables, rather than the entire database. You can use the following command
+                        first to apply the changes to just the
+                        container:<pre class="pre codeblock">ALTER SESSION SET CONTAINER=&lt;pdb&gt;;</pre>
+</div>
+You
+                    can enable identification key or full supplemental logging to retrieve data from
+                    redo logs. You do not need to enable both:<dl class="dl">
+                        
+                            <dt class="dt dlterm">To enable identification key logging</dt>
+
+                            <dd class="dd">You can enable identification key logging for individual tables or
+                                all tables in the database:</dd>
+
+                            <dd class="dd">
+                                <ul class="ul" id="concept_gvh_3c2_3y__ul_ehq_msh_hy">
+                                    <li class="li">For individual tables<p class="p">Use the following commands to enable
+                                            minimal supplemental logging for the database, and then
+                                            enable identification key logging for each table that
+                                            you want to
+                                        use:</p>
+<pre class="pre codeblock">ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;</pre>
+<pre class="pre codeblock">ALTER TABLE &lt;schema name&gt;.&lt;table name&gt; ADD SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS;</pre>
+</li>
+
+                                    <li class="li">For all tables<p class="p">Use the following command to enable
+                                            identification key logging for the entire
+                                        database:</p>
+<pre class="pre codeblock">ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS;</pre>
+</li>
+
+                                </ul>
+
+                            </dd>
+
+                        
+                        
+                            <dt class="dt dlterm">To enable full supplemental logging</dt>
+
+                            <dd class="dd">You can enable full supplemental logging for individual tables or
+                                all tables in the database:</dd>
+
+                            <dd class="dd">
+                                <ul class="ul" id="concept_gvh_3c2_3y__ul_zkx_rsh_hy">
+                                    <li class="li">
+                                        <p class="p">For individual tables</p>
+
+                                        <div class="p">Use the following commands to enable minimal supplemental
+                                            logging for the database, and then enable full
+                                            supplemental logging for each table that you want to
+                                            use:<pre class="pre codeblock">ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;</pre>
+<pre class="pre codeblock">ALTER TABLE &lt;schema name&gt;.&lt;table name&gt; ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;</pre>
+</div>
+
+                                    </li>
+
+                                    <li class="li"><p class="p">For all tables</p>
+Use the following command to enable
+                                        full supplemental logging for the entire
+                                        database:<pre class="pre codeblock">ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;</pre>
+</li>
+
+                                </ul>
+
+                            </dd>
+
+                        
+                    </dl>
+</li>
+
+                <li class="li">To submit the changes:<pre class="pre codeblock">ALTER SYSTEM SWITCH LOGFILE;</pre>
+</li>
+
+            </ol>
+</div>
+
+ </div>
+
+</div>
+<div class="topic concept nested2" id="concept_jnz_bd2_3y">
+ <h3 class="title topictitle3">Task 3. Create a User Account</h3>
+
+ <div class="body conbody">
+  <p class="p">Create a user account to use with the Oracle CDC Client
+            origin. You need the account to access the database through JDBC.</p>
+
+        <div class="p">You create accounts differently based on the Oracle version that you use:<dl class="dl">
+                
+                    <dt class="dt dlterm">Oracle 12c multitenant databases</dt>
+
+                    <dd class="dd">For multitenant Oracle 12c databases, create a common user account. Common
+                        user accounts are created in cdb$root and must use the convention:
+                            <samp class="ph codeph">c##&lt;name&gt;</samp>. </dd>
+
+                    <dd class="dd">
+                        <ol class="ol" id="concept_jnz_bd2_3y__ol_oxw_qy1_jx">
+                            <li class="li">Log into the database as a user with DBA privileges.</li>
+
+                            <li class="li">Create the common user
+                                    account:<pre class="pre codeblock">ALTER SESSION SET CONTAINER=cdb$root;
+CREATE USER &lt;user name&gt; IDENTIFIED BY &lt;password&gt; CONTAINER=all;
+GRANT create session, alter session, set container, select any dictionary, logmining, execute_catalog_role TO &lt;username&gt; CONTAINER=all;
+ALTER SESSION SET CONTAINER=&lt;pdb&gt;;
+GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;;</pre>
+<p class="p">Repeat
+                                    the final command for each table that you want to use.</p>
+</li>
+
+                        </ol>
+
+                    </dd>
+
+                    <dd class="dd">
+                        <p class="p">When you configure the origin, use this user account for the JDBC
+                            credentials. Use the entire user name, including the "c##", as the JDBC
+                            user name.</p>
+
+                    </dd>
+
+                
+                
+                    <dt class="dt dlterm">Oracle 12c standard databases</dt>
+
+                    <dd class="dd">For standard Oracle 12c databases, create a user account with the necessary
+                        privileges: <ol class="ol" id="concept_jnz_bd2_3y__ol_jx5_4g3_jx">
+                            <li class="li">Log into the database as a user with DBA privileges.</li>
+
+                            <li class="li">Create the user
+                                    account:<pre class="pre codeblock">CREATE USER &lt;user name&gt; IDENTIFIED BY &lt;password&gt;;
+GRANT create session, alter session, select any dictionary, logmining, execute_catalog_role TO &lt;username&gt;;
+GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;;</pre>
+<p class="p">Repeat
+                                    the final command for each table that you want to use.</p>
+</li>
+
+                        </ol>
+</dd>
+
+                    <dd class="dd">
+                        <p class="p">When you configure the origin, use this user account for the JDBC
+                            credentials. </p>
+
+                    </dd>
+
+                
+            </dl>
+</div>
+
+ </div>
+
+</div>
+<div class="topic concept nested2" id="concept_ypm_fv1_vy">
+ <h3 class="title topictitle3">Task 4. Extract a Log Miner Dictionary (Redo Logs)</h3>
+
+ <div class="body conbody">
+  <p class="p">When using redo logs as the dictionary source,
+            you must extract the Log Miner dictionary to the redo logs before you start the
+            pipeline. Repeat this step periodically to ensure that the redo logs that contain the
+            dictionary are still available. </p>
+
+        <p class="p">Oracle recommends that you extract the dictionary only at off-peak hours since the
+            extraction can consume database resources.</p>
+
+        <div class="p">To extract the dictionary for Oracle 12c databases, run the following
+            command:<pre class="pre codeblock">EXECUTE DBMS_LOGMNR_D.BUILD(OPTIONS=&gt; DBMS_LOGMNR_D.STORE_IN_REDO_LOGS);</pre>
+</div>
+
+        <div class="p">To extract the dictionary for Oracle 12c multitenant databases, run the following
+            commands:<pre class="pre codeblock">ALTER SESSION SET CONTAINER=cdb$root;
+EXECUTE DBMS_LOGMNR_D.BUILD(OPTIONS=&gt; DBMS_LOGMNR_D.STORE_IN_REDO_LOGS);</pre>
+</div>
+
+ </div>
+
+</div>
+<div class="topic concept nested2" id="concept_jqt_qd2_3y">
+ <h3 class="title topictitle3">Task 5. Install the Driver</h3>
+
+ <div class="body conbody">
+  <p class="p">The
+            Oracle CDC Client origin connects to Oracle through JDBC. You cannot access the database
+            until you install the required driver. </p>
+
+        <p class="p">Install the Oracle JDBC driver for the Oracle database version that you use. For more
+            information, see <a class="xref" href="../Configuration/ExternalLibs.html#concept_pdv_qlw_ft" title="Install external libraries to make them available to Data Collector stages.">Install External Libraries</a>.</p>
+
+ </div>
+
+</div>
 </div>
 <div class="topic concept nested1" id="concept_zrc_pyj_dx">
  <h2 class="title topictitle2">Initial Change</h2>
@@ -312,8 +399,8 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
             the pipeline.</p>
 
         <p class="p">Note that Oracle CDC Client processes only change capture data. If you need existing
-            data, you might use a JDBC Consumer in a separate pipeline to read table data before you
-            start an Oracle CDC Client pipeline. </p>
+            data, you might use a JDBC Query Consumer or a JDBC Multitable Consumer in a separate
+            pipeline to read table data before you start an Oracle CDC Client pipeline. </p>
 
         <div class="p">Oracle CDC Client provides several ways to configure the initial change:<dl class="dl">
                 
@@ -344,83 +431,79 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
             
             <p class="p">You want to process all existing data in the Orders table and then capture changed
                 data, writing all data to Amazon S3. To read the existing data, you use a pipeline
-                with the JDBC Consumer and Amazon S3 destination as follows: </p>
+                with the JDBC Query Consumer and Amazon S3 destination as follows: </p>
 
-            <p class="p"><img class="image" id="concept_zrc_pyj_dx__image_yzc_ks3_fx" src="../Graphics/OracleCDC-JDBCpipe.png" height="212" width="324"></img></p>
+            <p class="p"><img class="image" id="concept_zrc_pyj_dx__image_yzc_ks3_fx" src="../Graphics/OracleCDC-JDBCpipe.png" height="212" width="324" /></p>
 
-            <p class="p">Once all existing data is read, you stop the JDBC Consumer pipeline and start the
-                following Oracle CDC Client pipeline. This pipeline is configured to pick up changes
-                that occur after you start the pipeline, but if you wanted to prevent any chance of
-                data loss, you could configure the initial change for an exact datetime or earlier
-                SCN: </p>
+            <p class="p">Once all existing data is read, you stop the JDBC Query Consumer pipeline and start
+                the following Oracle CDC Client pipeline. This pipeline is configured to pick up
+                changes that occur after you start the pipeline, but if you wanted to prevent any
+                chance of data loss, you could configure the initial change for an exact datetime or
+                earlier SCN: </p>
 
-            <p class="p"><img class="image" id="concept_zrc_pyj_dx__image_yrq_lx3_fx" src="../Graphics/OracleCDC-pipeline.png" height="236" width="338"></img></p>
+            <p class="p"><img class="image" id="concept_zrc_pyj_dx__image_yrq_lx3_fx" src="../Graphics/OracleCDC-pipeline.png" height="236" width="338" /></p>
 
         </div>
 
  </div>
 
 </div>
-<div class="topic concept nested1" id="concept_db1_3sj_fx">
+<div class="topic concept nested1" id="concept_vfw_bjz_ty">
  <h2 class="title topictitle2">Generated Records</h2>
 
  <div class="body conbody">
-  <p class="p">When
-            generating records, the Oracle CDC Client origin specifies the operation type in the
-            operation record header attribute, <samp class="ph codeph">oracle.cdc.operation</samp>.</p>
-
-        <div class="p">The origin generates record differently based on the operation type and the logging
-            enabled for the database and tables. 
-<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="concept_db1_3sj_fx__table_zpr_2j5_gx" class="table" frame="border" border="1" rules="all">
+        <div class="p">The origin generates records differently based on the
+            Oplog operation type and the logging enabled for the database and tables. 
+<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="concept_vfw_bjz_ty__table_zpr_2j5_gx" class="table" frame="border" border="1" rules="all">
                     
                     
                     
                     <thead class="thead" align="left">
-                        <tr class="row">
-                            <th class="entry" valign="top" width="15.384615384615385%" id="d179697e451">Operation</th>
+                        <tr>
+                            <th class="entry" valign="top" width="23.076923076923077%" id="d202862e596">Oplog Operation</th>
 
-                            <th class="entry" valign="top" width="53.84615384615385%" id="d179697e454">Identification/Primary Key Logging Only</th>
+                            <th class="entry" valign="top" width="53.84615384615385%" id="d202862e599">Identification/Primary Key Logging Only</th>
 
-                            <th class="entry" valign="top" width="30.76923076923077%" id="d179697e457">Full Supplemental Logging</th>
+                            <th class="entry" valign="top" width="23.076923076923077%" id="d202862e602">Full Supplemental Logging</th>
 
                         </tr>
 
                     </thead>
 
                     <tbody class="tbody">
-                        <tr class="row">
-                            <td class="entry" valign="top" width="15.384615384615385%" headers="d179697e451 ">INSERT</td>
+                        <tr>
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e596 ">INSERT</td>
 
-                            <td class="entry" valign="top" width="53.84615384615385%" headers="d179697e454 ">All fields that contain data, ignoring fields with null values. </td>
+                            <td class="entry" valign="top" width="53.84615384615385%" headers="d202862e599 ">All fields that contain data, ignoring fields with null values. </td>
 
-                            <td class="entry" valign="top" width="30.76923076923077%" headers="d179697e457 ">All fields.</td>
-
-                        </tr>
-
-                        <tr class="row">
-                            <td class="entry" valign="top" width="15.384615384615385%" headers="d179697e451 ">UPDATE</td>
-
-                            <td class="entry" valign="top" width="53.84615384615385%" headers="d179697e454 ">Primary key field and fields with updated values.</td>
-
-                            <td class="entry" valign="top" width="30.76923076923077%" headers="d179697e457 ">All fields.</td>
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e602 ">All fields.</td>
 
                         </tr>
 
-                        <tr class="row">
-                            <td class="entry" valign="top" width="15.384615384615385%" headers="d179697e451 ">SELECT_FOR_ UPDATE</td>
+                        <tr>
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e596 ">UPDATE</td>
 
-                            <td class="entry" valign="top" width="53.84615384615385%" headers="d179697e454 ">Primary key field and fields with updated values.</td>
+                            <td class="entry" valign="top" width="53.84615384615385%" headers="d202862e599 ">Primary key field and fields with updated values.</td>
 
-                            <td class="entry" valign="top" width="30.76923076923077%" headers="d179697e457 ">All fields.</td>
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e602 ">All fields.</td>
 
                         </tr>
 
-                        <tr class="row">
-                            <td class="entry" valign="top" width="15.384615384615385%" headers="d179697e451 ">DELETE</td>
+                        <tr>
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e596 ">SELECT_FOR_ UPDATE</td>
 
-                            <td class="entry" valign="top" width="53.84615384615385%" headers="d179697e454 ">Primary key field.</td>
+                            <td class="entry" valign="top" width="53.84615384615385%" headers="d202862e599 ">Primary key field and fields with updated values.</td>
 
-                            <td class="entry" valign="top" width="30.76923076923077%" headers="d179697e457 ">All fields.</td>
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e602 ">All fields.</td>
+
+                        </tr>
+
+                        <tr>
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e596 ">DELETE</td>
+
+                            <td class="entry" valign="top" width="53.84615384615385%" headers="d202862e599 ">Primary key field.</td>
+
+                            <td class="entry" valign="top" width="23.076923076923077%" headers="d202862e602 ">All fields.</td>
 
                         </tr>
 
@@ -430,21 +513,82 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 </div>
 </div>
 
- </div>
+    </div>
 
-<div class="topic concept nested2" id="concept_nn1_lxd_dx">
- <h3 class="title topictitle3">CDC Record Header Attributes</h3>
+<div class="topic concept nested2" id="concept_x4h_m42_5y">
+ <h3 class="title topictitle3">CRUD Operation Header Attributes</h3>
 
  <div class="body conbody">
-        <p class="p">Oracle CDC Client includes change data capture
-            information in record header attributes. You can use these attributes in the pipeline as
-            needed. </p>
+        <div class="p">When generating records, the Oracle CDC Client
+            origin specifies the operation type in both of the following record header attributes:<dl class="dl">
+                
+                    <dt class="dt dlterm">sdc.operation.type</dt>
 
-        <p class="p">For example, if you want to route records to different destinations based on the
-            operation, you can use the oracle.cdc.operation header attribute in a Stream
-            Selector.</p>
+                    <dd class="dd">The Oracle CDC Client evaluates the Oplog operation type associated with
+                        each entry that it processes and, when appropriate, it writes the operation
+                        type to the sdc.operation.type record header attribute. </dd>
 
-        <div class="p">The origin provides the following record header attributes for each record:<ul class="ul" id="concept_nn1_lxd_dx__ul_j3y_yxd_dx">
+                    <dd class="dd">The origin uses the following values in the sdc.operation.type record header
+                        attribute to represent the operation type: <ul class="ul" id="concept_x4h_m42_5y__ul_dkt_g5l_dy">
+                            <li class="li">1 for INSERT</li>
+
+                            <li class="li">2 for DELETE</li>
+
+                            <li class="li">3 for UPDATE and SELECT_FOR_UPDATE</li>
+
+                        </ul>
+</dd>
+
+                    <dd class="dd">
+                        <p class="p">If you use a CRUD-enabled destination in the pipeline such as
+                  JDBC Producer or Kudu, the destination can use the operation type when writing to
+                  destination systems. When necessary, you can use an Expression Evaluator or
+                  scripting processors to manipulate the value in the sdc.operation.type header
+                  attribute. For an overview of <span class="ph">Data
+                  Collector</span>
+                  changed data processing and a list of CRUD-enabled destinations, see <a class="xref" href="../Pipeline_Design/CDC-Overview.html#concept_apw_l2c_ty">Processing Changed Data</a>.</p>
+
+                    </dd>
+
+                    <dd class="dd">When using CRUD-enabled destinations, the destination looks for the
+                        operation type in the sdc.operation.type attribute before checking the
+                        oracle.cdc.operation attribute.</dd>
+
+                
+                
+                    <dt class="dt dlterm">oracle.cdc.operation</dt>
+
+                    <dd class="dd">The Oracle CDC Client also writes the Oplog CRUD operation type to the
+                        oracle.cdc.operation record header attribute. This attribute was implemented
+                        in an earlier release and is supported for backward compatibility.</dd>
+
+                    <dd class="dd">The origin writes the Oplog operation type to the oracle.cdc.operation
+                        attribute as the following strings:<ul class="ul" id="concept_x4h_m42_5y__ul_mpx_s13_5y">
+                            <li class="li">INSERT</li>
+
+                            <li class="li">UPDATE</li>
+
+                            <li class="li">SELECT_FOR_ UPDATE</li>
+
+                            <li class="li">DELETE</li>
+
+                        </ul>
+CRUD-enabled destinations check for this attribute for the operation
+                        type after checking the sdc.operation.type attribute.</dd>
+
+                
+            </dl>
+</div>
+
+ </div>
+
+</div>
+<div class="topic concept nested2" id="concept_nn1_lxd_dx">
+ <h3 class="title topictitle3">CDC Header Attributes</h3>
+
+ <div class="body conbody">
+        <div class="p">The Oracle CDC Client origin provides the
+            following CDC record header attributes for each record:<ul class="ul" id="concept_nn1_lxd_dx__ul_j3y_yxd_dx">
                 <li class="li">oracle.cdc.user</li>
 
                 <li class="li">oracle.cdc.operation</li>
@@ -458,7 +602,7 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
             </ul>
 </div>
 
-        <div class="p">It also includes the following record header attributes for each decimal field in the
+        <div class="p">And it includes the following record header attributes for each decimal field in the
                 record:<ul class="ul" id="concept_nn1_lxd_dx__ul_jvj_p1j_fx">
                 <li class="li">oracle.cdc.&lt;fieldname&gt;.precision</li>
 
@@ -471,18 +615,156 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
 </div>
 </div>
+<div class="topic concept nested1" id="concept_h2t_hx1_vy">
+ <h2 class="title topictitle2">Event Generation</h2>
+
+    <div class="body conbody">
+        <p class="p">The Oracle CDC Client origin
+            can generate events that you can use in an event stream when the origin uses redo logs
+            as the dictionary source. The origin does not generate events when using the online
+            catalog as the dictionary source.</p>
+
+        <p class="p">When you use redo logs as the dictionary source and enable event generation, the Oracle
+            CDC Client generates events when it reads DDL statements. It generates events for ALTER,
+            CREATE, DROP, and TRUNCATE statements.</p>
+
+        <p class="p">When you start the pipeline, the origin queries the database and caches the schemas for
+            all tables listed in the origin, and then generates an initial event record for each
+            table. Each event record describes the current schema for each table. The origin uses
+            the cached schemas to generate records when processing data-related redo log entries. </p>
+
+        <p class="p">The origin then generates an event record for each DDL statement it encounters in the
+            redo logs. Each event record includes the DDL statement and the related table in record
+            header attributes. </p>
+
+        <p class="p">The origin includes table schema information in the event record for new and updated
+            tables. When the origin encounters an ALTER or CREATE statement, it queries the database
+            for the latest schema for the table. </p>
+
+        <p class="p">If the ALTER statement is an update to a cached schema, the origin updates the cache and
+            includes the updated table schema in the event record. If the ALTER statement is older
+            than the cached schema, the origin does not include the table schema in the event
+            record. Similarly, if the CREATE statement is for a "new" table, the origin caches the
+            new table and includes the table schema in the event record. Because the origin verifies
+            that all specified tables exist when the pipeline starts, this can occur only when the
+            table is dropped and created after the pipeline starts. If the CREATE statement is for a
+            table that is already cached, the origin does not include the table schema in the event
+            record. </p>
+
+        <p class="p">Oracle CDC Client <span class="ph">events can be used with a destination to store
+                        file processing information for later use. For an example, see <a class="xref" href="../Event_Handling/EventFramework-Title.html#concept_ocb_nnl_px">Case Study: Event Storage</a>.</span></p>
+
+        <p class="p">For more information about the event framework, see <a class="xref" href="../Event_Handling/EventFramework-Title.html#concept_cph_5h4_lx">Event Framework Overview</a>.</p>
+
+    </div>
+
+<div class="topic concept nested2" id="concept_cbz_sz1_vy">
+    <h3 class="title topictitle3">Event Records</h3>
+
+    <div class="body conbody">
+        <div class="p">Event records
+            generated by the Oracle CDC Client origin have the following event-related record header
+            attributes. Record header attributes are stored as strings:
+<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="concept_cbz_sz1_vy__table_brz_3gp_qx" class="table" frame="border" border="1" rules="all">
+                    
+                    
+                    <thead class="thead" align="left">
+                        <tr>
+                            <th class="entry" valign="top" width="30%" id="d202862e879">Record Header Attribute</th>
+
+                            <th class="entry" valign="top" width="70%" id="d202862e882">Description</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody class="tbody">
+                        <tr>
+                            <td class="entry" valign="top" width="30%" headers="d202862e879 ">sdc.event.type</td>
+
+                            <td class="entry" valign="top" width="70%" headers="d202862e882 ">Event type. Uses one of the following types:<ul class="ul" id="concept_cbz_sz1_vy__ul_m12_mgp_qx">
+                                    <li class="li">STARTUP </li>
+
+                                    <li class="li">ALTER</li>
+
+                                    <li class="li">CREATE</li>
+
+                                    <li class="li">DROP</li>
+
+                                    <li class="li">TRUNCATE</li>
+
+                                </ul>
+</td>
+
+                        </tr>
+
+                        <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e879 ">sdc.event.version</td>
+
+       <td class="entry" valign="top" width="70%" headers="d202862e882 ">An integer that indicates the version of the event record type.</td>
+
+      </tr>
+
+                        <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e879 ">sdc.event.creation_timestamp</td>
+
+       <td class="entry" id="concept_cbz_sz1_vy__d25011e1385" valign="top" width="70%" headers="d202862e882 ">Epoch timestamp when the stage created the event.
+       </td>
+
+      </tr>
+
+                        <tr>
+                            <td class="entry" valign="top" width="30%" headers="d202862e879 ">oracle.cdc.table</td>
+
+                            <td class="entry" valign="top" width="70%" headers="d202862e882 ">Name of the Oracle database table that changed.</td>
+
+                        </tr>
+
+                        <tr>
+                            <td class="entry" valign="top" width="30%" headers="d202862e879 ">oracle.cdc.ddl</td>
+
+                            <td class="entry" valign="top" width="70%" headers="d202862e882 ">The DDL statement that triggered the event.</td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+</div>
+STARTUP event records are generated when the pipeline starts. The origin creates
+            one event record for each table. The event record includes the current table schema. </div>
+
+        <p class="p">DROP and TRUNCATE event records include just the record header attributes listed above. </p>
+
+        <p class="p">CREATE event records include the schema for the new table when the table has been dropped
+            and recreated. ALTER event records include the table schema when the statement updates a
+            cached schema. For more information about the behavior for CREATE and ALTER statements,
+            see <a class="xref" href="OracleCDC.html#concept_h2t_hx1_vy">Event Generation</a>.</p>
+
+        <p class="p">For example, the following ALTER event record displays the three fields in an updated
+            schema - NICK, ID, and NAME:</p>
+
+        <p class="p"><img class="image" id="concept_cbz_sz1_vy__image_f21_wnf_wy" src="../Graphics/OracleCDC-eventrecord.png" height="186" width="252" /></p>
+
+        <p class="p">In the list of record header attributes, notice the DDL statement that added the NICK
+            field, the name of the updated table, and the ALTER event type.</p>
+
+    </div>
+
+</div>
+</div>
 <div class="topic concept nested1" id="concept_q4t_b32_dx">
- <h2 class="title topictitle2">Working with the Hive Drift Solution</h2>
+ <h2 class="title topictitle2">Working with the Drift Synchronization Solution</h2>
 
  <div class="body conbody">
-        <p class="p">If you use the Oracle CDC
-            Client origin as part of a Hive Drift Solution pipeline, make sure to pass only records
+        <p class="p">If you use the Oracle CDC Client origin as part of
+            a Drift Synchronization Solution for Hive pipeline, make sure to pass only records
             flagged for Insert to the Hive Metadata processor. </p>
 
-        <div class="p">The Hive Drift Solution enables automatic updates of Hive tables based on incoming data.
-            The Hive Metadata processor, the first stage in the solution, expects Insert records
-            only. Below are some recommended methods to ensure that the processor receives only
-            Insert records:<ul class="ul" id="concept_q4t_b32_dx__ul_y5h_4xj_fx">
+        <div class="p">The Drift Synchronization Solution for Hive enables automatic updates of Hive tables
+            based on incoming data. The Hive Metadata processor, the first stage in the solution,
+            expects Insert records only. Below are some recommended methods to ensure that the
+            processor receives only Insert records:<ul class="ul" id="concept_q4t_b32_dx__ul_y5h_4xj_fx">
                 <li class="li">Configure the Oracle CDC Client to process only Insert records. </li>
 
                 <li class="li">If you want to process additional record types in the pipeline, use a Stream
@@ -493,8 +775,8 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
     </div>
 
-    <div class="related-links"><div class="relinfo relconcepts"><strong>Related concepts</strong><br xmlns="http://www.w3.org/1999/xhtml" />
-<div class="related_link"><a class="navheader_parent_path" href="../Hive_Drift_Solution/HiveDrift-Overview.html#concept_phk_bdf_2w" title="Hive Drift Solution: Ingesting Drifting Data into Hive">Hive Drift Solution: Ingesting Drifting Data into Hive</a></div>
+    <div class="related-links"><div class="relinfo relconcepts"><strong>Related concepts</strong><br />
+<div class="related_link"><a class="navheader_parent_path" href="../Hive_Drift_Solution/HiveDriftSolution_title.html#concept_phk_bdf_2w" title="Drift Synchronization Solution for Hive">Drift Synchronization Solution for Hive</a></div>
 </div>
 </div>
 </div>
@@ -520,8 +802,9 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
     <div class="body taskbody">
         <div class="section context">
-            <p class="p">Configure an Oracle CDC Client origin to process LogMiner change data capture
-                information from an Oracle database. </p>
+            <p class="p">Configure
+                an Oracle CDC Client origin to process LogMiner change data capture information from
+                an Oracle database. </p>
 
             <p class="p">Before you use the origin, complete the prerequisite tasks. For more information, see
                     <a class="xref" href="OracleCDC.html#concept_xwg_33w_cx">Oracle CDC Client Prerequisites</a>.</p>
@@ -529,62 +812,64 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
         </div>
 
         <ol class="ol steps"><li class="li step stepexpand">
-                <span class="ph cmd">In the Properties panel, on the <span class="keyword wintitle">General</span> tab, configure the
-                    following properties:</span>
+                <span class="ph cmd">In the Properties panel, on the <span class="ph uicontrol">General</span> tab, configure
+                    the following properties: </span>
                 <div class="itemgroup info">
                     
-<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="task_ehh_mjj_tw__d21804e519" class="table" frame="border" border="1" rules="all">
+<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="task_ehh_mjj_tw__table_j2h_qvk_wy" class="table" frame="border" border="1" rules="all">
                             
                             
                             <thead class="thead" align="left">
-                                <tr class="row">
-                                    <th class="entry" valign="top" width="30%" id="d179697e683">General Property</th>
+                                <tr>
+                                    <th class="entry" valign="top" width="30%" id="d202862e1095">General Property</th>
 
-                                    <th class="entry" valign="top" width="70%" id="d179697e686">Description</th>
+                                    <th class="entry" valign="top" width="70%" id="d202862e1098">Description</th>
 
                                 </tr>
 
                             </thead>
 
                             <tbody class="tbody">
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e683 ">Name</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1095 ">Name</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e686 ">Stage name.</td>
+       <td class="entry" valign="top" width="70%" headers="d202862e1098 ">Stage name.</td>
+
+      </tr>
+
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1095 ">Description</td>
+
+       <td class="entry" valign="top" width="70%" headers="d202862e1098 ">Optional description.</td>
+
+      </tr>
+
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1095 ">Produce Events <a class="xref" href="OracleCDC.html#concept_h2t_hx1_vy">
+                                            <img class="image" src="../Graphics/icon_moreInfo.png" height="12" width="12" /></a></td>
+
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1098 ">When the origin uses redo logs as the dictionary source,
+                                        can generate event records when the origin reads DDL
+                                        statements. Use for event handling. <a class="xref" href="../Event_Handling/EventFramework-Title.html#concept_cph_5h4_lx">
+                                            <img class="image" id="task_ehh_mjj_tw__image_plp_tp2_px" src="../Graphics/icon_moreInfo.png" height="12" width="12" /></a></td>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e683 ">Description</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1095 ">On Record Error <a class="xref" href="../Pipeline_Design/ErrorHandling.html#concept_atr_j4y_5r" title="Most stages include error record handling options. When an error occurs when processing a record, Data Collector processes records based on the On Record Error property for the stage.">
+         <img class="image" id="task_ehh_mjj_tw__d25011e112" src="../Reusable_Content/../Graphics/icon_moreInfo.png" height="12" width="12" /></a></td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e686 ">Optional description.</td>
+       <td class="entry" valign="top" width="70%" headers="d202862e1098 ">Error record handling for the stage: <ul class="ul" id="task_ehh_mjj_tw__d25011e116">
+         <li class="li">Discard - Discards the record.</li>
 
-                                </tr>
+         <li class="li">Send to Error - Sends the record to the pipeline for error handling.</li>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e683 ">Stage Library</td>
+         <li class="li">Stop Pipeline - Stops the pipeline. </li>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e686 ">Library version that you want to use. </td>
-
-                                </tr>
-
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e683 ">On Record Error <a class="xref" href="../Pipeline_Design/ErrorHandling.html#concept_atr_j4y_5r" title="Most stages include error record handling options. When an error occurs when processing a record, Data Collector processes records based on the On Record Error property for the stage.">
-                                            <img class="image" id="task_ehh_mjj_tw__d21804e574" src="../Reusable_Content/../Graphics/icon_moreInfo.png" height="12" width="12"></img></a></td>
-
-                                    <td class="entry" valign="top" width="70%" headers="d179697e686 ">Error record handling for the stage: <ul class="ul" id="task_ehh_mjj_tw__d21804e578">
-                                            <li class="li">Discard - Discards the record.</li>
-
-                                            <li class="li">Send to Error - Sends the record to the pipeline for
-                                                error handling.</li>
-
-                                            <li class="li">Stop Pipeline - Stops the pipeline. Not valid for
-                                                cluster pipelines.</li>
-
-                                        </ul>
+        </ul>
 </td>
 
-                                </tr>
+      </tr>
 
                             </tbody>
 
@@ -602,34 +887,34 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
                             
                             
                             <thead class="thead" align="left">
-                                <tr class="row">
-                                    <th class="entry" valign="top" width="30%" id="d179697e777">Change Data Capture Property</th>
+                                <tr>
+                                    <th class="entry" valign="top" width="30%" id="d202862e1197">Change Data Capture Property</th>
 
-                                    <th class="entry" valign="top" width="70%" id="d179697e780">Description</th>
+                                    <th class="entry" valign="top" width="70%" id="d202862e1200">Description</th>
 
                                 </tr>
 
                             </thead>
 
                             <tbody class="tbody">
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Schema Name</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Schema Name</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">Name of the schema to use.</td>
-
-                                </tr>
-
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Tables</td>
-
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">Tables to use.</td>
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">Name of the schema to use.</td>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Case-Sensitive Names</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Tables</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">Enables case-sensitive schema, table, and column names.
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">Tables to use.</td>
+
+                                </tr>
+
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Case-Sensitive Names</td>
+
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">Enables case-sensitive schema, table, and column names.
                                         Use when the schema, tables, or columns were created with
                                         quotation marks surrounding the names.<p class="p">By default, the
                                             origin uses all caps for the names. </p>
@@ -637,11 +922,11 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Initial Change <a class="xref" href="OracleCDC.html#concept_zrc_pyj_dx">
-                                            <img class="image" id="task_ehh_mjj_tw__image_cwg_hrk_dx" src="../Graphics/icon_moreInfo.png" height="12" width="12"></img></a></td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Initial Change <a class="xref" href="OracleCDC.html#concept_zrc_pyj_dx">
+                                            <img class="image" id="task_ehh_mjj_tw__image_cwg_hrk_dx" src="../Graphics/icon_moreInfo.png" height="12" width="12" /></a></td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">The starting point for the read. Use one of the following
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">The starting point for the read. Use one of the following
                                             options:<ul class="ul" id="task_ehh_mjj_tw__ul_nty_bnk_dx">
                                             <li class="li">From Latest Change - Processes changes that arrive
                                                 after you start the pipeline.</li>
@@ -657,40 +942,43 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Start Date</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Start Date</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">The datetime to read from when you start the pipeline.
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">The datetime to read from when you start the pipeline.
                                         For a date-based initial change. <p class="p"><span class="ph">Use the following format: <samp class="ph codeph">DD-MM-YYYY
                               HH24:MI:SS</samp>.</span></p>
 </td>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Start SCN</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Start SCN</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">The system change number to read from when you start the
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">The system change number to read from when you start the
                                         pipeline. For an SCN-based initial change.</td>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Operations</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Operations</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">Operations to include when creating records. All unlisted
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">Operations to include when creating records. All unlisted
                                         operations are ignored. </td>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e777 ">Dictionary Source <a class="xref" href="OracleCDC.html#concept_eq5_wh2_dx">
-                                            <img class="image" id="task_ehh_mjj_tw__image_ur4_4yn_lw" src="../Graphics/icon_moreInfo.png" height="12" width="12"></img></a></td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1197 ">Dictionary Source <a class="xref" href="OracleCDC.html#concept_eq5_wh2_dx">
+                                            <img class="image" id="task_ehh_mjj_tw__image_ur4_4yn_lw" src="../Graphics/icon_moreInfo.png" height="12" width="12" /></a></td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e780 ">Location of the LogMiner dictionary:<ul class="ul" id="task_ehh_mjj_tw__ul_s5d_mqk_dx">
-                                            <li class="li">Redo logs</li>
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1200 ">Location of the LogMiner dictionary:<ul class="ul" id="task_ehh_mjj_tw__ul_s5d_mqk_dx">
+                                            <li class="li">Redo logs - Use when schemas can change. Allows the
+                                                origin to adapt to schema changes and to generate
+                                                events for DDL statements.</li>
 
-                                            <li class="li">Online catalog</li>
+                                            <li class="li">Online catalog - Use for better performance when
+                                                schemas are not expected to change. </li>
 
                                         </ul>
 </td>
@@ -713,36 +1001,36 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
                             
                             
                             <thead class="thead" align="left">
-                                <tr class="row">
-                                    <th class="entry" valign="top" width="30%" id="d179697e922">JDBC Property</th>
+                                <tr>
+                                    <th class="entry" valign="top" width="30%" id="d202862e1342">JDBC Property</th>
 
-                                    <th class="entry" valign="top" width="70%" id="d179697e925">Description</th>
+                                    <th class="entry" valign="top" width="70%" id="d202862e1345">Description</th>
 
                                 </tr>
 
                             </thead>
 
                             <tbody class="tbody">
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e922 ">JDBC Connection String</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1342 ">JDBC Connection String</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e925 ">
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1345 ">
                                         <div class="p">Connection string to use to connect to the database.
                                                 <div class="note note"><span class="notetitle">Note:</span> If you include the JDBC credentials in the
                                                 connection string, use the user account created for
                                                 the origin. Common user accounts for Oracle 12c
                                                 multitenant databases start with "c##". For more
-                                                information, see <a class="xref" href="OracleCDC.html#concept_xwg_33w_cx">Oracle CDC Client Prerequisites</a>.</div>
+                                                information, see <a class="xref" href="OracleCDC.html#concept_jnz_bd2_3y">Task 3. Create a User Account</a>.</div>
 </div>
 
                                     </td>
 
                                 </tr>
 
-                                <tr class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e922 ">Max Batch Size (records)</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1342 ">Max Batch Size (records)</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e925 ">Maximum number of records processed at one time. Honors values up to the <span class="ph">Data
+       <td class="entry" valign="top" width="70%" headers="d202862e1345 ">Maximum number of records processed at one time. Honors values up to the <span class="ph">Data
                   Collector</span> maximum
         batch size. <p class="p">Default is 1000. The <span class="ph">Data
                   Collector</span> default
@@ -751,10 +1039,10 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
       </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e922 ">PDB</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1342 ">PDB</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e925 ">Name of the pluggable database that contains the schema
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1345 ">Name of the pluggable database that contains the schema
                                         you want to use. Use only when the schema was created in a
                                         pluggable database. <p class="p">Required for schemas created in
                                             pluggable databases. </p>
@@ -762,18 +1050,18 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
                                 </tr>
 
-                                <tr class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e922 ">Use Credentials</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1342 ">Use Credentials</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e925 ">Enables entering credentials on the Credentials tab. Use when you do not include
+       <td class="entry" valign="top" width="70%" headers="d202862e1345 ">Enables entering credentials on the Credentials tab. Use when you do not include
         credentials in the JDBC connection string.</td>
 
       </tr>
 
-                                <tr class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e922 ">Additional JDBC Configuration Properties</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1342 ">Additional JDBC Configuration Properties</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e925 ">Additional JDBC configuration properties to use. To add properties, click
+       <td class="entry" valign="top" width="70%" headers="d202862e1345 ">Additional JDBC configuration properties to use. To add properties, click
          <span class="ph uicontrol">Add</span> and define the JDBC property name and value. <p class="p">Use the property
          names and values as expected by JDBC. </p>
 </td>
@@ -797,36 +1085,36 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
                             
                             
                             <thead class="thead" align="left">
-                                <tr class="row">
-                                    <th class="entry" valign="top" width="30%" id="d179697e1028">Credentials Property</th>
+                                <tr>
+                                    <th class="entry" valign="top" width="30%" id="d202862e1448">Credentials Property</th>
 
-                                    <th class="entry" valign="top" width="70%" id="d179697e1031">Description</th>
+                                    <th class="entry" valign="top" width="70%" id="d202862e1451">Description</th>
 
                                 </tr>
 
                             </thead>
 
                             <tbody class="tbody">
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e1028 ">Username</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1448 ">Username</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e1031 ">
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1451 ">
                                         <p class="p">User name for the JDBC connection. Use the user account
                                             created for the origin. Common user accounts for Oracle
                                             12c multitenant databases start with "c##".</p>
 
-                                        <p class="p">For more information, see <a class="xref" href="OracleCDC.html#concept_xwg_33w_cx">Oracle CDC Client Prerequisites</a>.</p>
+                                        <p class="p">For more information, see <a class="xref" href="OracleCDC.html#concept_jnz_bd2_3y">Task 3. Create a User Account</a>.</p>
 
                                     </td>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e1028 ">Password</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1448 ">Password</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e1031 ">Password for the account.<div class="note tip"><span class="tiptitle">Tip:</span> To secure sensitive information such as usernames
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1451 ">Password for the account.<div class="note tip"><span class="tiptitle">Tip:</span> To secure sensitive information such as usernames
                   and passwords, you can use runtime resources or Hashicorp Vault secrets. For more
-                  information, see <a class="xref" href="../Install_Config/RuntimeResources.html#concept_bs4_5nm_2s" title="Similar to runtime properties, runtime resources are values that you define in a file local to the Data Collector and call from within a pipeline. But with runtime resources, you can restrict the permissions for the files to secure sensitive information. Use runtime resources to load sensitive information from files at runtime.">Using Runtime Resources</a> or <a class="xref" href="../Install_Config/Vault-Overview.html#concept_bmq_gl1_mw" title="Data Collector can access information, a.k.a. secrets, stored in Hashicorp Vault.">Accessing Hashicorp Vault Secrets</a>.</div>
+                  information, see <a class="xref" href="../Configuration/RuntimeResources.html#concept_bs4_5nm_2s" title="Similar to runtime properties, runtime resources are values that you define in a file local to the Data Collector and call from within a pipeline. But with runtime resources, you can restrict the permissions for the files to secure sensitive information. Use runtime resources to load sensitive information from files at runtime.">Using Runtime Resources</a> or <a class="xref" href="../Configuration/Vault-Overview.html#concept_bmq_gl1_mw" title="Data Collector can access information, a.k.a. secrets, stored in Hashicorp Vault.">Accessing Hashicorp Vault Secrets</a>.</div>
 </td>
 
                                 </tr>
@@ -844,35 +1132,35 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
                     properties:</span>
                 <div class="itemgroup info">
                     
-<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="task_ehh_mjj_tw__d21804e2795" class="table" frame="border" border="1" rules="all">
+<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="task_ehh_mjj_tw__d24998e2863" class="table" frame="border" border="1" rules="all">
                             
                             
                             <thead class="thead" align="left">
-                                <tr class="row">
-                                    <th class="entry" valign="top" width="30%" id="d179697e1117">Legacy Driver Property</th>
-                                                               <th class="entry" valign="top" width="70%" id="d179697e1120">Description</th>
+                                <tr>
+                                    <th class="entry" valign="top" width="30%" id="d202862e1537">Legacy Driver Property</th>
+
+                                    <th class="entry" valign="top" width="70%" id="d202862e1540">Description</th>
 
                                 </tr>
 
                             </thead>
 
                             <tbody class="tbody">
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e1117 ">JDBC Class Driver Name</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1537 ">JDBC Class Driver Name</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e1120 ">Class name for the JDBC driver. Required for JDBC
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1540 ">Class name for the JDBC driver. Required for JDBC
                                         versions older than version 4.0.</td>
 
                                 </tr>
 
-                                <tr class="row">
-                                    <td class="entry" valign="top" width="30%" headers="d179697e1117 ">Connection Health Test Query</td>
+                                <tr>
+                                    <td class="entry" valign="top" width="30%" headers="d202862e1537 ">Connection Health Test Query</td>
 
-                                    <td class="entry" valign="top" width="70%" headers="d179697e1120 ">Optional query to test the health of a connection.
+                                    <td class="entry" valign="top" width="70%" headers="d202862e1540 ">Optional query to test the health of a connection.
                                         Recommended only when the JDBC version is older than 4.0.
                                     </td>
 
-                                    
                                 </tr>
 
                             </tbody>
@@ -886,42 +1174,42 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
                 <span class="ph cmd">On the <span class="keyword wintitle">Advanced</span> tab, optionally configure advanced
                     properties.</span>
                 <div class="itemgroup info">The defaults for these properties should work in most cases:
-<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="task_ehh_mjj_tw__table_y35_3tj_dx" class="table" frame="border" border="1" rules="all">
-     
-     
-     <thead class="thead" align="left">
-      <tr class="row">
-       <th class="entry" valign="top" width="30%" id="d179697e1173">Advanced Property</th>
+<div class="tablenoborder"><table cellpadding="4" cellspacing="0" summary="" id="task_ehh_mjj_tw__table_z1c_hjj_kw" class="table" frame="border" border="1" rules="all">
+                            
+                            
+                            <thead class="thead" align="left">
+                                <tr>
+                                    <th class="entry" valign="top" width="30%" id="d202862e1593">Advanced Property</th>
 
-       <th class="entry" valign="top" width="70%" id="d179697e1176">Description</th>
+                                    <th class="entry" valign="top" width="70%" id="d202862e1596">Description</th>
 
-      </tr>
+                                </tr>
 
-     </thead>
+                            </thead>
 
-     <tbody class="tbody">
-      <tr id="task_ehh_mjj_tw__d21817e1438" class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e1173 ">Maximum Pool Size </td>
+                            <tbody class="tbody">
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1593 ">Maximum Pool Size </td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e1176 ">The maximum number of connections to create. <p class="p">Default is 1. The recommended value is
+       <td class="entry" valign="top" width="70%" headers="d202862e1596 ">The maximum number of connections to create. <p class="p">Default is 1. The recommended value is
          1.</p>
 </td>
 
       </tr>
 
-      <tr id="task_ehh_mjj_tw__d21817e1449" class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e1173 ">Minimum Idle Connections</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1593 ">Minimum Idle Connections</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e1176 ">The minimum number of connections to create and maintain. To define a fixed connection
+       <td class="entry" valign="top" width="70%" headers="d202862e1596 ">The minimum number of connections to create and maintain. To define a fixed connection
         pool, set to the same value as Maximum Pool Size. <p class="p">Default is 1. </p>
 </td>
 
       </tr>
 
-      <tr id="task_ehh_mjj_tw__d21817e1460" class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e1173 ">Connection Timeout</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1593 ">Connection Timeout</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e1176 ">Maximum time to wait for a connection. Use a time constant in an expression to define
+       <td class="entry" valign="top" width="70%" headers="d202862e1596 ">Maximum time to wait for a connection. Use a time constant in an expression to define
         the time increment. <div class="p">Default is 30 seconds, defined as follows:
          <pre class="pre codeblock">${30 * SECONDS}</pre>
 </div>
@@ -929,10 +1217,10 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
       </tr>
 
-      <tr id="task_ehh_mjj_tw__d21817e1473" class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e1173 ">Idle Timeout</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1593 ">Idle Timeout</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e1176 ">Maximum time to allow a connection to idle. Use a time constant in an expression to
+       <td class="entry" valign="top" width="70%" headers="d202862e1596 ">Maximum time to allow a connection to idle. Use a time constant in an expression to
         define the time increment. <p class="p">Use 0 to avoid removing any idle connections.</p>
 <div class="p">Default is
          30 minutes, defined as follows: <pre class="pre codeblock">${30 * MINUTES}</pre>
@@ -941,10 +1229,10 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
       </tr>
 
-      <tr id="task_ehh_mjj_tw__d21817e1488" class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e1173 ">Max Connection Lifetime</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1593 ">Max Connection Lifetime</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e1176 ">Maximum lifetime for a connection. Use a time constant in an expression to define the
+       <td class="entry" valign="top" width="70%" headers="d202862e1596 ">Maximum lifetime for a connection. Use a time constant in an expression to define the
         time increment. <p class="p">Use 0 to avoid removing any idle connections.</p>
 <div class="p">Default is 30
          seconds, defined as follows: <pre class="pre codeblock">${30 * SECONDS}</pre>
@@ -953,18 +1241,38 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 
       </tr>
 
-      <tr id="task_ehh_mjj_tw__d21817e1504" class="row">
-       <td class="entry" valign="top" width="30%" headers="d179697e1173 ">Enforce Read-only Connection</td>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1593 ">Enforce Read-only Connection</td>
 
-       <td class="entry" valign="top" width="70%" headers="d179697e1176 ">Creates read-only connections to avoid any type of write. <p class="p">Selected by default.
-         Clearing this property is not recommended. </p>
+       <td class="entry" valign="top" width="70%" headers="d202862e1596 ">Creates read-only connections to avoid any type of write. <p class="p">Enabled by default.
+         Disabling this property is not recommended. </p>
 </td>
 
       </tr>
 
-     </tbody>
+                                <tr>
+       <td class="entry" valign="top" width="30%" headers="d202862e1593 ">Transaction Isolation</td>
 
-    </table>
+       <td class="entry" valign="top" width="70%" headers="d202862e1596 ">Transaction isolation level used to connect to the database. <p class="p">Default is the
+        default transaction isolation level set for the database. You can override the database
+        default by setting the level to any of the following:</p>
+<ul class="ul" id="task_ehh_mjj_tw__d25011e1768">
+         <li class="li">Read committed </li>
+
+         <li class="li">Read uncommitted </li>
+
+         <li class="li">Repeatable read</li>
+
+         <li class="li">Serializable</li>
+
+        </ul>
+</td>
+
+      </tr>
+
+                            </tbody>
+
+                        </table>
 </div>
 </div>
             </li>
@@ -975,7 +1283,7 @@ GRANT select on &lt;db&gt;.&lt;table&gt; TO &lt;user name&gt;"</pre>
 </div>
 </div>
 <div class="navfooter"><!---->
-<span class="navparent"><a class="link" href="../Origins/Origins_title.html" title="Origins"><span class="navheader_label">Parent topic</span><span class="navheader_separator">: </span><span class="navheader_linktext">Origins</span></a></span>  </div><div class="footer"><!-- SDC google analytics --><script>
+<span class="navparent"><a class="link" href="../Origins/Origins_title.html" title="Origins"><span class="navheader_label">Parent topic</span><span class="navheader_separator">: </span><span class="navheader_linktext">Origins</span></a></span>  </div><div class="footer" id="webhelp_copyright_information"><!-- SDC google analytics --><script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
   (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
   m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)

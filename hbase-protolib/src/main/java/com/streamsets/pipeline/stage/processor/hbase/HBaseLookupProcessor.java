@@ -21,9 +21,9 @@ package com.streamsets.pipeline.stage.processor.hbase;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Optional;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.streamsets.pipeline.api.Batch;
 import com.streamsets.pipeline.api.BatchMaker;
@@ -43,8 +43,8 @@ import com.streamsets.pipeline.lib.hbase.common.HBaseColumn;
 import com.streamsets.pipeline.lib.hbase.common.HBaseUtil;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
-import com.streamsets.pipeline.stage.processor.kv.EvictionPolicyType;
 import com.streamsets.pipeline.stage.processor.kv.LookupMode;
+import com.streamsets.pipeline.stage.processor.kv.LookupUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
@@ -89,6 +89,7 @@ public class HBaseLookupProcessor extends BaseProcessor {
     this.conf = conf;
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   protected List<ConfigIssue> init() {
     final List<ConfigIssue> issues = super.init();
@@ -182,6 +183,7 @@ public class HBaseLookupProcessor extends BaseProcessor {
       HBaseUtil.validateSecurityConfigs(issues,
           getContext(),
           Groups.HBASE.getLabel(),
+          conf.hBaseConnectionConfig.hbaseUser,
           hbaseConf,
           conf.hBaseConnectionConfig.kerberosAuth
       );
@@ -195,18 +197,13 @@ public class HBaseLookupProcessor extends BaseProcessor {
 
     if (issues.isEmpty()) {
       try {
-        HBaseUtil.getUGI(conf.hBaseConnectionConfig.hbaseUser).doAs(new PrivilegedExceptionAction<HTableDescriptor>() {
-          @Override
-          public HTableDescriptor run() throws Exception {
-            return HBaseUtil.checkConnectionAndTableExistence(
-                issues,
-                getContext(),
-                hbaseConf,
-                Groups.HBASE.getLabel(),
-                conf.hBaseConnectionConfig.tableName
-            );
-          }
-        });
+        HBaseUtil.getUGI().doAs((PrivilegedExceptionAction<HTableDescriptor>) () -> HBaseUtil.checkConnectionAndTableExistence(
+          issues,
+          getContext(),
+          hbaseConf,
+          Groups.HBASE.getLabel(),
+          conf.hBaseConnectionConfig.tableName
+        ));
       } catch (Exception e) {
         LOG.warn("Unexpected exception", e.toString());
         throw new RuntimeException(e);
@@ -215,23 +212,22 @@ public class HBaseLookupProcessor extends BaseProcessor {
 
     if(issues.isEmpty()) {
       try {
-        HBaseUtil.getUGI(conf.hBaseConnectionConfig.hbaseUser).doAs(new PrivilegedExceptionAction<Void>() {
-          @Override
-          public Void run() throws Exception {
-            keyExprEval = getContext().createELEval("rowExpr");
-            store = new HBaseStore(conf, hbaseConf);
-            return null;
-          }
+        HBaseUtil.getUGI().doAs((PrivilegedExceptionAction<Void>) () -> {
+          keyExprEval = getContext().createELEval("rowExpr");
+          store = new HBaseStore(conf, hbaseConf);
+          return null;
         });
       } catch (Exception e) {
+        LOG.error(Errors.HBASE_36.getMessage(), e.toString(), e);
         issues.add(getContext().createConfigIssue(
-          conf.hBaseConnectionConfig.tableName,
-          conf.hBaseConnectionConfig.tableName,
-          Errors.HBASE_36
-          )
-        );
+            conf.hBaseConnectionConfig.tableName,
+            conf.hBaseConnectionConfig.tableName,
+            Errors.HBASE_36,
+            e.toString(),
+            e
+        ));
       }
-      cache = buildCache();
+      cache = LookupUtils.buildCache(store, conf.cache);
     }
     return issues;
   }
@@ -257,45 +253,15 @@ public class HBaseLookupProcessor extends BaseProcessor {
     super.destroy();
     if(store != null) {
       try {
-        HBaseUtil.getUGI(conf.hBaseConnectionConfig.hbaseUser).doAs(new PrivilegedExceptionAction<Void>() {
-          @Override
-          public Void run() throws Exception {
-            store.close();
-            return null;
-          }
+        HBaseUtil.getUGI().doAs((PrivilegedExceptionAction<Void>) () -> {
+          store.close();
+          return null;
         });
       } catch (IOException | InterruptedException e) {
         LOG.warn("Unexpected exception", e);
         throw new RuntimeException(e);
       }
     }
-  }
-
-  private LoadingCache<Pair<String, HBaseColumn>, Optional<String>> buildCache() {
-    CacheBuilder cacheBuilder = CacheBuilder.newBuilder();
-    if (!conf.cache.enabled) {
-      return cacheBuilder.maximumSize(0)
-        .build(store);
-    }
-
-    if(conf.cache.maxSize == -1) {
-      conf.cache.maxSize = Long.MAX_VALUE;
-    }
-
-    // CacheBuilder doesn't support specifying type thus suffers from erasure, so
-    // we build it with this if / else logic.
-    if (conf.cache.evictionPolicyType == EvictionPolicyType.EXPIRE_AFTER_ACCESS) {
-      cacheBuilder.maximumSize(conf.cache.maxSize)
-        .expireAfterAccess(conf.cache.expirationTime, conf.cache.timeUnit);
-    } else if (conf.cache.evictionPolicyType == EvictionPolicyType.EXPIRE_AFTER_WRITE) {
-      cacheBuilder.maximumSize(conf.cache.maxSize)
-        .expireAfterWrite(conf.cache.expirationTime, conf.cache.timeUnit);
-    } else {
-      throw new IllegalArgumentException(
-        Utils.format("Unrecognized EvictionPolicyType: '{}'", conf.cache.evictionPolicyType)
-      );
-    }
-    return cacheBuilder.build(store);
   }
 
   private void doRecordLookup(Batch batch, BatchMaker batchMaker) throws StageException {
@@ -309,22 +275,14 @@ public class HBaseLookupProcessor extends BaseProcessor {
       try {
         for (HBaseLookupParameterConfig parameter : conf.lookups) {
           final Pair<String, HBaseColumn> key = getKey(record, parameter);
-          if (key != null) {
-            Optional<String> value = HBaseUtil.getUGI(conf.hBaseConnectionConfig.hbaseUser).doAs(new PrivilegedExceptionAction<Optional<String>>() {
-              @Override
-              public Optional<String> run() throws Exception {
-                return cache.getUnchecked(key);
-              }
-            });
-
-            updateRecord(record, parameter, key, value);
-          }
+          Optional<String> value = HBaseUtil.getUGI().doAs((PrivilegedExceptionAction<Optional<String>>) () -> cache.getUnchecked(key));
+          updateRecord(record, parameter, key, value);
         }
       } catch (ELEvalException | JSONException e1) {
         LOG.error(Errors.HBASE_38.getMessage(), e1.toString(), e1);
         errorRecordHandler.onError(new OnRecordErrorException(record, Errors.HBASE_38, e1.toString()));
       } catch (IOException | InterruptedException | UncheckedExecutionException e) {
-        HBaseUtil.handleNoColumnFamilyException(e, ImmutableList.of(record).iterator(), errorRecordHandler);
+        HBaseUtil.handleHBaseException(e, ImmutableList.of(record).iterator(), errorRecordHandler);
       }
 
       batchMaker.addRecord(record);
@@ -336,12 +294,8 @@ public class HBaseLookupProcessor extends BaseProcessor {
     final Set<Pair<String, HBaseColumn>> keys = getKeyColumnListMap(batch);
 
     try {
-      Map<Pair<String, HBaseColumn>, Optional<String>> values = HBaseUtil.getUGI(conf.hBaseConnectionConfig.hbaseUser).doAs(new PrivilegedExceptionAction<Map<Pair<String, HBaseColumn>, Optional<String>>>() {
-        @Override
-        public Map<Pair<String, HBaseColumn>, Optional<String>> run() throws Exception {
-          return cache.getAll(keys);
-        }
-      });
+      Map<Pair<String, HBaseColumn>, Optional<String>> values = HBaseUtil.getUGI()
+        .doAs((PrivilegedExceptionAction<ImmutableMap<Pair<String, HBaseColumn>, Optional<String>>>) () -> cache.getAll(keys));
       Record record;
       while (records.hasNext()) {
         record = records.next();
@@ -360,7 +314,7 @@ public class HBaseLookupProcessor extends BaseProcessor {
         errorRecordHandler.onError(new OnRecordErrorException(record, Errors.HBASE_38, e1.toString()));
       }
     } catch (IOException | InterruptedException | UndeclaredThrowableException e2) {
-      HBaseUtil.handleNoColumnFamilyException(e2, records, errorRecordHandler);
+      HBaseUtil.handleHBaseException(e2, records, errorRecordHandler);
     }
   }
 
@@ -373,9 +327,7 @@ public class HBaseLookupProcessor extends BaseProcessor {
       record = records.next();
       for (HBaseLookupParameterConfig parameters : conf.lookups) {
         Pair<String, HBaseColumn> key = getKey(record, parameters);
-        if(key != null) {
-          keyList.add(key);
-        }
+        keyList.add(key);
       }
     }
     return keyList;

@@ -19,15 +19,27 @@
  */
 package com.streamsets.datacollector.restapi;
 
+import com.google.common.io.Resources;
 import com.streamsets.datacollector.log.LogStreamer;
 import com.streamsets.datacollector.log.LogUtils;
 import com.streamsets.datacollector.main.RuntimeInfo;
+import com.streamsets.datacollector.main.UserGroupManager;
+import com.streamsets.datacollector.restapi.bean.UserJson;
+import com.streamsets.datacollector.store.AclStoreTask;
+import com.streamsets.datacollector.store.PipelineInfo;
+import com.streamsets.datacollector.store.PipelineStoreTask;
+import com.streamsets.datacollector.store.impl.AclPipelineStoreTask;
 import com.streamsets.datacollector.util.AuthzRole;
+import com.streamsets.datacollector.util.PipelineException;
+import com.streamsets.lib.security.http.SSOPrincipal;
+import com.streamsets.pipeline.api.impl.Utils;
+import com.streamsets.pipeline.lib.parser.DataParserException;
 import com.streamsets.pipeline.lib.parser.shaded.org.aicer.grok.util.Grok;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.Authorization;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.security.DenyAll;
 import javax.annotation.security.RolesAllowed;
@@ -40,8 +52,10 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.SecurityContext;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -54,6 +68,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -63,20 +78,32 @@ import java.util.Map;
 @Api(value = "system")
 @DenyAll
 public class LogResource {
-  public static final String X_SDC_LOG_PREVIOUS_OFFSET_HEADER = "X-SDC-LOG-PREVIOUS-OFFSET";
+  private static final String X_SDC_LOG_PREVIOUS_OFFSET_HEADER = "X-SDC-LOG-PREVIOUS-OFFSET";
   private static final String EXCEPTION = "exception";
-  private final String logFile;
-  private final Grok logFileGrok;
   private final RuntimeInfo runtimeInfo;
+  private final PipelineStoreTask store;
 
   @Inject
-  public LogResource(RuntimeInfo runtimeInfo) {
+  public LogResource(
+      RuntimeInfo runtimeInfo,
+      Principal principal,
+      PipelineStoreTask store,
+      AclStoreTask aclStore,
+      UserGroupManager userGroupManager
+  ) {
     this.runtimeInfo = runtimeInfo;
-    try {
-      logFile = LogUtils.getLogFile(runtimeInfo);
-      logFileGrok = LogUtils.getLogGrok(runtimeInfo);
-    } catch (Exception ex) {
-      throw new IllegalStateException("Can't load logging infrastructure", ex);
+
+    UserJson currentUser;
+    if (runtimeInfo.isDPMEnabled()) {
+      currentUser = new UserJson((SSOPrincipal)principal);
+    } else {
+      currentUser = userGroupManager.getUser(principal);
+    }
+
+    if (runtimeInfo.isAclEnabled()) {
+      this.store = new AclPipelineStoreTask(store, aclStore, currentUser);
+    } else {
+      this.store = store;
     }
   }
 
@@ -92,10 +119,27 @@ public class LogResource {
       AuthzRole.CREATOR_REMOTE,
       AuthzRole.MANAGER_REMOTE
   })
-  public Response currentLog(@QueryParam("endingOffset") @DefaultValue("-1") long startOffset,
-                             @QueryParam("extraMessage") String extraMessage,
-                             @QueryParam("pipeline") String pipeline,
-                             @QueryParam("severity") String severity) throws IOException {
+  public Response currentLog(
+      @QueryParam("endingOffset") @DefaultValue("-1") long startOffset,
+      @QueryParam("extraMessage") String extraMessage,
+      @QueryParam("pipeline") String pipeline,
+      @QueryParam("severity") String severity,
+      @Context SecurityContext context
+  ) throws IOException, DataParserException, PipelineException {
+
+    // Required for showing logs per pipeline in Pipeline page
+    if (!context.isUserInRole(AuthzRole.ADMIN) && !context.isUserInRole(AuthzRole.ADMIN_REMOTE) &&
+        runtimeInfo.isAclEnabled() ) {
+      Utils.checkNotNull(pipeline, "Pipeline name");
+    }
+
+    if (!StringUtils.isEmpty(pipeline)) {
+      // Validates Pipeline ACL Permission
+      PipelineInfo pipelineInfo = store.getInfo(pipeline);
+      pipeline = pipelineInfo.getTitle() + "/" + pipelineInfo.getName();
+    }
+
+    String logFile = LogUtils.getLogFile(runtimeInfo);
 
     List<Map<String, String>> logData = new ArrayList<>();
     long offset = startOffset;
@@ -152,6 +196,7 @@ public class LogResource {
   }
 
   private File[] getLogFiles() throws IOException {
+    String logFile = LogUtils.getLogFile(runtimeInfo);
     File log = new File(logFile);
     File logDir = log.getParentFile();
     final String logName = log.getName();
@@ -170,11 +215,7 @@ public class LogResource {
   @Produces(MediaType.APPLICATION_JSON)
   @RolesAllowed({
       AuthzRole.ADMIN,
-      AuthzRole.CREATOR,
-      AuthzRole.MANAGER,
-      AuthzRole.ADMIN_REMOTE,
-      AuthzRole.CREATOR_REMOTE,
-      AuthzRole.MANAGER_REMOTE
+      AuthzRole.ADMIN_REMOTE
   })
   @SuppressWarnings("unchecked")
   public Response listLogFiles() throws IOException {
@@ -196,14 +237,12 @@ public class LogResource {
   @Produces(MediaType.TEXT_PLAIN)
   @RolesAllowed({
       AuthzRole.ADMIN,
-      AuthzRole.CREATOR,
-      AuthzRole.MANAGER,
-      AuthzRole.ADMIN_REMOTE,
-      AuthzRole.CREATOR_REMOTE,
-      AuthzRole.MANAGER_REMOTE
+      AuthzRole.ADMIN_REMOTE
   })
-  public Response getLogFile(@PathParam("logName") String logName,
-                             @QueryParam("attachment") @DefaultValue("false") Boolean attachment) throws IOException {
+  public Response getLogFile(
+      @PathParam("logName") String logName,
+      @QueryParam("attachment") @DefaultValue("false") Boolean attachment
+  ) throws IOException {
     Response response;
     File newLogFile = null;
     for (File file : getLogFiles()) {
@@ -226,8 +265,13 @@ public class LogResource {
     return response;
   }
 
-  private void fetchLogData(BufferedReader bufferedReader, List<Map<String, String>> logData, String pipeline,
-                            String severity) throws IOException {
+  private void fetchLogData(
+      BufferedReader bufferedReader,
+      List<Map<String, String>> logData,
+      String pipeline,
+      String severity
+  ) throws IOException, DataParserException {
+    Grok logFileGrok = LogUtils.getLogGrok(runtimeInfo);
     String thisLine;
     boolean lastMessageFiltered = false;
     while ((thisLine = bufferedReader.readLine()) != null) {
@@ -269,21 +313,21 @@ public class LogResource {
   @Produces(MediaType.TEXT_PLAIN)
   @RolesAllowed({
       AuthzRole.ADMIN,
-      AuthzRole.CREATOR,
-      AuthzRole.MANAGER,
-      AuthzRole.ADMIN_REMOTE,
-      AuthzRole.CREATOR_REMOTE,
-      AuthzRole.MANAGER_REMOTE
+      AuthzRole.ADMIN_REMOTE
   })
   public Response getLogConfig(
       @QueryParam("default") @DefaultValue("false") boolean defaultConfig
   ) throws IOException {
     String fileName = runtimeInfo.getLog4jPropertiesFileName();
+    InputStream log4jProperties;
+
     if (defaultConfig) {
-      fileName += "-default";
+      log4jProperties = Resources.getResource(fileName + "-default").openStream();
+    } else {
+      File file = new File(runtimeInfo.getConfigDir(), fileName);
+      log4jProperties = new FileInputStream(file);
     }
-    File file = new File(runtimeInfo.getConfigDir(), fileName);
-    return Response.ok(new FileInputStream(file)).build();
+    return Response.ok(log4jProperties).build();
   }
 
   @POST
@@ -291,11 +335,7 @@ public class LogResource {
   @Consumes(MediaType.TEXT_PLAIN)
   @RolesAllowed({
       AuthzRole.ADMIN,
-      AuthzRole.CREATOR,
-      AuthzRole.MANAGER,
-      AuthzRole.ADMIN_REMOTE,
-      AuthzRole.CREATOR_REMOTE,
-      AuthzRole.MANAGER_REMOTE
+      AuthzRole.ADMIN_REMOTE
   })
   public Response setLogConfig(
       InputStream payload

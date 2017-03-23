@@ -21,7 +21,6 @@ package com.streamsets.datacollector.runner;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
-import com.streamsets.datacollector.config.DeliveryGuarantee;
 import com.streamsets.datacollector.config.PipelineConfiguration;
 import com.streamsets.datacollector.config.StageConfiguration;
 import com.streamsets.datacollector.creation.PipelineConfigBean;
@@ -34,6 +33,7 @@ import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.pipeline.api.Batch;
 import com.streamsets.pipeline.api.BatchMaker;
 import com.streamsets.pipeline.api.Config;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.Processor;
 import com.streamsets.pipeline.api.Source;
@@ -80,9 +80,9 @@ public class TestMemoryIsolation {
     pipelineConfigs.add(new Config("executionMode", ExecutionMode.STANDALONE));
 
     PipelineConfiguration pipelineConf = new PipelineConfiguration(PipelineStoreTask.SCHEMA_VERSION,
-      PipelineConfigBean.VERSION, UUID.randomUUID(),
-      null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
-    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name",  "name", "0", pipelineConf);
+      PipelineConfigBean.VERSION, UUID.randomUUID(),"label",
+        null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name",  "name", "0", MockStages.userContext(), pipelineConf);
 
     PipelineRunner runner = Mockito.mock(PipelineRunner.class);
     MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
@@ -92,9 +92,10 @@ public class TestMemoryIsolation {
     Set<Stage> stages = new HashSet<>();
     Pipeline pipeline = builder.build(runner);
     pipeline.init();
-    for (Pipe pipe : pipeline.getPipes()) {
-      stages.add(pipe.getStage().getStage());
-    }
+
+    // Working with just one runner
+    pipeline.getRunners().get(0).forEachNoException(pipe -> stages.add(pipe.getStage().getStage()));
+
     return stages;
   }
 

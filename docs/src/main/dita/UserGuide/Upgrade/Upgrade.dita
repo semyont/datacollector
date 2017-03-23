@@ -20,10 +20,8 @@
         new version. You can upgrade an installation from the tarball, an installation from the RPM
         package, or an installation with Cloudera Manager.</shortdesc>
     <conbody>
-        <note type="important">The minimum requirements for <ph
-                conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"/>
-            can change with each version. Before you upgrade to a new version, verify that the
-            machine meets the latest minimum requirements as described in <xref
-                href="../Install_Config/Requirements.dita#concept_vzg_n2p_kq"/>.</note>
+        <p>In some situations, you must complete pre and post upgrade tasks.</p>
+        <p>When an origin or destination system is upgraded to a new version, you must configure
+            existing pipelines to work with the upgraded system.</p>
     </conbody>
 </concept>

@@ -22,6 +22,7 @@ package com.streamsets.pipeline.lib.el;
 import com.streamsets.pipeline.api.ElConstant;
 import com.streamsets.pipeline.api.ElFunction;
 import com.streamsets.pipeline.api.ElParam;
+import com.streamsets.pipeline.api.EventRecord;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.el.ELEval;
@@ -130,9 +131,42 @@ public class RecordEL {
     return false;
   }
 
+  @ElFunction(
+      prefix = RECORD_EL_PREFIX,
+      name = "fieldAttribute",
+      description = "Returns the value of the attribute named 'attributeName' of the field specified by 'fieldPath'")
+  @SuppressWarnings("unchecked")
+  public static String getFieldAttributeValue(
+      @ElParam("fieldPath") String fieldPath, @ElParam("attributeName") String attributeName) {
+    Record record = getRecordInContext();
+    if (record != null) {
+      Field field = record.get(fieldPath);
+      if (field != null) {
+        return field.getAttribute(attributeName);
+      }
+    }
+    return null;
+  }
+
+  @ElFunction(
+      prefix = RECORD_EL_PREFIX,
+      name = "fieldAttributeOrDefault",
+      description = "Returns the value of the attribute named 'attributeName' of the field specified by 'fieldPath'" +
+          " or the 'defaultValue' if not found "
+  )
+  @SuppressWarnings("unchecked")
+  public static String getFieldAttributeValueOrDefault(
+      @ElParam("fieldPath") String fieldPath,
+      @ElParam("attributeName") String attributeName,
+      @ElParam("defaultValue") String defaultValue
+  ) {
+    String value = getFieldAttributeValue(fieldPath, attributeName);
+    return value != null ? value : defaultValue;
+  }
+
   private enum HeaderProperty {
     ID, STAGE_CREATOR, STAGES_PATH, ERROR_STAGE, ERROR_CODE, ERROR_MESSAGE, ERROR_DATA_COLLECTOR_ID,
-    ERROR_PIPELINE_NAME, ERROR_TIME
+    ERROR_PIPELINE_NAME, ERROR_TIME, EVENT_TYPE, EVENT_VERSION, EVENT_CREATION,
   }
 
   @SuppressWarnings("unchecked")
@@ -167,6 +201,15 @@ public class RecordEL {
           break;
         case ERROR_TIME:
           value = record.getHeader().getErrorTimestamp();
+          break;
+        case EVENT_TYPE:
+          value = record.getHeader().getAttribute(EventRecord.TYPE);
+          break;
+        case EVENT_VERSION:
+          value = record.getHeader().getAttribute(EventRecord.VERSION);
+          break;
+        case EVENT_CREATION:
+          value = record.getHeader().getAttribute(EventRecord.CREATION_TIMESTAMP);
           break;
       }
     }
@@ -243,6 +286,30 @@ public class RecordEL {
     description = "Returns the error time for the record in context")
   public static long getErrorTime() {
     return getFromHeader(HeaderProperty.ERROR_TIME);
+  }
+
+  @ElFunction(
+    prefix = RECORD_EL_PREFIX,
+    name = "eventType",
+    description = "Returns type of the event for event records and null for non-event records.")
+  public static String getEventType() {
+    return getFromHeader(HeaderProperty.EVENT_TYPE);
+  }
+
+  @ElFunction(
+    prefix = RECORD_EL_PREFIX,
+    name = "eventVersion",
+    description = "Returns version of the event for event records and null for non-event records.")
+  public static String getEventVersion() {
+    return getFromHeader(HeaderProperty.EVENT_VERSION);
+  }
+
+  @ElFunction(
+    prefix = RECORD_EL_PREFIX,
+    name = "eventCreation",
+    description = "Returns creation time of the event for event records and null for non-event records.")
+  public static String getEventCreationTime() {
+    return getFromHeader(HeaderProperty.EVENT_CREATION);
   }
 
   @ElFunction(

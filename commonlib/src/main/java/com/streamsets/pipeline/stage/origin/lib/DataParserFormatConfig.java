@@ -49,6 +49,7 @@ import com.streamsets.pipeline.config.OnParseErrorChooserValues;
 import com.streamsets.pipeline.config.OriginAvroSchemaLookupModeChooserValues;
 import com.streamsets.pipeline.config.OriginAvroSchemaSource;
 import com.streamsets.pipeline.config.OriginAvroSchemaSourceChooserValues;
+import com.streamsets.pipeline.lib.el.DataUnitsEL;
 import com.streamsets.pipeline.lib.parser.DataParserFactory;
 import com.streamsets.pipeline.lib.parser.DataParserFactoryBuilder;
 import com.streamsets.pipeline.lib.parser.DataParserFormat;
@@ -60,7 +61,7 @@ import com.streamsets.pipeline.lib.parser.udp.DatagramParserFactory;
 import com.streamsets.pipeline.lib.parser.xml.XmlDataParserFactory;
 import com.streamsets.pipeline.lib.util.DelimitedDataConstants;
 import com.streamsets.pipeline.lib.util.ProtobufConstants;
-import com.streamsets.pipeline.lib.xml.xpath.Constants;
+import com.streamsets.pipeline.lib.xml.Constants;
 import com.streamsets.pipeline.lib.xml.xpath.XPathValidatorUtil;
 import com.streamsets.pipeline.stage.common.DataFormatConfig;
 import com.streamsets.pipeline.stage.common.DataFormatErrors;
@@ -325,6 +326,43 @@ public class DataParserFormatConfig implements DataFormatConfig {
   public char csvCustomQuote = '\"';
 
   @ConfigDef(
+    required = false,
+    type = ConfigDef.Type.BOOLEAN,
+    defaultValue = "false",
+    label = "Enable comments",
+    displayPosition = 425,
+    group = "DATA_FORMAT",
+    dependsOn = "csvFileFormat",
+    triggeredByValue = "CUSTOM"
+  )
+  public boolean csvEnableComments = false;
+
+  @ConfigDef(
+    required = true,
+    type = ConfigDef.Type.CHARACTER,
+    defaultValue = "#",
+    label = "Comment marker",
+    displayPosition = 426,
+    group = "DATA_FORMAT",
+    dependsOn = "csvEnableComments",
+    triggeredByValue = "true"
+  )
+  public char csvCommentMarker;
+
+  @ConfigDef(
+    required = false,
+    type = ConfigDef.Type.BOOLEAN,
+    defaultValue = "true",
+    label = "Ignore empty lines",
+    displayPosition = 427,
+    group = "DATA_FORMAT",
+    dependencies = {
+      @Dependency(configName = "csvFileFormat", triggeredByValues = {"CUSTOM"})
+    }
+  )
+  public boolean csvIgnoreEmptyLines = true;
+
+  @ConfigDef(
       required = true,
       type = ConfigDef.Type.MODEL,
       defaultValue = "LIST_MAP",
@@ -392,6 +430,19 @@ public class DataParserFormatConfig implements DataFormatConfig {
   public String xmlRecordElement = "";
 
   @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Include Field XPaths",
+      defaultValue = ""+XmlDataParserFactory.INCLUDE_FIELD_XPATH_ATTRIBUTES_DEFAULT,
+      description = Constants.INCLUDE_FIELD_XPATH_ATTRIBUTES_DESCRIPTION,
+      displayPosition = 442,
+      group = "DATA_FORMAT",
+      dependsOn = "dataFormat^",
+      triggeredByValue = "XML"
+  )
+  public boolean includeFieldXpathAttributes = XmlDataParserFactory.INCLUDE_FIELD_XPATH_ATTRIBUTES_DEFAULT;
+
+  @ConfigDef(
       required = false,
       type = ConfigDef.Type.MAP,
       label = "Namespaces",
@@ -403,6 +454,19 @@ public class DataParserFormatConfig implements DataFormatConfig {
       triggeredByValue = "XML"
   )
   public Map<String, String> xPathNamespaceContext = new HashMap<>();
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Output Field Attributes",
+      description = Constants.OUTPUT_FIELD_ATTRIBUTES_DESCRIPTION,
+      defaultValue = ""+XmlDataParserFactory.USE_FIELD_ATTRIBUTES_DEFAULT,
+      displayPosition = 448,
+      group = "DATA_FORMAT",
+      dependsOn = "dataFormat^",
+      triggeredByValue = "XML"
+  )
+  public boolean outputFieldAttributes = XmlDataParserFactory.USE_FIELD_ATTRIBUTES_DEFAULT;
 
   @ConfigDef(
       required = true,
@@ -826,6 +890,22 @@ public class DataParserFormatConfig implements DataFormatConfig {
 
   @ConfigDef(
       required = true,
+      type = ConfigDef.Type.STRING,
+      defaultValue = "-1",
+      label = "Rate per second",
+      description = "Rate / sec to manipulate bandwidth requirements for File Transfer." +
+          " Use <= 0 to opt out. Default unit is B/sec",
+      displayPosition = 920,
+      group = "DATA_FORMAT",
+      dependsOn = "dataFormat^",
+      triggeredByValue = "WHOLE_FILE",
+      elDefs = {DataUnitsEL.class},
+      evaluation = ConfigDef.Evaluation.EXPLICIT
+  )
+  public String rateLimit = "-1";
+
+  @ConfigDef(
+      required = true,
       type = ConfigDef.Type.BOOLEAN,
       defaultValue = "false",
       label = "Verify Checksum",
@@ -836,6 +916,10 @@ public class DataParserFormatConfig implements DataFormatConfig {
       triggeredByValue = "WHOLE_FILE"
   )
   public boolean verifyChecksum = false;
+
+  // Size of StringBuilder pool maintained by Text and Log Data Parser Factories.
+  // The default value is 1 for regular origins. Multithreaded origins should override this value as required.
+  public int stringBuilderPoolSize = DataFormatConstants.STRING_BUILDER_POOL_SIZE;
 
   @Override
   public boolean init(
@@ -1174,12 +1258,7 @@ public class DataParserFormatConfig implements DataFormatConfig {
 
     switch (dataFormat) {
       case TEXT:
-        builder
-            .setMaxDataLen(textMaxLineLen)
-            .setConfig(TextDataParserFactory.MULTI_LINE_KEY, multiLines)
-            .setConfig(TextDataParserFactory.USE_CUSTOM_DELIMITER_KEY, useCustomDelimiter)
-            .setConfig(TextDataParserFactory.CUSTOM_DELIMITER_KEY, customDelimiter)
-            .setConfig(TextDataParserFactory.INCLUDE_CUSTOM_DELIMITER_IN_TEXT_KEY, includeCustomDelimiterInTheText);
+        buildTextParser(builder, multiLines);
         break;
       case JSON:
         builder.setMaxDataLen(jsonMaxObjectLen).setMode(jsonContent);
@@ -1189,7 +1268,9 @@ public class DataParserFormatConfig implements DataFormatConfig {
         break;
       case XML:
         builder.setMaxDataLen(xmlMaxObjectLen).setConfig(XmlDataParserFactory.RECORD_ELEMENT_KEY, xmlRecordElement)
-            .setConfig(XmlDataParserFactory.RECORD_ELEMENT_XPATH_NAMESPACES_KEY, xPathNamespaceContext);
+            .setConfig(XmlDataParserFactory.INCLUDE_FIELD_XPATH_ATTRIBUTES_KEY, includeFieldXpathAttributes)
+            .setConfig(XmlDataParserFactory.RECORD_ELEMENT_XPATH_NAMESPACES_KEY, xPathNamespaceContext)
+            .setConfig(XmlDataParserFactory.USE_FIELD_ATTRIBUTES, outputFieldAttributes);
         break;
       case SDC_JSON:
         builder.setMaxDataLen(-1);
@@ -1198,8 +1279,7 @@ public class DataParserFormatConfig implements DataFormatConfig {
         builder.setMaxDataLen(binaryMaxObjectLen);
         break;
       case LOG:
-        builder.setConfig(LogDataParserFactory.MULTI_LINES_KEY, multiLines);
-        logDataFormatValidator.populateBuilder(builder);
+        buildLogParser(builder, multiLines);
         break;
       case AVRO:
         buildAvroParser(builder);
@@ -1211,6 +1291,7 @@ public class DataParserFormatConfig implements DataFormatConfig {
         buildDatagramParser(builder);
         break;
       case WHOLE_FILE:
+        builder.setCompression(Compression.NONE);
         builder.setMaxDataLen(wholeFileMaxObjectLen);
         break;
       default:
@@ -1251,7 +1332,11 @@ public class DataParserFormatConfig implements DataFormatConfig {
         .setConfig(DelimitedDataConstants.ESCAPE_CONFIG, csvCustomEscape)
         .setConfig(DelimitedDataConstants.QUOTE_CONFIG, csvCustomQuote)
         .setConfig(DelimitedDataConstants.PARSE_NULL, parseNull)
-        .setConfig(DelimitedDataConstants.NULL_CONSTANT, nullConstant);
+        .setConfig(DelimitedDataConstants.NULL_CONSTANT, nullConstant)
+        .setConfig(DelimitedDataConstants.COMMENT_ALLOWED_CONFIG, csvEnableComments)
+        .setConfig(DelimitedDataConstants.COMMENT_MARKER_CONFIG, csvCommentMarker)
+        .setConfig(DelimitedDataConstants.IGNORE_EMPTY_LINES_CONFIG, csvIgnoreEmptyLines)
+    ;
   }
 
   private void buildProtobufParser(DataParserFactoryBuilder builder) {
@@ -1270,6 +1355,23 @@ public class DataParserFormatConfig implements DataFormatConfig {
       .setConfig(DatagramParserFactory.TYPES_DB_PATH_KEY, typesDbPath)
       .setMode(datagramMode)
       .setMaxDataLen(-1);
+  }
+
+  private void buildTextParser(DataParserFactoryBuilder builder, boolean multiLines) {
+    builder
+      .setMaxDataLen(textMaxLineLen)
+      .setStringBuilderPoolSize(stringBuilderPoolSize)
+      .setConfig(TextDataParserFactory.MULTI_LINE_KEY, multiLines)
+      .setConfig(TextDataParserFactory.USE_CUSTOM_DELIMITER_KEY, useCustomDelimiter)
+      .setConfig(TextDataParserFactory.CUSTOM_DELIMITER_KEY, customDelimiter)
+      .setConfig(TextDataParserFactory.INCLUDE_CUSTOM_DELIMITER_IN_TEXT_KEY, includeCustomDelimiterInTheText);
+  }
+
+  private void buildLogParser(DataParserFactoryBuilder builder, boolean multiLines) {
+    builder
+      .setStringBuilderPoolSize(stringBuilderPoolSize)
+      .setConfig(LogDataParserFactory.MULTI_LINES_KEY, multiLines);
+    logDataFormatValidator.populateBuilder(builder);
   }
 
   /**

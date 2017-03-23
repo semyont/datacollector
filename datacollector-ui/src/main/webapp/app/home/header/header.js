@@ -28,9 +28,9 @@ angular
   .controller('HeaderController', function ($scope, $rootScope, $timeout, _, api, $translate, $location, authService,
                                            pipelineService, pipelineConstant, $modal, $q, $route) {
 
-    var pipelineValidationInProgress,
-      pipelineValidationSuccess,
-      validateConfigStatusTimer;
+    var pipelineValidationInProgress;
+    var pipelineValidationSuccess;
+    var validateConfigStatusTimer;
 
     $translate('global.messages.validate.pipelineValidationInProgress').then(function(translation) {
       pipelineValidationInProgress = translation;
@@ -140,7 +140,6 @@ angular
       startPipeline: function() {
         $scope.trackEvent(pipelineConstant.BUTTON_CATEGORY, pipelineConstant.CLICK_ACTION, 'Start Pipeline', 1);
         if ($rootScope.common.pipelineStatusMap[$scope.activeConfigInfo.name].status !== 'RUNNING') {
-          var startResponse;
           $scope.$storage.maximizeDetailPane = false;
           $scope.$storage.minimizeDetailPane = false;
           $scope.$storage.readNotifications = [];
@@ -170,6 +169,48 @@ angular
             name: $scope.activeConfigInfo.name
           }).then(function(translation) {
             $rootScope.common.errors = [translation];
+          });
+        }
+      },
+
+      /**
+       * On Start Pipeline With Parameters Click
+       */
+      startPipelineWithParameters: function() {
+        $scope.trackEvent(pipelineConstant.BUTTON_CATEGORY, pipelineConstant.CLICK_ACTION, 'Start Pipeline', 1);
+        if ($rootScope.common.pipelineStatusMap[$scope.activeConfigInfo.name].status !== 'RUNNING') {
+          $scope.$storage.maximizeDetailPane = false;
+          $scope.$storage.minimizeDetailPane = false;
+          $scope.$storage.readNotifications = [];
+          $rootScope.common.pipelineMetrics = {};
+
+          var modalInstance = $modal.open({
+            templateUrl: 'app/home/header/start/start.tpl.html',
+            controller: 'StartModalInstanceController',
+            size: '',
+            backdrop: 'static',
+            resolve: {
+              pipelineConfig: function () {
+                return $scope.pipelineConfig;
+              }
+            }
+          });
+
+          modalInstance.result.then(function(res) {
+            $scope.clearTabSelectionCache();
+            $scope.selectPipelineConfig();
+
+            var currentStatus = $rootScope.common.pipelineStatusMap[$scope.activeConfigInfo.name];
+            if (!currentStatus || (res.data && currentStatus.timeStamp < res.data.timeStamp)) {
+              $rootScope.common.pipelineStatusMap[$scope.activeConfigInfo.name] = res.data;
+            }
+
+            $timeout(function() {
+              $scope.refreshGraph();
+            });
+            $scope.startMonitoring();
+          }, function () {
+
           });
         }
       },
@@ -239,6 +280,9 @@ angular
             },
             isPipelineRunning: function() {
               return $scope.isPipelineRunning;
+            },
+            canExecute: function () {
+              return $scope.canExecute;
             }
           }
         });
@@ -306,6 +350,14 @@ angular
         $scope.trackEvent(pipelineConstant.BUTTON_CATEGORY, pipelineConstant.CLICK_ACTION, 'Auto Arrange', 1);
         pipelineService.autoArrange($scope.pipelineConfig);
         $scope.refreshGraph();
+      },
+
+      /**
+       * Share Pipeline Configuration
+       */
+      sharePipelineConfig: function(pipelineInfo, $event) {
+        $scope.trackEvent(pipelineConstant.BUTTON_CATEGORY, pipelineConstant.CLICK_ACTION, 'Share Pipeline', 1);
+        pipelineService.sharePipelineConfigCommand(pipelineInfo, $event);
       },
 
       /**

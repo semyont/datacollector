@@ -9,7 +9,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -79,6 +79,18 @@ public class WebServerBuilder {
 
   public WebServerBuilder enqueueFileInfoFailureResponse() {
     MockResponse fileInfoFailureResponse = (new MockResponse()).setResponseCode(408); // client timeout
+    final String fileInfoResponseBody = "{\"length\":100, \"accessTime\":123456789, \"type\":\"FILE\", " +
+        "\"modificationTime\":123456789, \"permission\":\"read\",\"owner\":\"root\", " +
+        "\"group\":\"supergroup\",\"blockSize\":1,\"replication\":1}";
+    fileInfoFailureResponse.setBody(fileInfoResponseBody);
+
+    server.enqueue(fileInfoFailureResponse);
+
+    return this;
+  }
+
+  public WebServerBuilder enqueueTokenFailureResponse() {
+    MockResponse fileInfoFailureResponse = (new MockResponse()).setResponseCode(401); // client timeout
     final String fileInfoResponseBody = "{\"length\":100, \"accessTime\":123456789, \"type\":\"FILE\", " +
         "\"modificationTime\":123456789, \"permission\":\"read\",\"owner\":\"root\", " +
         "\"group\":\"supergroup\",\"blockSize\":1,\"replication\":1}";

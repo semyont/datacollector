@@ -36,7 +36,6 @@ import com.streamsets.lib.security.http.SSOConstants;
 import com.streamsets.lib.security.http.SSOService;
 import com.streamsets.lib.security.http.SSOUtils;
 import com.streamsets.pipeline.api.impl.Utils;
-
 import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
 import org.eclipse.jetty.rewrite.handler.RewriteRegexRule;
@@ -44,7 +43,6 @@ import org.eclipse.jetty.security.ConstraintMapping;
 import org.eclipse.jetty.security.ConstraintSecurityHandler;
 import org.eclipse.jetty.security.DefaultIdentityService;
 import org.eclipse.jetty.security.DefaultUserIdentity;
-import org.eclipse.jetty.security.HashLoginService;
 import org.eclipse.jetty.security.LoginService;
 import org.eclipse.jetty.security.SecurityHandler;
 import org.eclipse.jetty.security.authentication.BasicAuthenticator;
@@ -52,6 +50,7 @@ import org.eclipse.jetty.security.authentication.DigestAuthenticator;
 import org.eclipse.jetty.security.authentication.FormAuthenticator;
 import org.eclipse.jetty.server.ConnectionFactory;
 import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.ForwardedRequestCustomizer;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
@@ -62,7 +61,6 @@ import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.server.UserIdentity;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
 import org.eclipse.jetty.server.handler.HandlerCollection;
-import org.eclipse.jetty.server.session.HashSessionManager;
 import org.eclipse.jetty.server.session.SessionHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -73,11 +71,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.security.auth.Subject;
+import javax.security.auth.login.AppConfigurationEntry;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -135,9 +133,11 @@ public abstract class WebServerTask extends AbstractTask {
 
   public static final String HTTP_SESSION_MAX_INACTIVE_INTERVAL_CONFIG = "http.session.max.inactive.interval";
   public static final int HTTP_SESSION_MAX_INACTIVE_INTERVAL_DEFAULT = 86400;  // in seconds = 24 hours
+  public static final String HTTP_ENABLE_FORWARDED_REQUESTS_KEY = "http.enable.forwarded.requests";
+  private static final boolean HTTP_ENABLE_FORWARDED_REQUESTS_DEFAULT = false;
 
   public static final String AUTHENTICATION_KEY = "http.authentication";
-  public static final String AUTHENTICATION_DEFAULT = "none"; //"form";
+  public static final String AUTHENTICATION_DEFAULT = "none";
 
   private static final String DIGEST_REALM_KEY = "http.digest.realm";
   private static final String REALM_POSIX_DEFAULT = "-realm";
@@ -147,7 +147,7 @@ public abstract class WebServerTask extends AbstractTask {
 
   public static final String HTTP_AUTHENTICATION_LOGIN_MODULE = "http.authentication.login.module";
   public static final String FILE = "file";
-  private static final String HTTP_AUTHENTICATION_LOGIN_MODULE_DEFAULT = "file";
+  public static final String HTTP_AUTHENTICATION_LOGIN_MODULE_DEFAULT = "file";
 
   public static final String HTTP_AUTHENTICATION_LDAP_ROLE_MAPPING = "http.authentication.ldap.role.mapping";
   private static final String HTTP_AUTHENTICATION_LDAP_ROLE_MAPPING_DEFAULT = "";
@@ -156,13 +156,13 @@ public abstract class WebServerTask extends AbstractTask {
 
   private static final Set<String> AUTHENTICATION_MODES = ImmutableSet.of("none", "digest", "basic", "form");
 
-  private static final Set<String> LOGIN_MODULES = ImmutableSet.of("file", "ldap");
-
   private static final Logger LOG = LoggerFactory.getLogger(WebServerTask.class);
   public static final String LDAP_LOGIN_CONF = "ldap-login.conf";
   public static final String JAVA_SECURITY_AUTH_LOGIN_CONFIG = "java.security.auth.login.config";
   public static final String LDAP = "ldap";
   public static final String LDAP_LOGIN_MODULE_NAME = "ldap.login.module.name";
+
+  public static final Set<String> LOGIN_MODULES = ImmutableSet.of(FILE, LDAP);
 
   public static final String SSO_SERVICES_ATTR = "ssoServices";
 
@@ -174,9 +174,10 @@ public abstract class WebServerTask extends AbstractTask {
   private final Set<ContextConfigurator> contextConfigurators;
   private int port;
   private Server server;
+  private HttpConfiguration httpConf = new HttpConfiguration();
   private Server redirector;
-  private HashSessionManager hashSessionManager;
-  private Map<String, Set<String>> roleMapping;
+  private SessionHandler sessionHandler;
+  Map<String, Set<String>> roleMapping;
 
   public WebServerTask(
       BuildInfo buildInfo,
@@ -226,8 +227,8 @@ public abstract class WebServerTask extends AbstractTask {
     server = createServer();
 
     // initialize a global session manager
-    hashSessionManager = new HashSessionManager();
-    hashSessionManager.setMaxInactiveInterval(conf.get(HTTP_SESSION_MAX_INACTIVE_INTERVAL_CONFIG,
+    sessionHandler = new SessionHandler();
+    sessionHandler.setMaxInactiveInterval(conf.get(HTTP_SESSION_MAX_INACTIVE_INTERVAL_CONFIG,
         HTTP_SESSION_MAX_INACTIVE_INTERVAL_DEFAULT));
 
     ContextHandlerCollection appHandlers = new ContextHandlerCollection();
@@ -245,14 +246,14 @@ public abstract class WebServerTask extends AbstractTask {
         throw new RuntimeException(Utils.format("Webapp already registered at '{}' context", contextPath));
       }
       // all webapps must have a session manager
-      appHandler.setSessionHandler(new SessionHandler(hashSessionManager));
+      appHandler.setSessionHandler(new SessionHandler());
 
       appHandler.setSecurityHandler(createSecurityHandler(server, appConf, appHandler, contextPath));
       contextPaths.add(contextPath);
       appHandlers.addHandler(appHandler);
     }
 
-    ServletContextHandler appHandler = configureRootContext(new SessionHandler(hashSessionManager));
+    ServletContextHandler appHandler = configureRootContext(sessionHandler);
     appHandler.setSecurityHandler(createSecurityHandler(server, conf, appHandler, "/"));
     Handler handler = configureRedirectionRules(appHandler);
     appHandlers.addHandler(handler);
@@ -439,7 +440,7 @@ public abstract class WebServerTask extends AbstractTask {
       }
     } catch (IOException ex) {
       throw new RuntimeException(Utils.format("Could not get the permissions of the realm file '{}', {}", realmFile,
-                                              ex.toString(), ex));
+                                              ex.toString()), ex);
     }
   }
 
@@ -571,21 +572,22 @@ public abstract class WebServerTask extends AbstractTask {
     qtp.setDaemon(true);
     Server server = new Server(qtp);
 
+    httpConf = configureForwardRequestCustomizer(httpConf);
+
     if (!isSSLEnabled()) {
       InetSocketAddress addr = new InetSocketAddress(hostname, port);
-      ServerConnector connector = new ServerConnector(server);
+      ServerConnector connector = new ServerConnector(server, new HttpConnectionFactory(httpConf));
       connector.setHost(addr.getHostName());
       connector.setPort(addr.getPort());
       server.setConnectors(new Connector[]{connector});
     } else {
       //Create a connector for HTTPS
-      HttpConfiguration httpsConf = new HttpConfiguration();
-      httpsConf.addCustomizer(new SecureRequestCustomizer());
+      httpConf.addCustomizer(new SecureRequestCustomizer());
 
       SslContextFactory sslContextFactory = createSslContextFactory();
       ServerConnector httpsConnector = new ServerConnector(server,
                                                            new SslConnectionFactory(sslContextFactory, "http/1.1"),
-                                                           new HttpConnectionFactory(httpsConf));
+                                                           new HttpConnectionFactory(httpConf));
       httpsConnector.setPort(port);
       httpsConnector.setHost(hostname);
       server.setConnectors(new Connector[]{httpsConnector});
@@ -718,7 +720,7 @@ public abstract class WebServerTask extends AbstractTask {
     try {
       server.start();
       port = server.getURI().getPort();
-      hashSessionManager.setSessionCookie(JSESSIONID_COOKIE + port);
+      sessionHandler.setSessionCookie(JSESSIONID_COOKIE + port);
       if(runtimeInfo.getBaseHttpUrl().equals(RuntimeInfo.UNDEF)) {
         try {
           String baseHttpUrl = "http://";
@@ -798,7 +800,7 @@ public abstract class WebServerTask extends AbstractTask {
         String realm = conf.get(DIGEST_REALM_KEY, mode + REALM_POSIX_DEFAULT);
         File realmFile = new File(runtimeInfo.getConfigDir(), realm + ".properties").getAbsoluteFile();
         validateRealmFile(realmFile);
-        loginService = new HashLoginService(realm, realmFile.getAbsolutePath());
+        loginService = new SdcHashLoginService(realm, realmFile.getAbsolutePath());
         break;
       case LDAP:
         // If “java.security.auth.login.config” system property is set then use that config file.
@@ -820,6 +822,24 @@ public abstract class WebServerTask extends AbstractTask {
         if (loginModuleName.trim().isEmpty()) {
           loginModuleName = LDAP;
         }
+
+        // resetting it becuase it is cached and testcases fail then
+        javax.security.auth.login.Configuration.getConfiguration().setConfiguration(null);
+        // verifying that is authentication mode is DIGEST and we are using LDAP, we don't allow forceBindingLogin
+        // set to TRUE as it won't work
+        if ("digest".equals(mode)) {
+          AppConfigurationEntry configEntries[] =
+              javax.security.auth.login.Configuration.getConfiguration().getAppConfigurationEntry(loginModuleName);
+          if (configEntries.length == 1) {
+            String forceBindingLogin = (String) configEntries[0].getOptions().get("forceBindingLogin");
+            if (forceBindingLogin != null && Boolean.parseBoolean(forceBindingLogin.trim())) {
+              throw new RuntimeException(
+                  "Digest authentication cannot be used with LDAP 'forceBindingLoging' set to true");
+            }
+          }
+        }
+
+
         loginService = new JAASLoginService(loginModuleName);
 
         loginService.setIdentityService(new DefaultIdentityService() {
@@ -896,4 +916,17 @@ public abstract class WebServerTask extends AbstractTask {
     return ImmutableMap.of(SSOConstants.SERVICE_BASE_URL_ATTR, this.runtimeInfo.getBaseHttpUrl());
   }
 
+  @VisibleForTesting
+  HttpConfiguration configureForwardRequestCustomizer(HttpConfiguration httpConf) {
+    if (conf.get(HTTP_ENABLE_FORWARDED_REQUESTS_KEY, HTTP_ENABLE_FORWARDED_REQUESTS_DEFAULT)) {
+      httpConf.addCustomizer(new ForwardedRequestCustomizer());
+    }
+
+    return httpConf;
+  }
+
+  @VisibleForTesting
+  HttpConfiguration getHttpConf() {
+    return httpConf;
+  }
 }

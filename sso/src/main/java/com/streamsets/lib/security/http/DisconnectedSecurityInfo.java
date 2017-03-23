@@ -19,6 +19,7 @@
  */
 package com.streamsets.lib.security.http;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -35,15 +36,18 @@ public class DisconnectedSecurityInfo {
 
   static {
     OBJECT_MAPPER.enable(SerializationFeature.INDENT_OUTPUT);
+    OBJECT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
   }
 
   public static class Entry {
     private String userNameSha;
     private String passwordHash;
     private List<String> roles;
+    private List<String> groups;
 
     public Entry() {
       roles = new ArrayList<>();
+      groups = new ArrayList<>();
     }
 
     public String getUserNameSha() {
@@ -64,6 +68,10 @@ public class DisconnectedSecurityInfo {
 
     public List<String> getRoles() {
       return roles;
+    }
+
+    public List<String> getGroups() {
+      return groups;
     }
   }
 
@@ -88,11 +96,12 @@ public class DisconnectedSecurityInfo {
     return entries.get(DigestUtils.sha256Hex(userName));
   }
 
-  public void addEntry(String userName, String passwordHash, List<String> roles) {
+  public void addEntry(String userName, String passwordHash, List<String> roles, List<String> groups) {
     Entry entry = new Entry();
     entry.setUserNameSha(DigestUtils.sha256Hex(userName));
     entry.setPasswordHash(passwordHash);
     entry.getRoles().addAll(roles);
+    entry.getGroups().addAll(groups);
     entries.put(entry.getUserNameSha(), entry);
   }
 

@@ -31,6 +31,12 @@ import com.streamsets.datacollector.event.dto.WorkerInfo;
 import com.streamsets.datacollector.event.json.PipelineStatusEventJson;
 import com.streamsets.datacollector.event.json.PipelineStatusEventsJson;
 import com.streamsets.datacollector.event.json.WorkerInfoJson;
+import com.streamsets.lib.security.acl.dto.Acl;
+import com.streamsets.lib.security.acl.dto.Permission;
+import com.streamsets.lib.security.acl.dto.ResourceType;
+import com.streamsets.lib.security.acl.json.AclJson;
+import com.streamsets.lib.security.acl.json.ResourceTypeJson;
+import org.junit.Assert;
 import org.junit.Test;
 
 import com.streamsets.datacollector.config.dto.PipelineConfigAndRules;
@@ -59,8 +65,23 @@ public class TestDtoJsonMapper {
   @Test
   public void testPipelineSaveEventJson() throws Exception {
     PipelineConfigAndRules pipelineConfigAndRules = new PipelineConfigAndRules("config", "rules");
-    PipelineSaveEvent pipelineSaveEvent =
-     new PipelineSaveEvent("name1", "rev1", "user1", "desc", pipelineConfigAndRules);
+    long time = System.currentTimeMillis();
+    Acl acl = new Acl();
+    acl.setResourceId("resourceId");
+    acl.setLastModifiedBy("user1");
+    acl.setLastModifiedOn(time);
+    acl.setResourceType(ResourceType.PIPELINE);
+    Permission permission = new Permission();
+    permission.setSubjectId("user1");
+    acl.setPermissions(Arrays.asList(permission));
+
+    PipelineSaveEvent pipelineSaveEvent = new PipelineSaveEvent();
+    pipelineSaveEvent.setName("name1");
+    pipelineSaveEvent.setRev("rev1");
+    pipelineSaveEvent.setUser("user1");
+    pipelineSaveEvent.setDescription("desc");
+    pipelineSaveEvent.setPipelineConfigurationAndRules(pipelineConfigAndRules);
+    pipelineSaveEvent.setAcl(acl);
     PipelineSaveEventJson pseJson = MessagingDtoJsonMapper.INSTANCE.toPipelineSaveEventJson(pipelineSaveEvent);
     assertEquals("config", pseJson.getPipelineConfigurationAndRules().getPipelineConfig());
     assertEquals("rules", pseJson.getPipelineConfigurationAndRules().getPipelineRules());
@@ -68,14 +89,19 @@ public class TestDtoJsonMapper {
     assertEquals("rev1", pseJson.getRev());
     assertEquals("user1", pseJson.getUser());
     assertEquals("desc", pseJson.getDescription());
-
+    AclJson aclJson = pseJson.getAcl();
+    Assert.assertNotNull(aclJson);
+    Assert.assertEquals("resourceId", aclJson.getResourceId());
+    Assert.assertEquals("user1", aclJson.getLastModifiedBy());
+    Assert.assertEquals(time, aclJson.getLastModifiedOn());
+    Assert.assertNull(aclJson.getResourceOwner());
+    Assert.assertEquals(ResourceTypeJson.PIPELINE, aclJson.getResourceType());
     pipelineSaveEvent = MessagingDtoJsonMapper.INSTANCE.asPipelineSaveEventDto(pseJson);
     assertEquals("name1", pipelineSaveEvent.getName());
     assertEquals("rev1", pipelineSaveEvent.getRev());
     assertEquals("user1", pipelineSaveEvent.getUser());
     assertEquals("config", pipelineSaveEvent.getPipelineConfigurationAndRules().getPipelineConfig());
     assertEquals("rules", pipelineSaveEvent.getPipelineConfigurationAndRules().getPipelineRules());
-
   }
 
   @Test
@@ -83,9 +109,21 @@ public class TestDtoJsonMapper {
     WorkerInfo workerInfo = new WorkerInfo();
     workerInfo.setWorkerURL("workerURL");
     workerInfo.setWorkerId("slaveId");
-    PipelineStatusEvent pipelineStatusEvent =
-      new PipelineStatusEvent("name", "rev", true, PipelineStatus.RUNNING, "message", Arrays.asList(workerInfo), null,
-          null, true, "offset");
+    Acl acl = new Acl();
+    acl.setResourceId("resource1");
+    PipelineStatusEvent pipelineStatusEvent = new PipelineStatusEvent("name",
+        "title",
+        "rev",
+        true,
+        PipelineStatus.RUNNING,
+        "message",
+        Arrays.asList(workerInfo),
+        null,
+        null,
+        true,
+        "offset",
+        acl
+    );
     PipelineStatusEvents pipelineStatusEvents = new PipelineStatusEvents();
     pipelineStatusEvents.setPipelineStatusEventList(Arrays.asList(pipelineStatusEvent));
     PipelineStatusEventsJson pseJson = MessagingDtoJsonMapper.INSTANCE.toPipelineStatusEventsJson(pipelineStatusEvents);
@@ -93,6 +131,7 @@ public class TestDtoJsonMapper {
     assertEquals("name", pipelineStateInfoJson.getName());
     assertEquals("rev", pipelineStateInfoJson.getRev());
     assertEquals("offset", pipelineStateInfoJson.getOffset());
+    assertEquals(acl.getResourceId(), pipelineStateInfoJson.getAcl().getResourceId());
     assertTrue(pipelineStateInfoJson.isClusterMode());
     WorkerInfoJson workerInfoJson = pipelineStateInfoJson.getWorkerInfos().iterator().next();
     assertEquals("workerURL", workerInfoJson.getWorkerURL());

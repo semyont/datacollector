@@ -22,24 +22,20 @@ package com.streamsets.datacollector.store.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.streamsets.datacollector.config.DriftRuleDefinition;
-import com.streamsets.datacollector.config.StageConfiguration;
-import com.streamsets.datacollector.execution.PipelineState;
-import com.streamsets.datacollector.execution.StateEventListener;
-import com.streamsets.datacollector.execution.manager.PipelineStateImpl;
-import com.streamsets.datacollector.util.LogUtil;
-import com.streamsets.pipeline.api.ExecutionMode;
-import com.streamsets.pipeline.api.impl.PipelineUtils;
-import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.datacollector.config.DataRuleDefinition;
+import com.streamsets.datacollector.config.DriftRuleDefinition;
 import com.streamsets.datacollector.config.MetricsRuleDefinition;
 import com.streamsets.datacollector.config.PipelineConfiguration;
 import com.streamsets.datacollector.config.RuleDefinitions;
+import com.streamsets.datacollector.config.StageConfiguration;
 import com.streamsets.datacollector.creation.PipelineBeanCreator;
 import com.streamsets.datacollector.creation.PipelineConfigBean;
 import com.streamsets.datacollector.event.handler.remote.RemoteDataCollector;
+import com.streamsets.datacollector.execution.PipelineState;
 import com.streamsets.datacollector.execution.PipelineStateStore;
 import com.streamsets.datacollector.execution.PipelineStatus;
+import com.streamsets.datacollector.execution.StateEventListener;
+import com.streamsets.datacollector.execution.manager.PipelineStateImpl;
 import com.streamsets.datacollector.io.DataStore;
 import com.streamsets.datacollector.json.ObjectMapperFactory;
 import com.streamsets.datacollector.main.RuntimeInfo;
@@ -47,6 +43,7 @@ import com.streamsets.datacollector.restapi.bean.BeanHelper;
 import com.streamsets.datacollector.restapi.bean.PipelineConfigurationJson;
 import com.streamsets.datacollector.restapi.bean.PipelineInfoJson;
 import com.streamsets.datacollector.restapi.bean.RuleDefinitionsJson;
+import com.streamsets.datacollector.runner.production.OffsetFileUtil;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
 import com.streamsets.datacollector.store.PipelineInfo;
 import com.streamsets.datacollector.store.PipelineRevInfo;
@@ -55,14 +52,16 @@ import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.task.AbstractTask;
 import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.datacollector.util.LockCache;
+import com.streamsets.datacollector.util.LogUtil;
 import com.streamsets.datacollector.util.PipelineDirectoryUtil;
 import com.streamsets.datacollector.validation.Issue;
-
+import com.streamsets.pipeline.api.ExecutionMode;
+import com.streamsets.pipeline.api.impl.PipelineUtils;
+import com.streamsets.pipeline.api.impl.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -169,29 +168,61 @@ public class FilePipelineStoreTask extends AbstractTask implements PipelineStore
   }
 
   @Override
-  public PipelineConfiguration create(String user, String name, String description, boolean isRemote) throws PipelineStoreException {
+  public PipelineConfiguration create(
+      String user,
+      String name,
+      String label,
+      String description,
+      boolean isRemote
+  ) throws PipelineStoreException {
     synchronized (lockCache.getLock(name)) {
       if (hasPipeline(name)) {
         throw new PipelineStoreException(ContainerError.CONTAINER_0201, name);
       }
-
       try {
         Files.createDirectory(getPipelineDir(name));
       } catch (IOException e) {
-        throw new PipelineStoreException(ContainerError.CONTAINER_0202, name, Utils.format("'{}' mkdir failed", getPipelineDir(name)), e);
+        throw new PipelineStoreException(
+            ContainerError.CONTAINER_0202,
+            name,
+            Utils.format("'{}' mkdir failed", getPipelineDir(name)),
+            e
+        );
       }
 
       Date date = new Date();
       UUID uuid = UUID.randomUUID();
-      PipelineInfo info = new PipelineInfo(name, description, date, date, user, user, REV, uuid, false, null);
-      PipelineConfiguration pipeline =
-        new PipelineConfiguration(SCHEMA_VERSION, PipelineConfigBean.VERSION, uuid, description, stageLibrary
-          .getPipeline().getPipelineDefaultConfigs(), Collections.<String, Object>emptyMap(), Collections.<StageConfiguration>emptyList(), null, null);
+      PipelineInfo info = new PipelineInfo(
+          name,
+          label,
+          description,
+          date,
+          date,
+          user,
+          user,
+          REV,
+          uuid,
+          false,
+          null
+      );
+
+      PipelineConfiguration pipeline = new PipelineConfiguration(
+          SCHEMA_VERSION,
+          PipelineConfigBean.VERSION,
+          uuid,
+          label,
+          description,
+          stageLibrary.getPipeline().getPipelineDefaultConfigs(),
+          Collections.<String, Object>emptyMap(),
+          Collections.<StageConfiguration>emptyList(),
+          null,
+          null
+      );
 
       try (
           OutputStream infoFile = Files.newOutputStream(getInfoFile(name));
           OutputStream pipelineFile = Files.newOutputStream(getPipelineFile(name));
-        ){
+      ){
         json.writeValue(infoFile, BeanHelper.wrapPipelineInfo(info));
         json.writeValue(pipelineFile, BeanHelper.wrapPipelineConfiguration(pipeline));
       } catch (Exception ex) {
@@ -227,6 +258,7 @@ public class FilePipelineStoreTask extends AbstractTask implements PipelineStore
         if (pipelineStatus.isActive()) {
           throw new PipelineStoreException(ContainerError.CONTAINER_0208, pipelineStatus);
         }
+        Map<String, String> offset = OffsetFileUtil.getOffsets(runtimeInfo, name, REV);
         if (!cleanUp(name)) {
           throw new PipelineStoreException(ContainerError.CONTAINER_0203, name);
         }
@@ -245,7 +277,7 @@ public class FilePipelineStoreTask extends AbstractTask implements PipelineStore
         );
         try {
           if (stateEventListener != null) {
-            stateEventListener.onStateChange(currentState, latestState, "", null);
+            stateEventListener.onStateChange(currentState, latestState, "", null, offset);
           }
         } catch (Exception e) {
           LOG.warn("Cannot set delete event for pipeline");
@@ -324,6 +356,7 @@ public class FilePipelineStoreTask extends AbstractTask implements PipelineStore
       UUID uuid = UUID.randomUUID();
       PipelineInfo info = new PipelineInfo(
           getInfo(name),
+          pipeline.getTitle(),
           pipeline.getDescription(),
           new Date(),
           user,
@@ -522,9 +555,12 @@ public class FilePipelineStoreTask extends AbstractTask implements PipelineStore
 
   @Override
   public boolean isRemotePipeline(String name, String rev) throws PipelineStoreException {
-    Object isRemote = pipelineStateStore.getState(name, rev).getAttributes().get(RemoteDataCollector.IS_REMOTE_PIPELINE);
+    Object isRemote = pipelineStateStore
+        .getState(name, rev)
+        .getAttributes()
+        .get(RemoteDataCollector.IS_REMOTE_PIPELINE);
     // remote attribute will be null for pipelines with version earlier than 1.3
-    return (isRemote == null) ? false : (boolean) isRemote;
+    return isRemote != null && (boolean) isRemote;
   }
 
 }

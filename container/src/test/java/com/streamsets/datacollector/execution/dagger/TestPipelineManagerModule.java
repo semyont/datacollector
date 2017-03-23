@@ -24,7 +24,6 @@ import com.streamsets.datacollector.execution.Manager;
 import com.streamsets.datacollector.execution.PipelineStatus;
 import com.streamsets.datacollector.execution.Previewer;
 import com.streamsets.datacollector.execution.Runner;
-import com.streamsets.datacollector.execution.manager.PipelineManagerException;
 import com.streamsets.datacollector.execution.manager.slave.SlavePipelineManager;
 import com.streamsets.datacollector.execution.manager.standalone.StandaloneAndClusterPipelineManager;
 import com.streamsets.datacollector.execution.runner.common.AsyncRunner;
@@ -35,15 +34,11 @@ import com.streamsets.datacollector.main.PipelineTask;
 import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.main.RuntimeModule;
 import com.streamsets.datacollector.main.SlavePipelineTask;
-import com.streamsets.datacollector.store.PipelineStoreException;
 import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.store.impl.SlavePipelineStoreTask;
 import com.streamsets.datacollector.task.TaskWrapper;
 import com.streamsets.datacollector.util.PipelineException;
-
-
 import dagger.ObjectGraph;
-
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -89,29 +84,29 @@ public class TestPipelineManagerModule {
     Assert.assertTrue(pipelineManager instanceof StandaloneAndClusterPipelineManager);
 
     PipelineStoreTask pipelineStoreTask = pipelineTask.getPipelineStoreTask();
-    PipelineConfiguration pc = pipelineStoreTask.create("user", "p1", "description", false);
+    PipelineConfiguration pc = pipelineStoreTask.create("user", "p1", "p1", "description", false);
     //Create previewer
-    Previewer previewer = pipelineManager.createPreviewer("user", "p1", "1");
+    Previewer previewer = pipelineManager.createPreviewer("user", pc.getInfo().getName(), "1");
     assertEquals(previewer, pipelineManager.getPreviewer(previewer.getId()));
     ((StandaloneAndClusterPipelineManager)pipelineManager).outputRetrieved(previewer.getId());
     assertNull(pipelineManager.getPreviewer(previewer.getId()));
 
-    pipelineStoreTask.save("user", "p1", "0", "description", pc);
+    pipelineStoreTask.save("user", pc.getInfo().getName(), "0", "description", pc);
 
     //create Runner
-    Runner runner = pipelineManager.getRunner("user", "p1", "0");
+    Runner runner = pipelineManager.getRunner("user", pc.getInfo().getName(), "0");
     Assert.assertTrue(runner instanceof AsyncRunner);
 
     runner = ((AsyncRunner)runner).getRunner();
     Assert.assertTrue(runner instanceof StandaloneRunner);
 
     Assert.assertEquals(PipelineStatus.EDITED, runner.getState().getStatus());
-    Assert.assertEquals("p1", runner.getName());
+    Assert.assertEquals(pc.getInfo().getName(), runner.getName());
     Assert.assertEquals("0", runner.getRev());
   }
 
   @Test
-  public void testSlavePipelineManagerModule() throws PipelineStoreException, PipelineManagerException {
+  public void testSlavePipelineManagerModule() throws PipelineException {
     ObjectGraph objectGraph = ObjectGraph.create(MainSlavePipelineManagerModule.class);
     TaskWrapper taskWrapper = objectGraph.get(TaskWrapper.class);
     taskWrapper.init();
@@ -131,7 +126,7 @@ public class TestPipelineManagerModule {
     Assert.assertTrue(pipelineStoreTask instanceof SlavePipelineStoreTask);
 
     try {
-      pipelineStoreTask.create("user", "p1", "description", false);
+      pipelineStoreTask.create("user", "p1", "p1", "description", false);
       Assert.fail("Expected UnsupportedOperationException");
     } catch (UnsupportedOperationException e) {
 

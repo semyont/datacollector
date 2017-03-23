@@ -35,13 +35,14 @@ angular
           }
         },
         data: {
-          authorizedRoles: ['admin', 'creator', 'manager']
+          authorizedRoles: ['admin']
         }
       }
     );
   }])
-  .controller('JVMMetricsController', function ($scope, $rootScope, $timeout, api, configuration,
-                                                Analytics, visibilityBroadcaster, $modal) {
+  .controller('JVMMetricsController', function (
+    $scope, $rootScope, $timeout, api, configuration, Analytics, visibilityBroadcaster, $modal
+  ) {
     var jvmMetricsTimer,
       destroyed = false,
       dateFormat = function(d) {

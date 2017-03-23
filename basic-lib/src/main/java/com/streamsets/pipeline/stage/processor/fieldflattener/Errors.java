@@ -25,6 +25,9 @@ import com.streamsets.pipeline.api.GenerateResourceBundle;
 @GenerateResourceBundle
 public enum Errors implements ErrorCode {
   FIELD_FLATTENER_01("Field with path '{}' was not found in the record"),
+  FIELD_FLATTENER_02("Flatten target field '{}' does not exists"),
+  FIELD_FLATTENER_03("Flatten target field '{}' is not a MAP or LIST_MAP, it's {}"),
+  FIELD_FLATTENER_04("Record already contains field '{}'"),
   ;
 
   private final String msg;

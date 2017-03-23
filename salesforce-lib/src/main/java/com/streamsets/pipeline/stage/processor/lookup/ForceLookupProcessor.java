@@ -27,6 +27,7 @@ import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
 import com.sforce.ws.SessionRenewer;
+import com.streamsets.pipeline.api.Batch;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.StageException;
@@ -37,8 +38,8 @@ import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.el.ELVars;
 import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.pipeline.lib.el.RecordEL;
+import com.streamsets.pipeline.lib.salesforce.DataType;
 import com.streamsets.pipeline.lib.salesforce.Errors;
-import com.streamsets.pipeline.lib.salesforce.ForceFieldMapping;
 import com.streamsets.pipeline.lib.salesforce.ForceLookupConfigBean;
 import com.streamsets.pipeline.lib.salesforce.ForceSDCFieldMapping;
 import com.streamsets.pipeline.lib.salesforce.ForceUtils;
@@ -46,26 +47,32 @@ import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import com.streamsets.pipeline.stage.origin.salesforce.Groups;
 import com.streamsets.pipeline.stage.processor.kv.EvictionPolicyType;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.xml.namespace.QName;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
 
 public class ForceLookupProcessor extends SingleLaneRecordProcessor {
   private static final Logger LOG = LoggerFactory.getLogger(ForceLookupProcessor.class);
-  private final ForceLookupConfigBean conf;
+  final ForceLookupConfigBean conf;
 
-  private Map<String, String> columnsToFields = new HashMap<>();
+  Map<String, String> columnsToFields = new HashMap<>();
+  Map<String, String> columnsToDefaults = new HashMap<>();
+  Map<String, DataType> columnsToTypes = new HashMap<>();
 
   private LoadingCache<String, Map<String, Field>> cache;
 
-  private PartnerConnection partnerConnection;
+  PartnerConnection partnerConnection;
   private ErrorRecordHandler errorRecordHandler;
   private ELEval queryEval;
+  Map<String, Map<String, com.sforce.soap.partner.Field>> metadataMap;
 
   public ForceLookupProcessor(ForceLookupConfigBean conf) {
     this.conf = conf;
@@ -109,7 +116,16 @@ public class ForceLookupProcessor extends SingleLaneRecordProcessor {
 
     for (ForceSDCFieldMapping mapping : conf.fieldMappings) {
       LOG.debug("Mapping Salesforce field {} to SDC field {}", mapping.salesforceField, mapping.sdcField);
-      columnsToFields.put(mapping.salesforceField, mapping.sdcField);
+      columnsToFields.put(mapping.salesforceField.toLowerCase(), mapping.sdcField);
+      if (!StringUtils.isEmpty(mapping.defaultValue) && mapping.dataType == DataType.USE_SALESFORCE_TYPE) {
+        issues.add(getContext().createConfigIssue(Groups.FORCE.name(),
+            "fieldMappings",
+            Errors.FORCE_18,
+            mapping.salesforceField)
+        );
+      }
+      columnsToDefaults.put(mapping.salesforceField.toLowerCase(), mapping.defaultValue);
+      columnsToTypes.put(mapping.salesforceField.toLowerCase(), mapping.dataType);
     }
 
     if (issues.isEmpty()) {
@@ -120,8 +136,10 @@ public class ForceLookupProcessor extends SingleLaneRecordProcessor {
   }
 
   @Override
-  public void destroy() {
-    super.destroy();
+  public void process(Batch batch, SingleLaneBatchMaker batchMaker) throws StageException {
+    // New metadata map for each batch
+    metadataMap = new LinkedHashMap<>();
+    super.process(batch, batchMaker);
   }
 
   @Override
@@ -131,16 +149,16 @@ public class ForceLookupProcessor extends SingleLaneRecordProcessor {
     try {
       ELVars elVars = getContext().createELVars();
       RecordEL.setRecordInContext(elVars, record);
-      String preparedQuery = queryEval.eval(elVars, conf.soqlQuery, String.class);
-      Map<String, Field> values = cache.get(preparedQuery);
-      if (values.isEmpty()) {
+      String preparedQuery = prepareQuery(conf.soqlQuery, elVars);
+      Map<String, Field> fieldMap = cache.get(preparedQuery);
+      if (fieldMap.isEmpty()) {
         // No results
         LOG.error(Errors.FORCE_15.getMessage(), preparedQuery);
         errorRecordHandler.onError(new OnRecordErrorException(record, Errors.FORCE_15, preparedQuery));
       }
-      for (Map.Entry<String, Field> entry : values.entrySet()) {
+      for (Map.Entry<String, Field> entry : fieldMap.entrySet()) {
         String columnName = entry.getKey();
-        String fieldPath = columnsToFields.get(columnName);
+        String fieldPath = columnsToFields.get(columnName.toLowerCase());
         Field field = entry.getValue();
         if (fieldPath == null) {
           Field root = record.get();
@@ -176,13 +194,28 @@ public class ForceLookupProcessor extends SingleLaneRecordProcessor {
 
   }
 
+  private String prepareQuery(String soqlQuery, ELVars elVars) throws StageException {
+    String preparedQuery = queryEval.eval(elVars, soqlQuery, String.class);
+    String sobjectType = ForceUtils.getSobjectTypeFromQuery(preparedQuery);
+
+    if (metadataMap.get(sobjectType.toLowerCase()) == null) {
+      try {
+        ForceUtils.getAllReferences(partnerConnection, metadataMap, new String[]{sobjectType});
+      } catch (ConnectionException e) {
+        throw new StageException(Errors.FORCE_21, sobjectType, e);
+      }
+    }
+
+    preparedQuery = ForceUtils.expandWildcard(preparedQuery, sobjectType, metadataMap);
+
+    return preparedQuery;
+  }
+
   @SuppressWarnings("unchecked")
   private LoadingCache<String, Map<String, Field>> buildCache() {
     CacheBuilder cacheBuilder = CacheBuilder.newBuilder();
     if (!conf.cacheConfig.enabled) {
-      return cacheBuilder.maximumSize(0).build(new ForceLookupLoader(partnerConnection,
-          columnsToFields
-      ));
+      return cacheBuilder.maximumSize(0).build(new ForceLookupLoader(this));
     }
 
     if (conf.cacheConfig.maxSize == -1) {
@@ -200,8 +233,6 @@ public class ForceLookupProcessor extends SingleLaneRecordProcessor {
           conf.cacheConfig.evictionPolicyType
       ));
     }
-    return cacheBuilder.build(new ForceLookupLoader(partnerConnection,
-        columnsToFields
-    ));
+    return cacheBuilder.build(new ForceLookupLoader(this));
   }
 }

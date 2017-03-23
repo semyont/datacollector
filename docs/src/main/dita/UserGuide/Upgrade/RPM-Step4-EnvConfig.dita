@@ -28,7 +28,7 @@
             <step>
                 <cmd>Open the environment configuration file that you backed up in the previous
                     version.</cmd>
-                <info>For example, open the <codeph>$SDC_DIST/libexec/sdcd-env-2000.sh</codeph>
+                <info>For example, open the <codeph>$SDC_DIST/libexec/sdcd-env-2200.sh</codeph>
                     file.</info>
             </step>
             <step>
@@ -44,6 +44,6 @@
         </steps>
     </taskbody>
     <related-links>
-        <link href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr" type="topic"/>
+        <link href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr" type="topic"/>
     </related-links>
 </task>

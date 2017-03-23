@@ -14,7 +14,7 @@
 -->
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="concept_czm_55c_rw">
-    <title>Enabling SSL</title>
+    <title>Enabling SSL/TLS</title>
     <conbody>
         <p conref="../Reusable_Content/Reusable_Topics/Kafka-EnablingSSL.dita#concept_vcx_bnb_t5/P1"/>
         <p

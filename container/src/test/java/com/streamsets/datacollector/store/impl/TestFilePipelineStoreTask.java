@@ -39,6 +39,7 @@ import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.datacollector.util.LockCache;
 import com.streamsets.datacollector.util.LockCacheModule;
+import com.streamsets.datacollector.util.PipelineException;
 import dagger.ObjectGraph;
 import dagger.Provides;
 import org.junit.After;
@@ -58,9 +59,9 @@ import static org.junit.Assert.assertEquals;
 
 public class TestFilePipelineStoreTask {
 
-  private static final String DEFAULT_PIPELINE_NAME = "xyz";
-  private static final String DEFAULT_PIPELINE_DESCRIPTION = "Default Pipeline";
-  private static final String SYSTEM_USER = "system";
+  protected static final String DEFAULT_PIPELINE_NAME = "xyz";
+  protected static final String DEFAULT_PIPELINE_DESCRIPTION = "Default Pipeline";
+  protected static final String SYSTEM_USER = "system";
   protected PipelineStoreTask store;
 
   @dagger.Module(injects = {FilePipelineStoreTask.class, LockCache.class},
@@ -135,7 +136,7 @@ public class TestFilePipelineStoreTask {
     try {
       store.init();
       Assert.assertEquals(0, store.getPipelines().size());
-      store.create("foo", "a", "A", false);
+      store.create("foo", "a","label", "A", false);
       Assert.assertEquals(1, store.getPipelines().size());
       store.save("foo2", "a", "A", "", store.load("a", "0"));
       assertEquals("foo2", store.getPipelines().get(0).getLastModifier());
@@ -151,8 +152,8 @@ public class TestFilePipelineStoreTask {
   public void testCreateExistingPipeline() throws Exception {
     try {
       store.init();
-      store.create("foo", "a", "A", false);
-      store.create("foo", "a", "A", false);
+      store.create("foo", "a", "label", "A", false);
+      store.create("foo", "a", "label", "A", false);
     } finally {
       store.stop();
     }
@@ -269,7 +270,7 @@ public class TestFilePipelineStoreTask {
   }
 
   @Test
-  public void testStoreAndRetrieveRules() throws PipelineStoreException {
+  public void testStoreAndRetrieveRules() throws PipelineException {
     store.init();
     createDefaultPipeline(store);
     RuleDefinitions ruleDefinitions = store.retrieveRules(DEFAULT_PIPELINE_NAME,
@@ -304,7 +305,7 @@ public class TestFilePipelineStoreTask {
   }
 
   @Test
-  public void testStoreMultipleCopies() throws PipelineStoreException {
+  public void testStoreMultipleCopies() throws PipelineException {
     /*This test case mimicks a use case where 2 users connect to the same data collector instance
     * using different browsers and modify the same rule definition. The user who saves last runs into an exception.
     * The user is forced to reload, reapply changes and save*/
@@ -367,8 +368,8 @@ public class TestFilePipelineStoreTask {
     Assert.assertTrue(ruleDefinitions2 == actualRuleDefinitions);
   }
 
-  private void createDefaultPipeline(PipelineStoreTask store) throws PipelineStoreException {
-    store.create(SYSTEM_USER, DEFAULT_PIPELINE_NAME, DEFAULT_PIPELINE_DESCRIPTION, false);
+  private void createDefaultPipeline(PipelineStoreTask store) throws PipelineException {
+    store.create(SYSTEM_USER, DEFAULT_PIPELINE_NAME, "label", DEFAULT_PIPELINE_DESCRIPTION, false);
   }
 
   @Test

@@ -22,34 +22,34 @@ package com.streamsets.pipeline.stage.origin.jdbc.table.util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.el.ELEvalException;
-import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.pipeline.lib.jdbc.JdbcErrors;
 import com.streamsets.pipeline.stage.origin.jdbc.table.TableContext;
-import com.streamsets.pipeline.stage.origin.jdbc.table.TableContextUtil;
 import com.streamsets.pipeline.stage.origin.jdbc.table.TableJdbcELEvalContext;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.Types;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class OffsetQueryUtil {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final Logger LOG = LoggerFactory.getLogger(OffsetQueryUtil.class);
 
-  private static final String SPACE = " ";
   private static final Joiner COMMA_SPACE_JOINER = Joiner.on(", ");
 
   private static final Joiner OR_JOINER = Joiner.on(" or ");
@@ -57,25 +57,59 @@ public final class OffsetQueryUtil {
 
   private static final String TABLE_QUERY_SELECT = "select * from %s";
 
-  private static final String COLUMN_GREATER_THAN_WITHOUT_QUOTES = "%s > %s";
-  private static final String COLUMN_GREATER_THAN_WITH_QUOTES = "%s > '%s'";
-
-  private static final String COLUMN_EQUALS_VALUE_WITHOUT_QUOTES = "%s = %s";
-  private static final String COLUMN_EQUALS_VALUE_WITH_QUOTES = "%s = '%s'";
+  private static final String COLUMN_GREATER_THAN_VALUE = "%s > %s";
+  private static final String COLUMN_EQUALS_VALUE = "%s = %s";
 
   private static final String CONDITION_FORMAT = "( %s )";
 
   private static final String WHERE_CLAUSE = " WHERE %s ";
   private static final String ORDER_BY_CLAUSE = " ORDER by %s ";
+  private static final String PREPARED_STATEMENT_POSITIONAL_PARAMETER = "?";
 
-  private static final Joiner PARTITION_OFFSET_JOINER = Joiner.on("::");
-  private static final Splitter PARTITION_OFFSET_SPLITTER = Splitter.on("::");
-  private static final String PARTITION_NAME_VALUE = "%s=%s";
 
-  //TODO: https://issues.streamsets.com/browse/SDC-4570 -> Make this configurable
-  private static final String DATE_FORMAT_STRING = "yyyy-MM-dd";
-  private static final String TIME_FORMAT_STRING = "HH:mm:ss.SSS";
-  private static final String DATE_TIME_FORMAT_STRING = DATE_FORMAT_STRING + SPACE + TIME_FORMAT_STRING;
+  private static final Joiner OFFSET_COLUMN_JOINER = Joiner.on("::");
+  private static final Splitter OFFSET_COLUMN_SPLITTER = Splitter.on("::");
+  private static final String OFFSET_COLUMN_NAME_VALUE = "%s=%s";
+
+  public static final Set<Integer> UNSUPPORTED_OFFSET_SQL_TYPES = ImmutableSet.of(
+      Types.BLOB,
+      Types.BINARY,
+      Types.VARBINARY,
+      Types.LONGVARBINARY,
+      Types.ARRAY,
+      Types.DATALINK,
+      Types.DISTINCT,
+      Types.JAVA_OBJECT,
+      Types.NULL,
+      Types.OTHER,
+      Types.REF,
+      Types.SQLXML,
+      Types.STRUCT
+  );
+
+  public static final Map<Integer, Field.Type> SQL_TYPE_TO_FIELD_TYPE =
+      ImmutableMap.<Integer, Field.Type>builder()
+          .put(Types.BIT, Field.Type.BYTE)
+          .put(Types.BOOLEAN, Field.Type.BYTE)
+          .put(Types.CHAR, Field.Type.STRING)
+          .put(Types.VARCHAR, Field.Type.STRING)
+          .put(Types.NCHAR, Field.Type.STRING)
+          .put(Types.NVARCHAR, Field.Type.STRING)
+          .put(Types.LONGNVARCHAR, Field.Type.STRING)
+          .put(Types.LONGVARCHAR, Field.Type.STRING)
+          .put(Types.TIME, Field.Type.TIME)
+          .put(Types.DATE, Field.Type.DATE)
+          .put(Types.TIMESTAMP, Field.Type.DATETIME)
+          .put(Types.INTEGER, Field.Type.INTEGER)
+          .put(Types.SMALLINT, Field.Type.SHORT)
+          .put(Types.TINYINT, Field.Type.SHORT)
+          .put(Types.BIGINT, Field.Type.LONG)
+          .put(Types.FLOAT, Field.Type.FLOAT)
+          .put(Types.REAL, Field.Type.FLOAT)
+          .put(Types.DOUBLE, Field.Type.DOUBLE)
+          .put(Types.DECIMAL, Field.Type.DECIMAL)
+          .put(Types.NUMERIC, Field.Type.DECIMAL)
+          .build();
 
   private OffsetQueryUtil() {}
 
@@ -86,42 +120,75 @@ public final class OffsetQueryUtil {
    * @param lastOffset the last offset for this particular table
    * @return A query to execute for the current batch.
    */
-  public static String buildQuery(TableContext tableContext, String lastOffset,TableJdbcELEvalContext tableJdbcELEvalContext) throws ELEvalException {
+  public static Pair<String, List<Pair<Integer, String>>> buildAndReturnQueryAndParamValToSet(
+      TableContext tableContext,
+      String lastOffset,
+      TableJdbcELEvalContext tableJdbcELEvalContext
+  ) throws ELEvalException {
     StringBuilder queryBuilder = new StringBuilder();
+    List<Pair<Integer, String>> paramValueToSet = new ArrayList<>();
     queryBuilder.append(
         String.format(
             TABLE_QUERY_SELECT,
-            TableContextUtil.getQualifiedTableName(tableContext.getSchema(), tableContext.getTableName()))
+            tableContext.getQualifiedName()
+        )
     );
 
-    Map<String, String> offset = (tableContext.isPartitionOffsetOverride())?
+    Map<String, String> storedTableToOffset = getColumnsToOffsetMapFromOffsetFormat(lastOffset);
+
+    //Determines whether an initial offset is specified in the config and there is no stored offset.
+    boolean isOffsetOverriden = tableContext.isOffsetOverriden() && storedTableToOffset.isEmpty();
+
+    Map<String, String> offset = isOffsetOverriden?
         //Use the offset in the configuration
-        tableContext.getPartitionColumnToStartOffset() :
+        tableContext.getOffsetColumnToStartOffset() :
         // if offset is available
-        // get the stored offset (which is of the form partitionName=value) and strip off 'partitionColumns=' prefix
+        // get the stored offset (which is of the form partitionName=value) and strip off 'offsetColumns=' prefix
         // else null
-        getPartitionColumnsToOffsetMapFromOffsetFormat(lastOffset);
+        storedTableToOffset;
 
     List<String> finalAndConditions = new ArrayList<>();
     //Apply last offset conditions
     if (offset != null && !offset.isEmpty()) {
       List<String> finalOrConditions = new ArrayList<>();
       List<String> preconditions = new ArrayList<>();
+      List<Pair<Integer, String>> preconditionParamVals = new ArrayList<>();
       //For partition columns p1, p2 and p3 with offsets o1, o2 and o3 respectively, the query will look something like
       //select * from tableName where (p1 > o1) or (p1 = o1 and p2 > o2) or (p1 = o1 and p2 = o2 and p3 > o3) order by p1, p2, p3.
-      for (String partitionColumn : tableContext.getPartitionColumns()) {
-        int partitionSqlType = tableContext.getPartitionType(partitionColumn);
+      for (String partitionColumn : tableContext.getOffsetColumns()) {
+        int partitionSqlType = tableContext.getOffsetColumnType(partitionColumn);
         String partitionOffset = offset.get(partitionColumn);
-        String conditionForThisPartitionColumn = getConditionForPartitionColumn(partitionColumn, partitionOffset, partitionSqlType, true, preconditions);
+        String conditionForThisPartitionColumn =
+            getConditionForPartitionColumn(
+                partitionColumn,
+                true,
+                preconditions
+            );
+        //Add for preconditions (EX: composite keys)
+        paramValueToSet.addAll(new ArrayList<>(preconditionParamVals));
+        Pair<Integer, String> paramValForCurrentOffsetColumn = Pair.of(partitionSqlType, partitionOffset);
+        //Add for current partition column
+        paramValueToSet.add(paramValForCurrentOffsetColumn);
         finalOrConditions.add(String.format(CONDITION_FORMAT, conditionForThisPartitionColumn));
-        preconditions.add(getConditionForPartitionColumn(partitionColumn, partitionOffset, partitionSqlType, false, Collections.<String>emptyList()));
+        preconditions.add(
+            getConditionForPartitionColumn(
+                partitionColumn,
+                false,
+                Collections.<String>emptyList()
+            )
+        );
+        preconditionParamVals.add(paramValForCurrentOffsetColumn);
       }
       finalAndConditions.add(String.format(CONDITION_FORMAT, OR_JOINER.join(finalOrConditions)));
     }
 
     if (!StringUtils.isEmpty(tableContext.getExtraOffsetColumnConditions())) {
       //Apply extra offset column conditions configured which will be appended as AND on the query
-      String condition = tableJdbcELEvalContext.evaluateAsString("extraOffsetColumnConditions", tableContext.getExtraOffsetColumnConditions());
+      String condition =
+          tableJdbcELEvalContext.evaluateAsString(
+              "extraOffsetColumnConditions",
+              tableContext.getExtraOffsetColumnConditions()
+          );
       finalAndConditions.add(String.format(CONDITION_FORMAT, condition));
     }
 
@@ -129,8 +196,8 @@ public final class OffsetQueryUtil {
       queryBuilder.append(String.format(WHERE_CLAUSE, AND_JOINER.join(finalAndConditions)));
     }
 
-    queryBuilder.append(String.format(ORDER_BY_CLAUSE, COMMA_SPACE_JOINER.join(tableContext.getPartitionColumns())));
-    return queryBuilder.toString();
+    queryBuilder.append(String.format(ORDER_BY_CLAUSE, COMMA_SPACE_JOINER.join(tableContext.getOffsetColumns())));
+    return Pair.of(queryBuilder.toString(),paramValueToSet);
   }
 
 
@@ -138,24 +205,20 @@ public final class OffsetQueryUtil {
    * Builds parts of the query in the where clause for the the partitition column.
    *
    * @param partitionColumn Partition Column
-   * @param offset the value needed in the condition for the partition column
-   * @param partitionType SQL Type of the partition column
    * @param greaterThan Whether the conditiond needs to be greater than or equal.
    * @param preconditions Any other precondition in the specific condition that needs to be combined with partition column.
    *                      (For EX: if there are multiple order by we may need to say equals for columns
    *                      before this partition column and apply the current partition column conditions)
    * @return the constructed condition for the partition column
    */
-  private static String getConditionForPartitionColumn(String partitionColumn, String offset, int partitionType, boolean greaterThan, List<String> preconditions) {
-    String conditionTemplate;
-    //For Char, Varchar, date, time and timestamp embed the value in a quote
-    if (TableContextUtil.isSqlTypeOneOf(partitionType, Types.CHAR, Types.VARCHAR, Types.DATE, Types.TIME, Types.TIMESTAMP)) {
-      conditionTemplate = greaterThan? COLUMN_GREATER_THAN_WITH_QUOTES : COLUMN_EQUALS_VALUE_WITH_QUOTES;
-    }  else {
-      conditionTemplate = greaterThan? COLUMN_GREATER_THAN_WITHOUT_QUOTES : COLUMN_EQUALS_VALUE_WITHOUT_QUOTES;
-    }
+  private static String getConditionForPartitionColumn(
+      String partitionColumn,
+      boolean greaterThan,
+      List<String> preconditions
+  ) {
+    String conditionTemplate = greaterThan? COLUMN_GREATER_THAN_VALUE : COLUMN_EQUALS_VALUE;
     List<String> finalConditions = new ArrayList<>(preconditions);
-    finalConditions.add(String.format(conditionTemplate, partitionColumn, offset));
+    finalConditions.add(String.format(conditionTemplate, partitionColumn, PREPARED_STATEMENT_POSITIONAL_PARAMETER));
     return AND_JOINER.join(finalConditions);
   }
 
@@ -164,33 +227,19 @@ public final class OffsetQueryUtil {
    * @param lastOffset the last offset for the current table.
    * @return Map of columns to values
    */
-  private static Map<String, String> getPartitionColumnsToOffsetMapFromOffsetFormat(String lastOffset) {
-    Map<String, String> partitionColumnsToOffsetMap = new HashMap<>();
+  public static Map<String, String> getColumnsToOffsetMapFromOffsetFormat(String lastOffset) {
+    Map<String, String> offsetColumnsToOffsetMap = new HashMap<>();
     if (lastOffset != null) {
-      Iterator<String> partitionColumnsOffsetIterator = PARTITION_OFFSET_SPLITTER.split(lastOffset).iterator();
-      while (partitionColumnsOffsetIterator.hasNext()) {
-        String partitionColumnOffset = partitionColumnsOffsetIterator.next();
-        String[] partitionColumnOffsetSplit = partitionColumnOffset.split("=");
-        String partitionColumn = partitionColumnOffsetSplit[0];
-        String partitionOffset = partitionColumnOffsetSplit[1];
-        partitionColumnsToOffsetMap.put(partitionColumn, partitionOffset);
+      Iterator<String> offsetColumnsAndOffsetIterator = OFFSET_COLUMN_SPLITTER.split(lastOffset).iterator();
+      while (offsetColumnsAndOffsetIterator.hasNext()) {
+        String offsetColumnAndOffset = offsetColumnsAndOffsetIterator.next();
+        String[] offsetColumnOffsetSplit = offsetColumnAndOffset.split("=");
+        String offsetColumn = offsetColumnOffsetSplit[0];
+        String offset = offsetColumnOffsetSplit[1];
+        offsetColumnsToOffsetMap.put(offsetColumn, offset);
       }
     }
-    return partitionColumnsToOffsetMap;
-  }
-
-  //TODO https://issues.streamsets.com/browse/SDC-4570 ->  Expose this so user can choose the format.
-  private static String getStringRepOfFieldValueForOffset(Field field) {
-    switch (field.getType()) {
-      case TIME:
-        return new SimpleDateFormat(TIME_FORMAT_STRING).format(field.getValueAsTime());
-      case DATE:
-        return new SimpleDateFormat(DATE_FORMAT_STRING).format(field.getValueAsDate());
-      case DATETIME:
-        return new SimpleDateFormat(DATE_TIME_FORMAT_STRING).format(field.getValueAsDatetime());
-      default:
-        throw new IllegalArgumentException(Utils.format("Illegal Field Type :{} ", field.getType()));
-    }
+    return offsetColumnsToOffsetMap;
   }
 
   /**
@@ -199,16 +248,17 @@ public final class OffsetQueryUtil {
    * @param fields The current record fields
    * @return Offset in the form of (<column1>=<value1>::<column2>=<value2>::<column3>=<value3>)
    */
-  public static String getOffsetFormatForPartitionColumns(TableContext tableContext, Map<String, Field> fields) {
-    List<String> partitionColumnOffsetFormat = new ArrayList<>();
-    for (String partitionColumn : tableContext.getPartitionColumns()) {
-      Field field = fields.get(partitionColumn);
-      //For Date, Time, DateTime use a String representation.
-      Object value = (field.getType().isOneOf(Field.Type.DATETIME, Field.Type.DATE, Field.Type.TIME))?
-          getStringRepOfFieldValueForOffset(field) : field.getValue();
-      partitionColumnOffsetFormat.add(String.format(PARTITION_NAME_VALUE, partitionColumn, value));
+  public static String getOffsetFormatFromColumns(TableContext tableContext, Map<String, Field> fields) {
+    List<String> offsetColumnFormat = new ArrayList<>();
+    for (String offsetColumn : tableContext.getOffsetColumns()) {
+      Field field = fields.get(offsetColumn);
+      Object value = field.getType().isOneOf(Field.Type.DATETIME, Field.Type.DATE, Field.Type.TIME)?
+          //For DATE/TIME fields store the long in string format and convert back to date when using offset
+          //in query
+          String.valueOf(field.getValueAsDatetime().getTime()) : field.getValue();
+      offsetColumnFormat.add(String.format(OFFSET_COLUMN_NAME_VALUE, offsetColumn, value));
     }
-    return PARTITION_OFFSET_JOINER.join(partitionColumnOffsetFormat);
+    return OFFSET_COLUMN_JOINER.join(offsetColumnFormat);
   }
 
   /**
@@ -248,4 +298,26 @@ public final class OffsetQueryUtil {
     return offsetMap;
   }
 
+  /**
+   * Validates whether offset names match in the stored offset with respect to table configuration
+   * @param tableContext {@link TableContext} for table
+   * @param offset Stored offset from the previous stage run
+   * @throws StageException if columns mismatch
+   */
+  public static void validateStoredAndSpecifiedOffset(TableContext tableContext, String offset) throws StageException {
+    Set<String> expectedColumns = Sets.newHashSet(tableContext.getOffsetColumns());
+    Set<String> actualColumns = getColumnsToOffsetMapFromOffsetFormat(offset).keySet();
+
+    Set<String> expectedSetDifference = Sets.difference(expectedColumns, actualColumns);
+    Set<String> actualSetDifference = Sets.difference(actualColumns, expectedColumns);
+
+    if (expectedSetDifference.size() > 0 || actualSetDifference.size() >  0) {
+      throw new StageException(
+          JdbcErrors.JDBC_71,
+          tableContext.getQualifiedName(),
+          COMMA_SPACE_JOINER.join(actualColumns),
+          COMMA_SPACE_JOINER.join(expectedColumns)
+      );
+    }
+  }
 }

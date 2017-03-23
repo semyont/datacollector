@@ -21,6 +21,7 @@ package com.streamsets.pipeline.lib.jdbc;
 
 import com.streamsets.pipeline.api.ErrorCode;
 import com.streamsets.pipeline.api.GenerateResourceBundle;
+import com.streamsets.pipeline.stage.processor.jdbclookup.JdbcLookupLoader;
 
 @GenerateResourceBundle
 public enum JdbcErrors implements ErrorCode {
@@ -76,19 +77,31 @@ public enum JdbcErrors implements ErrorCode {
   JDBC_47("The current latest SCN {} is less than the initial SCN"),
   JDBC_48("The start date is in the future"),
   JDBC_49("Date is invalid. Please use format DD-MM-YYYY HH24:MM:SS"),
-  JDBC_50("Error while getting table schema. Please verify the connectivity to the DB and the privileges for the user"),
+  JDBC_50("Error while getting schema for table: '{}'. Please verify the connectivity to the DB and the privileges for the user"),
   JDBC_51("Invalid value: {}"),
   JDBC_52("Error starting LogMiner"),
+  JDBC_53("Since the default value of '{}' is not empty, its data type cannot be '" + DataType.USE_COLUMN_TYPE.getLabel() + "'."),
+  JDBC_54("Column: '{}' does not exist in table: '{}'. This is likely due to a DDL being performed on this table"),
+  JDBC_55("The default value of '{}' must be in the format '" + JdbcLookupLoader.DATE_FORMAT + "': {}"),
+  JDBC_56("The default value of '{}' must be in the format '" + JdbcLookupLoader.DATETIME_FORMAT + "': {}"),
 
   JDBC_60("Cannot Serialize Offset: {}"),
   JDBC_61("Cannot Deserialize Offset: {}"),
-  JDBC_62("Table {} does not have a primary and no partition configuration defined."),
+  JDBC_62("Table {} does not have a primary or no partition configuration defined."),
   JDBC_63("Table {} does not contain the specified partition column {}."),
-  JDBC_64("Invalid intial Offset configuration. Missed Columns {}, Non Existing Columns {} ."),
-  JDBC_65("Invalid value {} for Fetch Size Configuration should not be more than maxBatchSize"),
+  JDBC_64("Invalid intial Offset configuration. Missed Columns: {}, Non Existing Columns: {} ."),
   JDBC_66("No Tables matches the configuration in the origin."),
   JDBC_67("Internal Error : {}"),
-  JDBC_68("Tables Referring to each other in cyclic fashion.")
+  JDBC_68("Tables Referring to each other in cyclic fashion."),
+  JDBC_69("Unsupported Offset Column Types. {}"),
+  JDBC_70("Unsupported operation in record header: {}"),
+  JDBC_71("Invalid State. Mismatch in offset columns for table {}. Stored offset columns: {}, Specified Offset Columns: {}"),
+  JDBC_72("Invalid Start offset(s) for table '{}'. Invalid Offset Columns With Values '{}'"),
+  JDBC_73("Error Evaluating Expression {}. Reason : {}"),
+  JDBC_74("Max Pool Size '{}' should be at least one more than the Number Of Threads '{}'"),
+  JDBC_75("Jdbc Runner Failed. Reason {}"),
+  JDBC_76("Invalid value '0' for Batches From Result Set"),
+  JDBC_77("{} attempting to execute query '{}'. Giving up after {} errors as per stage configuration. First error: {}"),
   ;
 
   private final String msg;

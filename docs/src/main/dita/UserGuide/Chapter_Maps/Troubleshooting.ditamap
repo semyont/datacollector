@@ -34,7 +34,6 @@
    </topicmeta>
    <topicref href="../Troubleshooting/Origins-Directory.dita"/>
    <topicref href="../Troubleshooting/Origins-HadoopFS.dita"/>
-   <topicref href="../Troubleshooting/Origins-HTTPClient.dita"/>
    <topicref href="../Troubleshooting/Origins-JDBC.dita"/>
    <topicref href="../Troubleshooting/Origins-KafkaConsumer.dita"/>
    <topicref href="../Troubleshooting/Origins-OracleCDC.dita"/>
@@ -48,6 +47,11 @@
    <topicref href="../Troubleshooting/Destinations-HBase.dita"/>
    <topicref href="../Troubleshooting/Destinations-Kafka.dita"/>
    <topicref href="../Troubleshooting/Destinations-RPC.dita"/>
+  </topicref>
+  <topicref href="../Troubleshooting/JDBCConnections.dita">
+   <topicref href="../Troubleshooting/JDBCConnections-Driver.dita"/>
+   <topicref href="../Troubleshooting/JDBCConnections-Database.dita"/>
+   <topicref href="../Troubleshooting/JDBCConnectionMySQLDriver.dita"/>
   </topicref>
   <topicref href="../Troubleshooting/Performance.dita">
    <topicmeta>

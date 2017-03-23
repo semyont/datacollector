@@ -20,7 +20,6 @@
 package com.streamsets.datacollector.execution.runner.common;
 
 import com.codahale.metrics.MetricRegistry;
-import com.streamsets.datacollector.config.DeliveryGuarantee;
 import com.streamsets.datacollector.config.MemoryLimitConfiguration;
 import com.streamsets.datacollector.config.MemoryLimitExceeded;
 import com.streamsets.datacollector.config.PipelineConfiguration;
@@ -43,7 +42,9 @@ import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.datacollector.util.TestUtil;
 import com.streamsets.datacollector.validation.Issue;
 import com.streamsets.pipeline.api.Batch;
+import com.streamsets.pipeline.api.BatchContext;
 import com.streamsets.pipeline.api.BatchMaker;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.ErrorCode;
 import com.streamsets.pipeline.api.EventRecord;
 import com.streamsets.pipeline.api.Field;
@@ -54,8 +55,11 @@ import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.Target;
 import com.streamsets.pipeline.api.base.BaseExecutor;
 import com.streamsets.pipeline.api.base.BaseProcessor;
+import com.streamsets.pipeline.api.base.BasePushSource;
 import com.streamsets.pipeline.api.base.BaseSource;
 import com.streamsets.pipeline.api.base.BaseTarget;
+import com.streamsets.pipeline.api.impl.ErrorMessage;
+import com.streamsets.pipeline.api.impl.Utils;
 import org.apache.commons.io.FileUtils;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -68,6 +72,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -89,8 +94,9 @@ public class TestProductionPipeline {
   private enum PipelineType {
     DEFAULT,
     OFFSET_COMMITTERS,
-    EVENTS
-  };
+    EVENTS,
+    PUSH_SOURCE,
+  }
 
   @BeforeClass
   public static void beforeClass() throws Exception {
@@ -114,6 +120,12 @@ public class TestProductionPipeline {
     runtimeInfo.init();
     memoryLimit = new MemoryLimitConfiguration();
     MetricsConfigurator.registerJmxMetrics(runtimeInfoMetrics);
+
+    MockStages.setSourceCapture(null);
+    MockStages.setPushSourceCapture(null);
+    MockStages.setProcessorCapture(null);
+    MockStages.setExecutorCapture(null);
+    MockStages.setTargetCapture(null);
   }
 
   @Test
@@ -132,21 +144,7 @@ public class TestProductionPipeline {
     pipeline.registerStatusListener(new MyStateListener());
     pipeline.run();
 
-    //The source returns null offset the first time.
-    Assert.assertEquals(null, pipeline.getCommittedOffset());
-  }
-
-  @Test
-  public void testProductionRunnerOffsetAPIs() throws Exception {
-
-    ProductionPipeline pipeline = createProductionPipeline(DeliveryGuarantee.AT_LEAST_ONCE, false, PipelineType.DEFAULT);
-    pipeline.registerStatusListener(new MyStateListener());
-    pipeline.run();
-
-    //The source returns null offset the first time.
-    Assert.assertEquals("1", pipeline.getPipeline().getRunner().getSourceOffset());
-    Assert.assertEquals(null, pipeline.getPipeline().getRunner().getNewSourceOffset());
-
+    Assert.assertTrue(pipeline.getCommittedOffsets().isEmpty());
   }
 
   @Test
@@ -156,9 +154,7 @@ public class TestProductionPipeline {
     pipeline.registerStatusListener(new MyStateListener());
     pipeline.run();
 
-    //The source returns null offset the first time.
-    Assert.assertNull(pipeline.getCommittedOffset());
-
+    Assert.assertTrue(pipeline.getCommittedOffsets().isEmpty());
   }
 
   @Test
@@ -167,8 +163,7 @@ public class TestProductionPipeline {
     ProductionPipeline pipeline = createProductionPipeline(DeliveryGuarantee.AT_MOST_ONCE, true, PipelineType.DEFAULT);
     pipeline.registerStatusListener(new MyStateListener());
     pipeline.run();
-    //The source returns null offset the first time.
-    Assert.assertNull(pipeline.getCommittedOffset());
+    Assert.assertTrue(pipeline.getCommittedOffsets().isEmpty());
   }
 
   private static class SourceOffsetCommitterCapture extends BaseSource implements OffsetCommitter {
@@ -389,12 +384,12 @@ public class TestProductionPipeline {
   }
 
   private ProductionPipeline createProductionPipeline(DeliveryGuarantee deliveryGuarantee, boolean captureNextBatch, long rateLimit, PipelineType type) throws Exception {
-    SourceOffsetTracker tracker = new TestUtil.SourceOffsetTrackerImpl("1");
+    SourceOffsetTracker tracker = new TestUtil.SourceOffsetTrackerImpl(Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "1"));
     SnapshotStore snapshotStore = Mockito.mock(FileSnapshotStore.class);
 
     Mockito.when(snapshotStore.getInfo(PIPELINE_NAME, REVISION, SNAPSHOT_NAME)).thenReturn(
         new SnapshotInfoImpl("user", "SNAPSHOT_NAME", "SNAPSHOT LABEL", PIPELINE_NAME, REVISION,
-            System.currentTimeMillis(), false));
+            System.currentTimeMillis(), false, 0));
     BlockingQueue<Object> productionObserveRequests = new ArrayBlockingQueue<>(100, true /* FIFO */);
     Configuration config = new Configuration();
     config.set("monitor.memory", true);
@@ -418,11 +413,14 @@ public class TestProductionPipeline {
       case EVENTS:
         pConf =  MockStages.createPipelineConfigurationSourceTargetWithEventsProcessed();
         break;
+      case PUSH_SOURCE:
+        pConf =  MockStages.createPipelineConfigurationPushSourceTarget();
+        break;
     }
 
     ProductionPipeline pipeline =
         new ProductionPipelineBuilder(PIPELINE_NAME, REVISION, config, runtimeInfo, MockStages.createStageLibrary(), runner, null)
-            .build(pConf);
+            .build(MockStages.userContext(), pConf);
     runner.setOffsetTracker(tracker);
 
     if (captureNextBatch) {
@@ -684,6 +682,102 @@ public class TestProductionPipeline {
     pipeline.run();
 
     Assert.assertEquals(1, errorStage.records.size());
+  }
+
+  /**
+   * Simple PushSource implementation for testing that will end after producing one record.
+   */
+  private static class MPushSource extends BasePushSource {
+
+    boolean shouldProduceError;
+
+    @Override
+    public int getNumberOfThreads() {
+      return 1;
+    }
+
+    @Override
+    public void produce(Map<String, String> lastOffsets, int maxBatchSize) throws StageException {
+      // Conditional error generation
+      if(shouldProduceError) {
+        getContext().reportError("Cake is a lie");
+      }
+
+      // Produce one batch
+      BatchContext batchContext = getContext().startBatch();
+      Record record = getContext().createRecord("abcd");
+      record.set(Field.create("text"));
+      batchContext.getBatchMaker().addRecord(record);
+      getContext().processBatch(batchContext);
+    }
+  }
+
+  private static class CaptureTarget extends BaseTarget {
+    List<Record> records = new ArrayList<>();
+
+    @Override
+    public void write(Batch batch) throws StageException {
+      Iterator<Record> it = batch.getRecords();
+      while(it.hasNext()) {
+        records.add(it.next());
+      }
+    }
+  }
+
+  /**
+   * Run simple PushSource origin to make sure that we can execute the origin properly.
+   */
+  @Test
+  public void testPushSource() throws Exception {
+    CaptureTarget target = new CaptureTarget();
+
+    MockStages.setPushSourceCapture(new MPushSource());
+    MockStages.setTargetCapture(target);
+
+    ProductionPipeline pipeline = createProductionPipeline(DeliveryGuarantee.AT_MOST_ONCE, true, PipelineType.PUSH_SOURCE);
+    pipeline.registerStatusListener(new MyStateListener());
+    pipeline.run();
+
+    Assert.assertEquals(1, target.records.size());
+  }
+
+  /**
+   * Producing error messages should work even outside of batch context
+   */
+  @Test
+  public void testPushSourceReportError() throws Exception {
+    MPushSource source = new MPushSource();
+    source.shouldProduceError = true;
+
+    MockStages.setPushSourceCapture(source);
+
+    ProductionPipeline pipeline = createProductionPipeline(DeliveryGuarantee.AT_MOST_ONCE, true, PipelineType.PUSH_SOURCE);
+    pipeline.registerStatusListener(new MyStateListener());
+    pipeline.run();
+
+    List<ErrorMessage> errors = pipeline.getErrorMessages("s", 10);
+    Assert.assertNotNull(errors);
+    Assert.assertEquals(1, errors.size());
+    Assert.assertTrue(Utils.format("Unexpected message: {}", errors.get(0)), errors.get(0).toString().contains("Cake is a lie"));
+  }
+
+  /**
+   * Validate that exception while pipeline is executing get's properly propagated up
+   */
+  @Test(expected = RuntimeException.class)
+  public void testPushSourcePropagatesExceptionFromExecution() throws Exception {
+    MPushSource source = new MPushSource();
+    MockStages.setPushSourceCapture(source);
+    MockStages.setTargetCapture(new BaseTarget() {
+      @Override
+      public void write(Batch batch) throws StageException {
+        throw new RuntimeException("End of the world!");
+      }
+    });
+
+    ProductionPipeline pipeline = createProductionPipeline(DeliveryGuarantee.AT_MOST_ONCE, true, PipelineType.PUSH_SOURCE);
+    pipeline.registerStatusListener(new MyStateListener());
+    pipeline.run();
   }
 
 }

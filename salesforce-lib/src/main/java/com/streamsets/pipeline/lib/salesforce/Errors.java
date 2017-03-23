@@ -35,7 +35,7 @@ public enum Errors implements ErrorCode {
   FORCE_07("SOQL query must include '{}' in WHERE clause and in ORDER BY clause before other columns."),
   FORCE_08("Error querying SOAP API: {}"),
   FORCE_09("Streaming API Error: {}"),
-  FORCE_10("Interrupted writing to entity queue: {}"),
+  FORCE_10("Thread interrupted: {}"),
   FORCE_11("Writing record id '{}' failed due to: {}"),
   FORCE_12("Invalid SObject name template expression '{}': {}"),
   FORCE_13("Error writing to Salesforce: {}"),
@@ -43,7 +43,11 @@ public enum Errors implements ErrorCode {
   FORCE_15("No results for query: '{}'"),
   FORCE_16("Failed to evaluate expression: '{}'"),
   FORCE_17("Exception executing query: '{}' - '{}'"),
-  FORCE_18("No mapping for Salesforce field '{}'"),
+  FORCE_18("Since the default value of '{}' is not empty, its data type cannot be '" + DataType.USE_SALESFORCE_TYPE.getLabel() + "'."),
+  FORCE_19("Error getting user info: {}"),
+  FORCE_20("Failed to parse Salesforce field '{}' to SDC field with value {}."),
+  FORCE_21("Can't get metadata for object: {}"),
+  FORCE_22("Can't find offset column {} in the returned data. Ensure it is present in the query."),
   ;
   private final String msg;
 

@@ -11,21 +11,13 @@
     <ng-include src="'app/home/alerts/error/errorAlert.tpl.html'"></ng-include>
 
     <div class="form-group" show-errors="{ trigger: 'keypress' }">
-      <label class="control-label" translate="global.form.name">Name</label>
-      <i class="fa fa-info-circle help-icon"
-         popover-placement="right"
-         popover-append-to-body="false"
-         popover="{{'home.library.nameValidation' | translate}}"
-         popover-trigger="mouseenter"></i>
+      <label class="control-label" translate="global.form.title">Title</label>
       <input type="text"
              autofocus
              name="name"
              autocomplete="off"
              class="form-control"
-             ng-pattern="$root.common.namePattern"
              ng-required
-             pattern="{{$root.common.namePattern}}"
-             title="{{'home.library.nameValidation' | translate}}"
              placeholder="{{'home.library.namePlaceholder' | translate}}"
              ng-model="newConfig.name"
              focus-me="true">

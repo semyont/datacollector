@@ -1,9 +1,8 @@
 <section class="tile-list" ng-if="header.pipelineGridView">
 
-  <section class="pipeline-container new-pipeline" ng-if="filteredPipelines.length === 0">
+  <section class="pipeline-container new-pipeline" ng-if="filteredPipelines.length === 0 && !fetching">
     <div class="centering-container">
-      <span ng-if="!fetching" translate="home.noPipelines"></span>
-      <div show-loading="fetching"></div>
+      <span translate="home.noPipelines"></span>
     </div>
   </section>
 
@@ -11,7 +10,7 @@
            ng-repeat="pipeline in filteredPipelines"
            ng-click="openPipeline(pipeline)">
     <header>
-      <h2>{{pipeline.name | limitTo: 45}}</h2>
+      <h2>{{pipeline.title | limitTo: 45}}</h2>
     </header>
 
     <section class="project-additional-info"
@@ -83,6 +82,13 @@
             </li>
 
             <li role="presentation" ng-if="isAuthorized([userRoles.admin, userRoles.creator]) && !common.isSlaveNode">
+              <a href="#" dropdown-toggle ng-click="sharePipelineConfig(pipeline, $event)">
+                <i class="fa fa-share-alt"></i>
+                <span>{{'global.form.share' | translate}}</span>
+              </a>
+            </li>
+
+            <li role="presentation" ng-if="isAuthorized([userRoles.admin, userRoles.creator]) && !common.isSlaveNode">
               <a href="#" dropdown-toggle ng-click="importPipelineConfig(pipeline, $event)">
                 <i class="glyphicon glyphicon-import"></i>
                 <span>{{'global.form.import' | translate}}</span>
@@ -133,7 +139,7 @@
     </footer>
   </section>
 
-  <section class="pipeline-container new-pipeline" ng-if="showLoadMore">
+  <section class="pipeline-container new-pipeline" ng-if="showLoadMore || fetching">
     <div class="centering-container">
       <a class="btn btn-link"
          ng-if="!fetching"

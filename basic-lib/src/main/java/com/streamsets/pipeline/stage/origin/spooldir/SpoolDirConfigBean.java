@@ -25,6 +25,7 @@ import com.streamsets.pipeline.api.ValueChooserModel;
 import com.streamsets.pipeline.config.DataFormat;
 import com.streamsets.pipeline.config.PostProcessingOptions;
 import com.streamsets.pipeline.config.PostProcessingOptionsChooserValues;
+import com.streamsets.pipeline.lib.dirspooler.PathMatcherMode;
 import com.streamsets.pipeline.stage.origin.lib.DataParserFormatConfig;
 
 public class SpoolDirConfigBean {
@@ -55,10 +56,21 @@ public class SpoolDirConfigBean {
 
   @ConfigDef(
       required = true,
+      type = ConfigDef.Type.MODEL,
+      label = "File Name Pattern Mode",
+      description = "Select whether the File Name Pattern specified uses glob pattern syntax or regex syntax.",
+      defaultValue = "GLOB",
+      displayPosition = 15,
+      group = "FILES"
+  )
+  @ValueChooserModel(PathMatcherModeChooserValues.class)
+  public PathMatcherMode pathMatcherMode;
+
+  @ConfigDef(
+      required = true,
       type = ConfigDef.Type.STRING,
       label = "File Name Pattern",
-      description = "A glob or regular expression that defines the pattern of the file names in the directory. " +
-          "Files are processed in lexicographically increasing order.",
+      description = "A glob or regular expression that defines the pattern of the file names in the directory.",
       displayPosition = 20,
       group = "FILES"
   )
@@ -150,7 +162,7 @@ public class SpoolDirConfigBean {
       displayPosition = 60,
       group = "FILES",
       dependsOn = "dataFormat",
-      triggeredByValue = { "TEXT", "JSON", "XML", "DELIMITED", "LOG"},
+      triggeredByValue = { "TEXT", "JSON", "XML", "DELIMITED", "LOG", "WHOLE_FILE"},
       min = 1,
       max = Integer.MAX_VALUE
   )

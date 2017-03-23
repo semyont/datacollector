@@ -49,7 +49,6 @@ ng\:form {
 
 body {
   min-width: 1000px;
-  overflow-x: scroll;
   overflow-y: hidden;
 
   .navbar-fixed-top {
@@ -419,6 +418,10 @@ body {
     .cm-string-2 {
       color: inherit;
     }
+
+    .CodeMirror-scroll {
+      margin-bottom: -36px;
+    }
   }
 
   .CodeMirror-hints {
@@ -511,9 +514,11 @@ body {
   }
 }
 
+@import '../common/administration/createDPMUsers/createDPMUsers.less';
 @import '../common/administration/sdcConfiguration/sdcConfiguration.less';
 @import '../common/administration/jvmMetrics/jvmMetrics.less';
 @import '../common/administration/logs/logs.less';
+@import '../common/administration/update_permissions/updatePermissions.less';
 @import '../common/directives/codemirror/codemirrorEL.less';
 @import '../common/directives/recordTree/recordTree.less';
 @import '../common/directives/loading/loading.less';

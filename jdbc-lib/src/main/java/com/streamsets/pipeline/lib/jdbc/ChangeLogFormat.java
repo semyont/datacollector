@@ -24,6 +24,9 @@ import com.streamsets.pipeline.api.Label;
 public enum ChangeLogFormat implements Label {
   NONE("None"),
   MSSQL("Microsoft SQL Server"),
+  OracleCDC("Oracle CDC Client"),
+  MySQLBinLog("MySQL Binary Log"),
+  MongoDBOpLog("MongoDB Oplog"),
   ;
 
   private final String label;

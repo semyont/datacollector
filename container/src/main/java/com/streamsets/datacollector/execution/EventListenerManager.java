@@ -26,6 +26,7 @@ import com.streamsets.datacollector.alerts.AlertEventListener;
 import com.streamsets.datacollector.execution.alerts.AlertInfo;
 import com.streamsets.datacollector.json.ObjectMapperFactory;
 import com.streamsets.datacollector.metrics.MetricsEventListener;
+import com.streamsets.datacollector.restapi.bean.BeanHelper;
 import com.streamsets.dc.execution.manager.standalone.ThreadUsage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,7 +122,9 @@ public class EventListenerManager {
     }
   }
 
-  public void broadcastStateChange(PipelineState fromState, PipelineState toState, ThreadUsage threadUsage) {
+  public void broadcastStateChange(
+      PipelineState fromState, PipelineState toState, ThreadUsage threadUsage, Map<String, String> offset
+  ) {
     if(stateEventListenerList.size() > 0) {
       List<StateEventListener> stateEventListenerListCopy;
       synchronized (stateEventListenerList) {
@@ -130,11 +133,11 @@ public class EventListenerManager {
 
       try {
         ObjectMapper objectMapper = ObjectMapperFactory.get();
-        String toStateJson = objectMapper.writer().writeValueAsString(toState);
+        String toStateJson = objectMapper.writer().writeValueAsString(BeanHelper.wrapPipelineState(toState, true));
 
         for(StateEventListener stateEventListener : stateEventListenerListCopy) {
           try {
-            stateEventListener.onStateChange(fromState, toState, toStateJson, threadUsage);
+            stateEventListener.onStateChange(fromState, toState, toStateJson, threadUsage, offset);
           } catch(Exception ex) {
             LOG.warn("Error while broadcasting Pipeline State, {}", ex.toString(), ex);
           }

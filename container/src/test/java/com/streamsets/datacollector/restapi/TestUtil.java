@@ -26,6 +26,8 @@ import com.streamsets.datacollector.el.ElConstantDefinition;
 import com.streamsets.datacollector.el.ElFunctionDefinition;
 import com.streamsets.datacollector.main.BuildInfo;
 import com.streamsets.datacollector.main.RuntimeInfo;
+import com.streamsets.datacollector.main.UserGroupManager;
+import com.streamsets.datacollector.restapi.bean.UserJson;
 import com.streamsets.datacollector.runner.StageDefinitionBuilder;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
 import com.streamsets.pipeline.api.Batch;
@@ -180,7 +182,6 @@ public class TestUtil {
     @Override
     public void dispose(URI uri) {
     }
-
   }
 
   public static class PrincipalTestInjector implements Factory<Principal> {
@@ -190,7 +191,7 @@ public class TestUtil {
       return new Principal() {
         @Override
         public String getName() {
-          return "nobody";
+          return "user1";
         }
       };
     }
@@ -198,7 +199,6 @@ public class TestUtil {
     @Override
     public void dispose(Principal principal) {
     }
-
   }
 
   public static class RuntimeInfoTestInjector implements Factory<RuntimeInfo> {
@@ -206,13 +206,13 @@ public class TestUtil {
     @Override
     public RuntimeInfo provide() {
       RuntimeInfo runtimeInfo = Mockito.mock(RuntimeInfo.class);
+      Mockito.when(runtimeInfo.isAclEnabled()).thenReturn(true);
       return runtimeInfo;
     }
 
     @Override
     public void dispose(RuntimeInfo runtimeInfo) {
     }
-
   }
 
   public static class BuildInfoTestInjector implements Factory<BuildInfo> {
@@ -227,7 +227,6 @@ public class TestUtil {
     @Override
     public void dispose(BuildInfo buildInfo) {
     }
-
   }
 
   public static class RuntimeInfoTestInjectorForSlaveMode implements Factory<RuntimeInfo> {
@@ -241,7 +240,24 @@ public class TestUtil {
     @Override
     public void dispose(RuntimeInfo runtimeInfo) {
     }
+  }
 
+  public static class UserGroupManagerTestInjector implements Factory<UserGroupManager> {
+    @Singleton
+    @Override
+    public UserGroupManager provide() {
+      UserGroupManager userGroupManager = Mockito.mock(UserGroupManager.class);
+      UserJson userJson = new UserJson();
+      userJson.setName("user1");
+      userJson.setGroups(Collections.<String>emptyList());
+      Mockito.when(userGroupManager.getUser((Principal) Mockito.anyObject()))
+          .thenReturn(userJson);
+      return userGroupManager;
+    }
+
+    @Override
+    public void dispose(UserGroupManager userGroupManager) {
+    }
   }
 
 }

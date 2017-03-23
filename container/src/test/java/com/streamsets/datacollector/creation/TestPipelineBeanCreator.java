@@ -319,7 +319,7 @@ public class TestPipelineBeanCreator {
     }
 
     @Override
-    public void produce(int maxBatchSize) throws StageException {
+    public void produce(Map<String, String> offsets, int maxBatchSize) throws StageException {
 
     }
   }
@@ -572,6 +572,7 @@ public class TestPipelineBeanCreator {
         1,
         PipelineConfigBean.VERSION,
         UUID.randomUUID(),
+        "label",
         "D",
         pipelineConfigs,
         Collections.EMPTY_MAP,
@@ -595,7 +596,7 @@ public class TestPipelineBeanCreator {
 
     // Target
     Assert.assertEquals(1, bean.getPipelineStageBeans().size());
-    PipelineStageBeans stages = bean.getPipelineStageBeans().get(0);
+    PipelineStageBeans stages = bean.getPipelineStageBeans();
     Assert.assertEquals(1, stages.getStages().size());
     MyTarget target = (MyTarget)stages.getStages().get(0).getStage();
     Assert.assertEquals(ImmutableList.of("T"), target.list);
@@ -649,6 +650,7 @@ public class TestPipelineBeanCreator {
         1,
         PipelineConfigBean.VERSION,
         UUID.randomUUID(),
+        "label",
         "D",
         pipelineConfigs,
         Collections.EMPTY_MAP,
@@ -671,13 +673,11 @@ public class TestPipelineBeanCreator {
     Assert.assertNotNull(source);
 
     // There should be two parallel pipelines (~targets)
-    Assert.assertEquals(2, bean.getPipelineStageBeans().size());
-    for(int i = 0; i < 2; i++) {
-      PipelineStageBeans stages = bean.getPipelineStageBeans().get(i);
-      Assert.assertEquals(1, stages.getStages().size());
-      MyTarget target = (MyTarget)stages.getStages().get(0).getStage();
-      Assert.assertEquals(ImmutableList.of("T"), target.list);
-    }
+    Assert.assertEquals(1, bean.getPipelineStageBeans().size());
+    PipelineStageBeans stages = bean.getPipelineStageBeans();
+    Assert.assertEquals(1, stages.getStages().size());
+    MyTarget target = (MyTarget)stages.getStages().get(0).getStage();
+    Assert.assertEquals(ImmutableList.of("T"), target.list);
   }
 
   @Test
@@ -742,6 +742,7 @@ public class TestPipelineBeanCreator {
         1,
         PipelineConfigBean.VERSION,
         UUID.randomUUID(),
+        "label",
         "D",
         pipelineConfigs,
         Collections.EMPTY_MAP,

@@ -33,7 +33,7 @@ angular
       },
       showLoading: true,
       uploadFile: {},
-      createNewPipeline: (pipelineInfo ? false : true),
+      createNewPipeline: (!pipelineInfo),
       pipelineInfo: pipelineInfo,
       newConfig : {
         name: '',
@@ -56,9 +56,9 @@ angular
 
         reader.onload = function (loadEvent) {
           try {
-            var parsedObj = JSON.parse(loadEvent.target.result),
-              jsonConfigObj,
-              jsonRulesObj;
+            var parsedObj = JSON.parse(loadEvent.target.result);
+            var jsonConfigObj;
+            var jsonRulesObj;
 
             if (parsedObj.pipelineConfig) {
               //It is an config and rules envelope
@@ -73,9 +73,11 @@ angular
             }
 
             if (jsonConfigObj.uuid) {
-              if (pipelineInfo && !$scope.createNewPipeline) { //If pipeline config already exists
+              if (pipelineInfo && !$scope.createNewPipeline) { // If pipeline config already exists
                 jsonConfigObj.uuid = pipelineInfo.uuid;
                 jsonConfigObj.metadata = pipelineInfo.metadata;
+                jsonConfigObj.title = pipelineInfo.title;
+
                 api.pipelineAgent.savePipelineConfig(pipelineInfo.name, jsonConfigObj).
                   then(function(res) {
                     if (jsonRulesObj && jsonRulesObj.uuid) {
@@ -97,25 +99,27 @@ angular
                     } else {
                       $modalInstance.close();
                     }
-                  },function(data) {
-                    $scope.common.errors = [data];
+                  },function(res) {
+                    $scope.common.errors = [res.data];
                   });
               } else { // If no pipeline exist or create pipeline option selected
                 var newPipelineObject,
+                  label,
                   name,
                   description;
 
                 if ($scope.createNewPipeline) {
-                  name = $scope.newConfig.name;
+                  label = $scope.newConfig.name;
                   description = $scope.newConfig.description;
                 } else {
-                  name = jsonConfigObj.info.name;
+                  label = jsonConfigObj.info.label || jsonConfigObj.info.name;
                   description = jsonConfigObj.info.description;
                 }
 
-                api.pipelineAgent.createNewPipelineConfig(name, description)
+                api.pipelineAgent.createNewPipelineConfig(label, description)
                   .then(function(res) {
                     newPipelineObject = res.data;
+                    name = newPipelineObject.info.name;
                     newPipelineObject.configuration = jsonConfigObj.configuration;
                     newPipelineObject.errorStage = jsonConfigObj.errorStage;
                     newPipelineObject.statsAggregatorStage = jsonConfigObj.statsAggregatorStage;

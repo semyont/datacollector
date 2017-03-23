@@ -27,6 +27,11 @@
                     <dd/>
                 </dlentry>
                 <dlentry
+                    conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/DESTDataFormat-Binary">
+                    <dt/>
+                    <dd/>
+                </dlentry>
+                <dlentry
                     conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/DEST-DataF-Delim">
                     <dt/>
                     <dd/>
@@ -37,7 +42,17 @@
                     <dd/>
                 </dlentry>
                 <dlentry
+                    conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/DestDF-ProtoFile">
+                    <dt/>
+                    <dd/>
+                </dlentry>
+                <dlentry
                     conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/DESTDataF-Text">
+                    <dt/>
+                    <dd/>
+                </dlentry>
+                <dlentry
+                    conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/D-DF-WholeF-noEvent">
                     <dt/>
                     <dd/>
                 </dlentry>

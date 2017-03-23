@@ -214,7 +214,7 @@ public class DataGeneratorFormatConfig implements DataFormatConfig{
   @ConfigDef(
     required = true,
     type = ConfigDef.Type.MODEL,
-    defaultValue = "/",
+    defaultValue = "/text",
     label = "Text Field Path",
     description = "String field that will be written to the destination",
     displayPosition = 380,
@@ -400,8 +400,7 @@ public class DataGeneratorFormatConfig implements DataFormatConfig{
       displayPosition = 470,
       group = "DATA_FORMAT",
       dependencies = {
-          @Dependency(configName = "dataFormat^", triggeredByValues = "AVRO"),
-          @Dependency(configName = "avroSchemaSource", triggeredByValues = {"INLINE", "HEADER"})
+          @Dependency(configName = "dataFormat^", triggeredByValues = "AVRO")
       }
   )
   public boolean includeSchema = true;
@@ -470,7 +469,7 @@ public class DataGeneratorFormatConfig implements DataFormatConfig{
       type = ConfigDef.Type.STRING,
       elDefs = {RecordEL.class, StringEL.class, MathEL.class},
       evaluation = ConfigDef.Evaluation.EXPLICIT,
-      defaultValue = "${record:value('/fileInfo/filename')}",
+      defaultValue = "",
       description = "File Name Expression",
       label = "File Name Expression",
       displayPosition = 450,
@@ -702,7 +701,7 @@ public class DataGeneratorFormatConfig implements DataFormatConfig{
     builder.setConfig(SCHEMA_SOURCE_KEY, avroSchemaSource);
     builder.setConfig(SCHEMA_REPO_URLS_KEY, schemaRegistryUrls);
 
-    if (avroSchemaSource == INLINE || avroSchemaSource == HEADER && registerSchema) {
+    if ((avroSchemaSource == INLINE || avroSchemaSource == HEADER) && registerSchema) {
       // Subject used for registering schema
       builder.setConfig(SUBJECT_KEY, subjectToRegister);
       builder.setConfig(SCHEMA_REPO_URLS_KEY, schemaRegistryUrlsForRegistration);

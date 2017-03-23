@@ -73,8 +73,13 @@ public class AsyncRunner implements Runner, PipelineInfo {
   }
 
   @Override
-  public void resetOffset() throws PipelineStoreException, PipelineRunnerException {
+  public void resetOffset() throws PipelineException {
     runner.resetOffset();
+  }
+
+  @Override
+  public Map<String, String> getCommittedOffsets() throws PipelineException {
+    return runner.getCommittedOffsets();
   }
 
   @Override
@@ -139,13 +144,38 @@ public class AsyncRunner implements Runner, PipelineInfo {
   }
 
   @Override
-  public synchronized void start() throws PipelineRunnerException, PipelineStoreException, PipelineRuntimeException, StageException {
+  public void start() throws PipelineRunnerException, PipelineStoreException, PipelineRuntimeException, StageException {
+    start(null);
+  }
+
+  @Override
+  public synchronized void start(Map<String, Object> runtimeConstants)
+      throws PipelineRunnerException, PipelineStoreException, PipelineRuntimeException, StageException {
     runner.prepareForStart();
     Callable<Object> callable = new Callable<Object>() {
       @Override
-      public Object call() throws PipelineStoreException, PipelineRunnerException, PipelineRuntimeException, StageException {
-         runner.start();
+      public Object call() throws PipelineException, StageException {
+         runner.start(runtimeConstants);
          return null;
+      }
+    };
+    runnerExecutor.submit(callable);
+  }
+
+  @Override
+  public void startAndCaptureSnapshot(
+      Map<String, Object> runtimeConstants,
+      String snapshotName,
+      String snapshotLabel,
+      int batches,
+      int batchSize
+  ) throws PipelineException, StageException {
+    runner.prepareForStart();
+    Callable<Object> callable = new Callable<Object>() {
+      @Override
+      public Object call() throws PipelineException, StageException {
+        runner.startAndCaptureSnapshot(runtimeConstants, snapshotName, snapshotLabel, batches, batchSize);
+        return null;
       }
     };
     runnerExecutor.submit(callable);
@@ -182,7 +212,7 @@ public class AsyncRunner implements Runner, PipelineInfo {
   }
 
   @Override
-  public void deleteHistory() {
+  public void deleteHistory() throws PipelineException {
     runner.deleteHistory();
   }
 
@@ -209,12 +239,12 @@ public class AsyncRunner implements Runner, PipelineInfo {
   }
 
   @Override
-  public boolean deleteAlert(String alertId) throws PipelineRunnerException, PipelineStoreException {
+  public boolean deleteAlert(String alertId) throws PipelineException {
     return runner.deleteAlert(alertId);
   }
 
   @Override
-  public List<AlertInfo> getAlerts() throws PipelineStoreException {
+  public List<AlertInfo> getAlerts() throws PipelineException {
     return runner.getAlerts();
   }
 

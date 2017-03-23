@@ -148,8 +148,10 @@ angular.module('dataCollectorApp')
       readNotifications: [],
       pipelineListState: {
         gridView: false,
-        searchInput: ''
-      }
+        searchInput: '',
+        showNameColumn: true
+      },
+      runPreviewForFieldPaths: true
     });
 
     api.pipelineAgent.getUIConfiguration().then(function (res) {
@@ -249,6 +251,24 @@ angular.module('dataCollectorApp')
             controller: 'DisableDPMModalInstanceController',
             size: '',
             backdrop: 'static'
+          });
+        },
+
+        onCreateDPMUsersClick: function() {
+          $modal.open({
+            templateUrl: 'common/administration/createDPMUsers/createDPMUsers.tpl.html',
+            controller: 'CreateDPMUsersModalInstanceController',
+            size: 'lg',
+            backdrop: 'static',
+            resolve: {
+              dpmInfoModel: function () {
+                return {
+                  baseURL: 'https://cloud.streamsets.com',
+                  userID: '',
+                  userPassword: ''
+                };
+              }
+            }
           });
         },
 
@@ -454,6 +474,18 @@ angular.module('dataCollectorApp')
           } else if (document.selection) {  // IE?
             document.selection.empty();
           }
+        },
+
+        /**
+         * Update Permissions callback function
+         */
+        updatePermissions: function () {
+          $modal.open({
+            templateUrl: 'common/administration/update_permissions/updatePermissions.tpl.html',
+            controller: 'UpdatePermissionsInstanceController',
+            size: 'lg',
+            backdrop: 'static'
+          });
         }
       };
 
@@ -490,9 +522,13 @@ angular.module('dataCollectorApp')
         $rootScope.common.userGroups = authService.getUserGroups().join(', ');
         $rootScope.userRoles = userRoles;
         $rootScope.isAuthorized = authService.isAuthorized;
+        $rootScope.common.isUserAdmin = authService.isUserAdmin();
+
+
 
         $rootScope.common.authenticationType = configuration.getAuthenticationType();
         $rootScope.common.isDPMEnabled = configuration.isDPMEnabled();
+        $rootScope.common.isACLEnabled = configuration.isACLEnabled();
         $rootScope.common.dpmBaseURL = configuration.getRemoteBaseUrl();
         $rootScope.common.isSlaveNode = configuration.isSlaveNode();
         $rootScope.common.sdcClusterManagerURL = configuration.getSDCClusterManagerURL();
@@ -580,8 +616,12 @@ angular.module('dataCollectorApp')
         };
 
         statusWebSocket.onclose = function(evt) {
-          //On Close try calling REST API so that if server is down it will reload the page.
-          api.pipelineAgent.getAllPipelineStatus();
+          $timeout(
+            function() {
+              refreshPipelineStatus();
+            },
+            100
+          );
         };
 
       } else {
@@ -662,6 +702,16 @@ angular.module('dataCollectorApp')
 
             }
           };
+
+          alertsWebSocket.onclose = function(evt) {
+            $timeout(
+              function() {
+                refreshAlerts();
+              },
+              100
+            );
+          };
+
         });
       } else {
         //WebSocket is not support use polling to get Pipeline Status

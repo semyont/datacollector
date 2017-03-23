@@ -36,11 +36,10 @@ public class TestBatchImpl {
 
   @Test
   public void testBatch() {
-    SourceOffsetTracker offsetTracker = Mockito.mock(SourceOffsetTracker.class);
-    Mockito.when(offsetTracker.getOffset()).thenReturn("offset");
     List<Record> records = ImmutableList.of(Mockito.mock(Record.class), Mockito.mock(Record.class));
-    Batch batch = new BatchImpl("i", offsetTracker.getOffset(), records);
+    Batch batch = new BatchImpl("i", "entity", "offset", records);
 
+    Assert.assertEquals("entity", batch.getSourceEntity());
     Assert.assertEquals("offset", batch.getSourceOffset());
     Iterator<Record> it = batch.getRecords();
     Assert.assertTrue(it.hasNext());

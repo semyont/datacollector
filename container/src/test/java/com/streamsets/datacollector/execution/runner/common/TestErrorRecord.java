@@ -20,7 +20,6 @@
 package com.streamsets.datacollector.execution.runner.common;
 
 import com.codahale.metrics.MetricRegistry;
-import com.streamsets.datacollector.config.DeliveryGuarantee;
 import com.streamsets.datacollector.config.MemoryLimitConfiguration;
 import com.streamsets.datacollector.execution.Manager;
 import com.streamsets.datacollector.execution.PipelineStateStore;
@@ -38,8 +37,10 @@ import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.TestUtil;
 import com.streamsets.pipeline.api.Batch;
 import com.streamsets.pipeline.api.BatchMaker;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.BaseProcessor;
 import com.streamsets.pipeline.api.base.BaseSource;
@@ -196,7 +197,7 @@ public class TestErrorRecord {
     runner.setDeliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE);
     runner.setMemoryLimitConfiguration(new MemoryLimitConfiguration());
     runner.setObserveRequests(new ArrayBlockingQueue<>(100, true /*FIFO*/));
-    runner.setOffsetTracker(new TestUtil.SourceOffsetTrackerImpl("1"));
+    runner.setOffsetTracker(new TestUtil.SourceOffsetTrackerImpl(Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "1")));
     ProductionPipeline pipeline = new ProductionPipelineBuilder(
         TestUtil.MY_PIPELINE,
         "0",
@@ -206,6 +207,7 @@ public class TestErrorRecord {
         runner,
         null
     ).build(
+        MockStages.userContext(),
         MockStages.createPipelineConfigurationSourceProcessorTarget()
     );
     pipeline.registerStatusListener(new TestProductionPipeline.MyStateListener());
@@ -224,11 +226,11 @@ public class TestErrorRecord {
     );
 
     PowerMockito.replace(
-        MemberMatcher.method(BadRecordsHandler.class, "handle", String.class, List.class)
+        MemberMatcher.method(BadRecordsHandler.class, "handle", String.class, String.class, List.class)
     ).with(new InvocationHandler() {
       @Override
       public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        List<Record> records = (List<Record>)args[1];
+        List<Record> records = (List<Record>)args[2];
         badHandlerErrorRecords.addAll(records);
         return null;
       }

@@ -14,7 +14,7 @@
 -->
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="concept_ksm_svc_rw">
- <title>Enabling SSL and Kerberos</title>
+ <title>Enabling SSL/TLS and Kerberos</title>
  <conbody>
         <p
             conref="../Reusable_Content/Reusable_Topics/Kafka-EnablingSSLandKerb.dita#concept_d3x_v5k_55/P1"/>

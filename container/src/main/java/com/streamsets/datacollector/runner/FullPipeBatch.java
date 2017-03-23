@@ -26,8 +26,6 @@ import com.streamsets.datacollector.config.StageType;
 import com.streamsets.datacollector.record.RecordImpl;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.impl.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -40,27 +38,29 @@ import java.util.Map;
 import java.util.Set;
 
 public class FullPipeBatch implements PipeBatch {
-  //DELETE ME
-  private static final Logger LOG = LoggerFactory.getLogger(FullPipeBatch.class);
 
-  private final SourceOffsetTracker offsetTracker;
+  private final String sourceEntity;
+  private final String lastOffset;
   private final int batchSize;
   private final Map<String, List<Record>> fullPayload;
   private final Set<String> processedStages;
   private final List<StageOutput> stageOutputSnapshot;
   private final ErrorSink errorSink;
+  private final EventSink eventSink;
   private String newOffset;
   private int inputRecords;
   private int outputRecords;
   private RateLimiter rateLimiter;
 
-  public FullPipeBatch(SourceOffsetTracker offsetTracker, int batchSize, boolean snapshotStagesOutput) {
-    this.offsetTracker = offsetTracker;
+  public FullPipeBatch(String sourceEntity, String lastOffset, int batchSize, boolean snapshotStagesOutput) {
+    this.sourceEntity = sourceEntity;
+    this.lastOffset = lastOffset;
     this.batchSize = batchSize;
     fullPayload = new HashMap<>();
     processedStages = new HashSet<>();
     stageOutputSnapshot = (snapshotStagesOutput) ? new ArrayList<StageOutput>() : null;
     errorSink = new ErrorSink();
+    eventSink = new EventSink();
   }
 
   @VisibleForTesting
@@ -75,13 +75,16 @@ public class FullPipeBatch implements PipeBatch {
 
   @Override
   public String getPreviousOffset() {
-    return offsetTracker.getOffset();
+    return lastOffset;
   }
 
   @Override
   public void setNewOffset(String offset) {
     newOffset = offset;
-    offsetTracker.setOffset(offset);
+  }
+
+  public String getNewOffset() {
+    return newOffset;
   }
 
   public void setRateLimiter(@Nullable RateLimiter rateLimiter) {
@@ -99,7 +102,7 @@ public class FullPipeBatch implements PipeBatch {
     if (pipe.getStage().getDefinition().getType().isOneOf(StageType.TARGET, StageType.EXECUTOR)) {
       outputRecords += records.size();
     }
-    return new BatchImpl(pipe.getStage().getInfo().getInstanceName(), offsetTracker.getOffset(), records);
+    return new BatchImpl(pipe.getStage().getInfo().getInstanceName(), sourceEntity, lastOffset, records);
   }
 
   @Override
@@ -128,7 +131,7 @@ public class FullPipeBatch implements PipeBatch {
   }
 
   @Override
-  public void completeStage(BatchMakerImpl batchMaker, EventSink eventSink) {
+  public void completeStage(BatchMakerImpl batchMaker) {
     StagePipe pipe = batchMaker.getStagePipe();
     if (pipe.getStage().getDefinition().getType() == StageType.SOURCE) {
       inputRecords += batchMaker.getSize();
@@ -149,19 +152,14 @@ public class FullPipeBatch implements PipeBatch {
     if (pipe.getStage().getDefinition().getType().isOneOf(StageType.TARGET, StageType.EXECUTOR)) {
       outputRecords -= errorSink.getErrorRecords(pipe.getStage().getInfo().getInstanceName()).size();
     }
-    completeStage(pipe, eventSink);
+    completeStage(pipe);
   }
 
   @Override
-  public void completeStage(StagePipe pipe, EventSink eventSink) {
+  public void completeStage(StagePipe pipe) {
     if(pipe.getEventLanes().size() == 1) {
-      fullPayload.put(pipe.getEventLanes().get(0), eventSink.getEventRecords());
+      fullPayload.put(pipe.getEventLanes().get(0), eventSink.getStageEvents(pipe.getStage().getInfo().getInstanceName()));
     }
-  }
-
-  @Override
-  public void commitOffset() {
-    offsetTracker.commitOffset();
   }
 
   @Override
@@ -221,6 +219,12 @@ public class FullPipeBatch implements PipeBatch {
   public ErrorSink getErrorSink() {
     return errorSink;
   }
+
+  @Override
+  public EventSink getEventSink() {
+    return eventSink;
+  }
+
 
   @Override
   public void moveLane(String inputLane, String outputLane) {
@@ -287,8 +291,13 @@ public class FullPipeBatch implements PipeBatch {
   @Override
   public String toString() {
     return Utils.format(
-        "PipeBatch[previousOffset='{}' currentOffset='{}' batchSize='{}' keepSnapshot='{}' errorRecords='{}]'",
-        offsetTracker.getOffset(), newOffset, batchSize, stageOutputSnapshot != null, errorSink.size());
+      "PipeBatch[previousOffset='{}' currentOffset='{}' batchSize='{}' keepSnapshot='{}' errorRecords='{}]'",
+      lastOffset,
+      newOffset,
+      batchSize,
+      stageOutputSnapshot != null,
+      errorSink.size()
+    );
   }
 
 }

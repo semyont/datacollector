@@ -22,8 +22,8 @@ package com.streamsets.pipeline.stage.destination.hdfs.writer;
 import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.EventRecord;
 import com.streamsets.pipeline.api.Record;
-import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.StageException;
+import com.streamsets.pipeline.api.Target;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.el.ELEvalException;
@@ -36,6 +36,7 @@ import com.streamsets.pipeline.lib.generator.StreamCloseEventHandler;
 import com.streamsets.pipeline.lib.io.fileref.FileRefStreamCloseEventHandler;
 import com.streamsets.pipeline.lib.io.fileref.FileRefUtil;
 import com.streamsets.pipeline.stage.destination.hdfs.Errors;
+import com.streamsets.pipeline.stage.destination.hdfs.util.HdfsUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -49,7 +50,7 @@ import java.util.Date;
 final class WholeFileFormatFsHelper implements FsHelper {
   private static final Logger LOG = LoggerFactory.getLogger(WholeFileFormatFsHelper.class);
 
-  private final Stage.Context context;
+  private final Target.Context context;
   private final String fileNameEL;
   private final WholeFileExistsAction wholeFileAlreadyExistsAction;
   private final String permissionEL;
@@ -61,7 +62,7 @@ final class WholeFileFormatFsHelper implements FsHelper {
 
 
   WholeFileFormatFsHelper(
-      Stage.Context context,
+      Target.Context context,
       String fileNameEL,
       WholeFileExistsAction wholeFileAlreadyExistsAction,
       String permissionEL,
@@ -111,24 +112,10 @@ final class WholeFileFormatFsHelper implements FsHelper {
         throw new OnRecordErrorException(Errors.HADOOPFS_55, permissionEL);
       }
       try {
-        //octal or symbolic representation (w.r.t to HDFS)
-        fsPermissions = new FsPermission(permissions);
+        fsPermissions = HdfsUtils.parseFsPermission(permissions);
       } catch (IllegalArgumentException e) {
-        try {
-          //FsPermission.valueOf will work with unix style permissions which is 10 characters
-          //where the first character says the type of file
-          if (permissions.length() == 9) {
-            //This means it is a posix standard without the first character for file type
-            //We will simply set it to '-' suggesting regular file
-            permissions = "-" + permissions;
-          }
-
-          //try to parse unix style format.
-          fsPermissions = FsPermission.valueOf(permissions);
-        } catch (IllegalArgumentException e1) {
-          LOG.error("Can't parse the permission value string:", e1);
-          throw new OnRecordErrorException(Errors.HADOOPFS_56, permissions);
-        }
+        LOG.error("Can't parse the permission value string:", e);
+        throw new OnRecordErrorException(Errors.HADOOPFS_56, permissions);
       }
     }
   }
@@ -148,7 +135,12 @@ final class WholeFileFormatFsHelper implements FsHelper {
     return path;
   }
 
-  private EventRecord createWholeFileEventRecord(Record record, Path renamableFinalPath) {
+  private EventRecord createWholeFileEventRecord(Record record, Path renamableFinalPath) throws StageException {
+    try {
+      FileRefUtil.validateWholeFileRecord(record);
+    } catch (IllegalArgumentException e) {
+      throw new OnRecordErrorException(record, Errors.HADOOPFS_14, e);
+    }
     //Update the event record with source file info information
     return HdfsEvents.FILE_TRANSFER_COMPLETE_EVENT
         .create(context)

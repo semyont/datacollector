@@ -20,7 +20,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.streamsets</groupId>
   <artifactId>streamsets-datacollector</artifactId>
-  <version>2.3.0.0-SNAPSHOT</version>
+  <version>2.5.0.0-SNAPSHOT</version>
   <description>StreamSets Data Collector</description>
   <name>StreamSets Data Collector</name>
   <packaging>pom</packaging>
@@ -84,7 +84,12 @@
       <dependency>
         <groupId>com.streamsets</groupId>
         <artifactId>streamsets-datacollector-api</artifactId>
-        <version>2.3.0.0-SNAPSHOT</version>
+        <version>2.5.0.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>com.streamsets</groupId>
+        <artifactId>streamsets-datacollector-spark-api</artifactId>
+        <version>2.5.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
         <groupId>javax.servlet</groupId>
@@ -132,6 +137,7 @@
     <module>mapreduce-protolib</module>
     <module>maprfs-protolib</module>
     <module>maprdb-protolib</module>
+    <module>mapr_json-protolib</module>
     <module>hive-protolib</module>
 
     <module>sdc-kafka-api</module>
@@ -149,10 +155,6 @@
     <module>jython-protolib</module>
     <module>groovy-protolib</module>
 
-    <module>sdc-elasticsearch-api</module>
-    <module>sdc-elasticsearch_1</module>
-    <module>sdc-elasticsearch_2</module>
-    <module>sdc-elasticsearch_5</module>
     <module>elasticsearch-protolib</module>
 
     <module>solr-protolib</module>
@@ -177,6 +179,7 @@
     <module>sdc-solr-api</module>
     <module>sdc-solr_cdh_4</module>
     <module>sdc-solr_6</module>
+    <module>spark-executor-protolib</module>
     <module>spark-processor-protolib</module>
 
     <!--
@@ -313,19 +316,6 @@
   </reporting>
 
   <profiles>
-
-    <profile>
-      <id>java8</id>
-      <activation>
-        <jdk>1.8</jdk>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <modules>
-        <!-- Dummy module to be able to compile the Java7 scripting support classes using javac from Java8. -->
-        <module>basic-lib-fake-java7</module>
-      </modules>
-    </profile>
-
     <profile>
       <id>rat-check</id>
       <activation>
@@ -389,6 +379,8 @@
         <apache-kafka_0_8_2-lib>apache-kafka_0_8_2-lib</apache-kafka_0_8_2-lib>
         <apache-kafka_0_9-lib>apache-kafka_0_9-lib</apache-kafka_0_9-lib>
         <apache-kudu_1_0-lib>apache-kudu_1_0-lib</apache-kudu_1_0-lib>
+        <apache-kudu_1_1-lib>apache-kudu_1_1-lib</apache-kudu_1_1-lib>
+        <apache-kudu_1_2-lib>apache-kudu_1_2-lib</apache-kudu_1_2-lib>
         <apache-solr_6_1_0-lib>apache-solr_6_1_0-lib</apache-solr_6_1_0-lib>
         <cassandra_3-lib>cassandra_3-lib</cassandra_3-lib>
         <cdh_5_2-lib>cdh_5_2-lib</cdh_5_2-lib>
@@ -404,19 +396,13 @@
         <cdh_5_8-lib>cdh_5_8-lib</cdh_5_8-lib>
         <cdh_5_9-cluster-cdh_kafka_2_0-lib>cdh_5_9-cluster-cdh_kafka_2_0-lib</cdh_5_9-cluster-cdh_kafka_2_0-lib>
         <cdh_5_9-lib>cdh_5_9-lib</cdh_5_9-lib>
+        <cdh_5_10-cluster-cdh_kafka_2_1-lib>cdh_5_10-cluster-cdh_kafka_2_1-lib</cdh_5_10-cluster-cdh_kafka_2_1-lib>
+        <cdh_5_10-lib>cdh_5_10-lib</cdh_5_10-lib>
         <cdh_kafka_1_2-lib>cdh_kafka_1_2-lib</cdh_kafka_1_2-lib>
         <cdh_kafka_1_3-lib>cdh_kafka_1_3-lib</cdh_kafka_1_3-lib>
         <cdh_kafka_2_0-lib>cdh_kafka_2_0-lib</cdh_kafka_2_0-lib>
-        <elasticsearch_1_4-lib>elasticsearch_1_4-lib</elasticsearch_1_4-lib>
-        <elasticsearch_1_5-lib>elasticsearch_1_5-lib</elasticsearch_1_5-lib>
-        <elasticsearch_1_6-lib>elasticsearch_1_6-lib</elasticsearch_1_6-lib>
-        <elasticsearch_1_7-lib>elasticsearch_1_7-lib</elasticsearch_1_7-lib>
-        <elasticsearch_2_0-lib>elasticsearch_2_0-lib</elasticsearch_2_0-lib>
-        <elasticsearch_2_1-lib>elasticsearch_2_1-lib</elasticsearch_2_1-lib>
-        <elasticsearch_2_2-lib>elasticsearch_2_2-lib</elasticsearch_2_2-lib>
-        <elasticsearch_2_3-lib>elasticsearch_2_3-lib</elasticsearch_2_3-lib>
-        <elasticsearch_2_4-lib>elasticsearch_2_4-lib</elasticsearch_2_4-lib>
-        <elasticsearch_5_0-lib>elasticsearch_5_0-lib</elasticsearch_5_0-lib>
+        <cdh_kafka_2_1-lib>cdh_kafka_2_1-lib</cdh_kafka_2_1-lib>
+        <elasticsearch_5-lib>elasticsearch_5-lib</elasticsearch_5-lib>
         <groovy_2_4-lib>groovy_2_4-lib</groovy_2_4-lib>
         <hdp_2_2-lib>hdp_2_2-lib</hdp_2_2-lib>
         <hdp_2_3-lib>hdp_2_3-lib</hdp_2_3-lib>
@@ -439,6 +425,8 @@
         <module>apache-kafka_0_8_2-lib</module>
         <module>apache-kafka_0_9-lib</module>
         <module>apache-kudu_1_0-lib</module>
+        <module>apache-kudu_1_1-lib</module>
+        <module>apache-kudu_1_2-lib</module>
         <module>apache-solr_6_1_0-lib</module>
         <module>cassandra_3-lib</module>
         <module>cdh_5_2-lib</module>
@@ -454,19 +442,13 @@
         <module>cdh_5_8-lib</module>
         <module>cdh_5_9-cluster-cdh_kafka_2_0-lib</module>
         <module>cdh_5_9-lib</module>
+        <module>cdh_5_10-cluster-cdh_kafka_2_1-lib</module>
+        <module>cdh_5_10-lib</module>
         <module>cdh_kafka_1_2-lib</module>
         <module>cdh_kafka_1_3-lib</module>
         <module>cdh_kafka_2_0-lib</module>
-        <module>elasticsearch_1_4-lib</module>
-        <module>elasticsearch_1_5-lib</module>
-        <module>elasticsearch_1_6-lib</module>
-        <module>elasticsearch_1_7-lib</module>
-        <module>elasticsearch_2_0-lib</module>
-        <module>elasticsearch_2_1-lib</module>
-        <module>elasticsearch_2_2-lib</module>
-        <module>elasticsearch_2_3-lib</module>
-        <module>elasticsearch_2_4-lib</module>
-        <module>elasticsearch_5_0-lib</module>
+        <module>cdh_kafka_2_1-lib</module>
+        <module>elasticsearch_5-lib</module>
         <module>groovy_2_4-lib</module>
         <module>hdp_2_2-lib</module>
         <module>hdp_2_3-lib</module>
@@ -497,13 +479,13 @@
              for all the sample dev stage libraries here with the directory name as value
         -->
         <apache-kafka_0_10-lib>apache-kafka_0_10-lib</apache-kafka_0_10-lib>
-        <apache-kudu_1_0-lib>apache-kudu_1_0-lib</apache-kudu_1_0-lib>
+        <apache-kudu_1_2-lib>apache-kudu_1_2-lib</apache-kudu_1_2-lib>
         <apache-solr_6_1_0-lib>apache-solr_6_1_0-lib</apache-solr_6_1_0-lib>
         <cassandra_3-lib>cassandra_3-lib</cassandra_3-lib>
-        <cdh_5_9-cluster-cdh_kafka_2_0-lib>cdh_5_9-cluster-cdh_kafka_2_0-lib</cdh_5_9-cluster-cdh_kafka_2_0-lib>
-        <cdh_5_9-lib>cdh_5_9-lib</cdh_5_9-lib>
+        <cdh_5_10-cluster-cdh_kafka_2_1-lib>cdh_5_10-cluster-cdh_kafka_2_1-lib</cdh_5_10-cluster-cdh_kafka_2_1-lib>
+        <cdh_5_10-lib>cdh_5_10-lib</cdh_5_10-lib>
         <cdh_kafka_2_0-lib>cdh_kafka_2_0-lib</cdh_kafka_2_0-lib>
-        <elasticsearch_5_0-lib>elasticsearch_5_0-lib</elasticsearch_5_0-lib>
+        <elasticsearch_5-lib>elasticsearch_5-lib</elasticsearch_5-lib>
         <groovy_2_4-lib>groovy_2_4-lib</groovy_2_4-lib>
         <hdp_2_5-lib>hdp_2_5-lib</hdp_2_5-lib>
         <jython_2_7-lib>jython_2_7-lib</jython_2_7-lib>
@@ -520,13 +502,13 @@
              IMPORTANT: the modules for the sample dev stage libraries
         -->
         <module>apache-kafka_0_10-lib</module>
-        <module>apache-kudu_1_0-lib</module>
+        <module>apache-kudu_1_2-lib</module>
         <module>apache-solr_6_1_0-lib</module>
         <module>cassandra_3-lib</module>
-        <module>cdh_5_9-cluster-cdh_kafka_2_0-lib</module>
-        <module>cdh_5_9-lib</module>
+        <module>cdh_5_10-cluster-cdh_kafka_2_1-lib</module>
+        <module>cdh_5_10-lib</module>
         <module>cdh_kafka_2_0-lib</module>
-        <module>elasticsearch_5_0-lib</module>
+        <module>elasticsearch_5-lib</module>
         <module>groovy_2_4-lib</module>
         <module>hdp_2_5-lib</module>
         <module>jython_2_7-lib</module>
@@ -676,17 +658,7 @@
       <url>http://packages.confluent.io/maven/</url>
     </repository>
     <repository>
-      <id>elasticsearch-releases-old</id>
-      <url>http://maven.elasticsearch.org/releases</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </repository>
-    <repository>
-      <id>elasticsearch-releases-new</id>
+      <id>elasticsearch-releases</id>
       <url>https://artifacts.elastic.co/maven</url>
       <releases>
         <enabled>true</enabled>

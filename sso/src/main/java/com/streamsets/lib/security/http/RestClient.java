@@ -19,6 +19,8 @@
  */
 package com.streamsets.lib.security.http;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -40,6 +42,10 @@ public class RestClient {
 
   @VisibleForTesting
   static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+  static {
+    OBJECT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  }
 
   static final String CONTENT_TYPE = "content-type";
   static final String ACCEPT = "accept";
@@ -135,6 +141,18 @@ public class RestClient {
     }
 
     public RestClient build() throws IOException {
+      return build(path, queryParams);
+    }
+
+    public RestClient build(String path) throws IOException {
+      return build(path, queryParams);
+    }
+
+    public RestClient build(Map<String, List<String>> queryParams) throws IOException {
+      return build(path, queryParams);
+    }
+
+    public RestClient build(String path, Map<String, List<String>> queryParams) throws IOException {
       return new RestClient(name,
           baseUrl,
           path,
@@ -176,7 +194,7 @@ public class RestClient {
 
     public boolean isJson() {
       String contentType = conn.getContentType();
-      return contentType != null & contentType.toLowerCase().trim().startsWith(APPLICATION_JSON);
+      return contentType != null && contentType.toLowerCase().trim().startsWith(APPLICATION_JSON);
     }
 
     public String getHeader(String headerName) {
@@ -189,6 +207,10 @@ public class RestClient {
 
     public InputStream getInputStream() throws IOException {
       return conn.getInputStream();
+    }
+
+    public <T> T getData(TypeReference<T> typeReference) throws IOException {
+      return jsonMapper.readValue(getInputStream(), typeReference);
     }
 
     public <T> T getData(Class<T> klass) throws IOException {

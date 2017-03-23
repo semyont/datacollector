@@ -15,11 +15,11 @@
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="concept_mzz_g4l_pw">
  <title>Pipeline Configuration</title>
- <shortdesc>When you use an SDC RPC to Kafka origin in a pipeline, connect the origin to a Trash
-        destination. </shortdesc>
  <conbody>
-  <p><indexterm>SDC RPC to Kafka origin<indexterm>pipeline configuration</indexterm></indexterm>The
-            SDC RPC to Kafka origin writes records directly to Kafka. <ph
+  <p><indexterm>SDC RPC to Kafka origin<indexterm>pipeline configuration</indexterm></indexterm>When
+            you use an SDC RPC to Kafka origin in a pipeline, connect the origin to a Trash
+            destination. </p>
+        <p>The SDC RPC to Kafka origin writes records directly to Kafka. <ph
                 conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/O-ph-PipeConfig"
             /></p>
         <p conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/O-p-PipeConfig"/>

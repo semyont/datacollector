@@ -79,7 +79,7 @@
           },
           {
             "key" : "log4j.appender.streamsets.layout.ConversionPattern",
-            "value" : "%d{ISO8601} %p %c: %m%n"
+            "value" : "%d{ISO8601} [user:%X{s-user}] [pipeline:%X{s-entity}] [runner:%X{s-runner}] [thread:%t] %-5p %c{1} - %m%n"
           }
         ]
       },
@@ -185,7 +185,8 @@
               "dpm.base.url",
               "dpm.remote.control.job.labels",
               "dpm.remote.control.ping.frequency",
-              "dpm.remote.control.events.recipient"
+              "dpm.remote.control.events.recipient",
+              "pipeline.access.control.enabled"
             ],
             "excludedParams": [
               "datacollector.users",
@@ -223,6 +224,7 @@
               "ldap.hostname",
               "ldap.port",
               "ldap.useLdaps",
+              "ldap.useStartTLS",
               "ldap.bindDn",
               "ldap.bindPassword",
               "ldap.authenticationMethod",
@@ -232,7 +234,9 @@
               "ldap.userIdAttribute",
               "ldap.userPasswordAttribute",
               "ldap.userObjectClass",
+              "ldap.userFilter",
               "ldap.roleBaseDn",
+              "ldap.roleFilter",
               "ldap.roleNameAttribute",
               "ldap.roleMemberAttribute",
               "ldap.roleObjectClass"
@@ -350,7 +354,7 @@
           "label": "LDAP Login Module Name",
           "description": "The login module name that identifies the login module to use for data collector. Assumes 'ldap' if none specified.",
           "type": "string",
-          "default": ""
+          "default": "ldap"
         },
         {
           "name": "use.ldap.login.file",
@@ -513,8 +517,15 @@
         },
         {
           "name": "ldap.useLdaps",
-          "label": "Use Secure LDAP",
+          "label": "Use LDAPS Protocol",
           "description": "Enables using LDAP over SSL.",
+          "type": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "ldap.useStartTLS",
+          "label": "Use StartTLS",
+          "description": "Enables using LDAP over SSL/TLS.",
           "type": "boolean",
           "default": "false"
         },
@@ -582,6 +593,13 @@
           "default": "inetOrgPerson"
         },
         {
+          "name": "ldap.userFilter",
+          "label": "Filter to search a user",
+          "description": "Filter to be used in ldapsearch query. Default is uid={user}, where {user} will be replaced with the username user entered to login to SDC.",
+          "type": "string",
+          "default": "uid={user}"
+        },
+        {
           "name": "ldap.roleBaseDn",
           "label": "LDAP Role Base DN",
           "description": "Base DN to search for role membership.",
@@ -608,6 +626,13 @@
           "description": "Name of the Role object class.",
           "type": "string",
           "default": "groupOfUniqueNames"
+        },
+        {
+          "name": "ldap.roleFilter",
+          "label": "Filter to search roles",
+          "description": "Filter to be used in ldapsearch query. Default is member={dn}, where {dn} will be replaced with user's full DN.",
+          "type": "string",
+          "default": "member={dn}"
         },
         {
           "name": "ldap.debug",
@@ -952,6 +977,14 @@
           "default": "--tlsv1.2",
           "label": "Curl options",
           "description": "Additional arguments that should be passed to curl when registering data collectors with DPM.",
+          "required": "false"
+        },
+        {
+          "name": "pipeline.access.control.enabled",
+          "type": "boolean",
+          "default": "true",
+          "label": "Pipeline Sharing / ACLs",
+          "description": "Pipeline Sharing / ACLs",
           "required": "false"
         }
       ]

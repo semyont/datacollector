@@ -26,11 +26,8 @@ import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
-import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
-import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
-import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnMapping;
-import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnParamMapping;
-import com.streamsets.pipeline.lib.jdbc.JdbcMultiRowRecordWriter;
+import com.streamsets.pipeline.lib.jdbc.*;
+import com.streamsets.pipeline.lib.operation.UnsupportedOperationAction;
 import com.streamsets.pipeline.sdk.ProcessorRunner;
 import com.streamsets.pipeline.sdk.RecordCreator;
 import com.streamsets.pipeline.sdk.StageRunner;
@@ -61,7 +58,8 @@ public class TestJdbcTee {
   private final String unprivUser = "unpriv_user";
   private final String unprivPassword = "unpriv_pass";
   private final String database = "TEST";
-  private final String tableName = "TEST.TEST_TABLE";
+  private final String tableName = "TEST_TABLE";
+  private final boolean enclosedTableName = false;
   private final String h2ConnectionString = "jdbc:h2:mem:" + database;
 
   private Connection connection = null;
@@ -84,6 +82,8 @@ public class TestJdbcTee {
           "(255), LAST_NAME VARCHAR(255), TS TIMESTAMP);");
       statement.addBatch("CREATE TABLE IF NOT EXISTS TEST.TABLE_THREE " + "(P_ID IDENTITY, FIRST_NAME " +
           "VARCHAR(255), LAST_NAME VARCHAR(255), TS TIMESTAMP);");
+      statement.addBatch("CREATE TABLE IF NOT EXISTS \"TEST\".\"test_table@\" " + "(P_ID IDENTITY, FIRST_NAME " +
+          "VARCHAR(255), LAST_NAME VARCHAR(255), TS TIMESTAMP);");
       statement.addBatch("CREATE USER IF NOT EXISTS " + unprivUser + " PASSWORD '" + unprivPassword + "';");
       statement.addBatch("GRANT SELECT ON TEST.TEST_TABLE TO " + unprivUser + ";");
 
@@ -99,6 +99,7 @@ public class TestJdbcTee {
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_ONE;");
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_TWO;");
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_THREE;");
+      statement.execute("DROP TABLE IF EXISTS \"TEST\".\"test_table@\";");
     }
 
     // Last open connection terminates H2
@@ -128,16 +129,20 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", enclosedTableName)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", 10)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addOutputLane("lane").build();
 
     List<Record> emptyBatch = ImmutableList.of();
     processorRunner.runInit();
@@ -163,16 +168,20 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("encloseTableName", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addOutputLane("lane").build();
 
     Record record = RecordCreator.create();
     List<Field> fields = new ArrayList<>();
@@ -223,16 +232,20 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("encloseTableName", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addOutputLane("lane").build();
 
     Record record = RecordCreator.create();
     LinkedHashMap<String, Field> fields = new LinkedHashMap<>();
@@ -281,16 +294,20 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("encloseTableName", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane").build();
 
     Record record = RecordCreator.create();
     List<Field> fields = new ArrayList<>();
@@ -335,14 +352,19 @@ public class TestJdbcTee {
       JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
       processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-      ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration("tableNameTemplate",
-          tableName)
+      ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+          .addConfiguration("schema", database)
+          .addConfiguration("tableNameTemplate", tableName)
           .addConfiguration("customMappings", fieldMappings)
+          .addConfiguration("encloseTableName", false)
           .addConfiguration("rollbackOnError", false)
-          .addConfiguration("useMultiRowInsert", true)
+          .addConfiguration("useMultiRowOp", true)
           .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+          .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
           .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
           .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+          .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+          .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
           .addOutputLane("lane")
           .setOnRecordError(OnRecordError.TO_ERROR)
           .build();
@@ -416,17 +438,21 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", enclosedTableName)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane")
+        .build();
 
     Record record1 = RecordCreator.create();
     List<Field> fields1 = new ArrayList<>();
@@ -493,17 +519,22 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("encloseTableName", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
 
     Record record1 = RecordCreator.create();
     List<Field> fields1 = new ArrayList<>();
@@ -574,17 +605,21 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        true
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", enclosedTableName)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", true)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
 
     Record record1 = RecordCreator.create();
     List<Field> fields1 = new ArrayList<>();
@@ -633,17 +668,21 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, unprivUser, unprivPassword);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", false)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane")
+        .build();
 
     Record record1 = RecordCreator.create();
     List<Field> fields1 = new ArrayList<>();
@@ -693,17 +732,21 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean("bad connection string", username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", enclosedTableName)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane")
+        .build();
 
     List<Stage.ConfigIssue> issues = processorRunner.runValidateConfigs();
     assertEquals(1, issues.size());
@@ -724,17 +767,22 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, "foo", "bar");
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", enclosedTableName)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
 
     List<Stage.ConfigIssue> issues = processorRunner.runValidateConfigs();
     assertEquals(1, issues.size());
@@ -752,17 +800,22 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        tableName
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", tableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", enclosedTableName)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane").setOnRecordError(
+        OnRecordError.TO_ERROR)
+        .build();
 
     List<Stage.ConfigIssue> issues = processorRunner.runValidateConfigs();
     assertEquals(2, issues.size());
@@ -783,22 +836,28 @@ public class TestJdbcTee {
     JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
     processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
 
-    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor).addConfiguration(
-        "tableNameTemplate",
-        "${record:attribute('tableName')}"
-    ).addConfiguration("customMappings", fieldMappings).addConfiguration("rollbackOnError", false).addConfiguration(
-        "useMultiRowInsert",
-        false
-    ).addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS).addConfiguration(
-        "changeLogFormat",
-        ChangeLogFormat.NONE
-    ).addConfiguration("generatedColumnMappings", generatedColumnMappings).addOutputLane("lane").setOnRecordError(
-        OnRecordError.TO_ERROR).build();
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", "${record:attribute('tableName')}")
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", enclosedTableName)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane").setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
 
-    List<Record> records = ImmutableList.of(generateRecord("Adam", "Kunicki", "TEST.TABLE_ONE"),
-        generateRecord("John", "Smith", "TEST.TABLE_TWO"),
-        generateRecord("Jane", "Doe", "TEST.TABLE_TWO"),
-        generateRecord("Jane", "Doe", "TEST.TABLE_THREE")
+    List<Record> records = ImmutableList.of(
+        generateRecord("Adam", "Kunicki", "TABLE_ONE"),
+        generateRecord("John", "Smith", "TABLE_TWO"),
+        generateRecord("Jane", "Doe", "TABLE_TWO"),
+        generateRecord("Jane", "Doe", "TABLE_THREE")
     );
     processorRunner.runInit();
     processorRunner.runProcess(records);
@@ -832,6 +891,55 @@ public class TestJdbcTee {
       Assert.assertEquals(1, rs.getInt(1));
       Assert.assertEquals("Jane", rs.getString(2));
       Assert.assertEquals("Doe", rs.getString(3));
+      Assert.assertEquals(false, rs.next());
+    }
+  }
+
+  @Test
+  public void testEncloseTableNames() throws Exception {
+    List<JdbcFieldColumnParamMapping> fieldMappings = ImmutableList.of(new JdbcFieldColumnParamMapping(
+            "[0]",
+            "FIRST_NAME"
+        ),
+        new JdbcFieldColumnParamMapping("[1]", "LAST_NAME"),
+        new JdbcFieldColumnParamMapping("[2]", "TS")
+    );
+
+    List<JdbcFieldColumnMapping> generatedColumnMappings = ImmutableList.of(new JdbcFieldColumnMapping("P_ID", "[3]"));
+
+    JdbcTeeDProcessor processor = new JdbcTeeDProcessor();
+    processor.hikariConfigBean = createConfigBean(h2ConnectionString, username, password);
+
+    ProcessorRunner processorRunner = new ProcessorRunner.Builder(JdbcTeeDProcessor.class, processor)
+        .addConfiguration("schema", database)
+        .addConfiguration("tableNameTemplate", "${record:attribute('tableName')}")
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("encloseTableName", true)
+        .addConfiguration("customMappings", fieldMappings)
+        .addConfiguration("rollbackOnError", false)
+        .addConfiguration("useMultiRowOp", false)
+        .addConfiguration("maxPrepStmtParameters", JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS)
+        .addConfiguration("maxPrepStmtCache", PreparedStatementCache.UNLIMITED_CACHE)
+        .addConfiguration("changeLogFormat", ChangeLogFormat.NONE)
+        .addConfiguration("unsupportedAction", UnsupportedOperationAction.DISCARD)
+        .addConfiguration("defaultOperation", JDBCOperationType.INSERT)
+        .addConfiguration("generatedColumnMappings", generatedColumnMappings)
+        .addOutputLane("lane").setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
+
+    List<Record> records = ImmutableList.of(
+        generateRecord("Ji Sun", "Kim", "test_table@")
+    );
+    processorRunner.runInit();
+    processorRunner.runProcess(records);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT P_ID, FIRST_NAME, LAST_NAME FROM \"TEST\".\"test_table@\"");
+      rs.next();
+      Assert.assertEquals(1, rs.getInt(1));
+      Assert.assertEquals("Ji Sun", rs.getString(2));
+      Assert.assertEquals("Kim", rs.getString(3));
       Assert.assertEquals(false, rs.next());
     }
   }

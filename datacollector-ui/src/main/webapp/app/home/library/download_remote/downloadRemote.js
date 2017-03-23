@@ -24,7 +24,8 @@
 
 angular
   .module('dataCollectorApp.home')
-  .controller('DownloadRemoteModalInstanceController', function ($scope, $modalInstance, existingPipelineNames, api, authService) {
+  .controller('DownloadRemoteModalInstanceController', function ($scope, $modalInstance, existingDPMPipelineIds, api,
+                                                                 authService) {
     angular.extend($scope, {
       remoteBaseUrl: authService.getRemoteBaseUrl(),
       common: {
@@ -50,6 +51,10 @@ angular
                 pipelineConfig: JSON.parse(remotePipeline.pipelineDefinition),
                 pipelineRules: JSON.parse(remotePipeline.currentRules.rulesDefinition)
               };
+
+              if (!pipelineEnvelope.pipelineConfig.title) {
+                pipelineEnvelope.pipelineConfig.title = remotePipeline.name;
+              }
 
               api.pipelineAgent.importPipelineConfig(remotePipeline.name, pipelineEnvelope, $scope.overwrite)
                 .then(
@@ -79,7 +84,7 @@ angular
           function(res) {
             $scope.remotePipelines = res.data;
             angular.forEach(res.data, function(remotePipeline) {
-              if (_.contains(existingPipelineNames, remotePipeline.name)) {
+              if (_.contains(existingDPMPipelineIds, remotePipeline.pipelineId)) {
                 $scope.downloaded[remotePipeline.commitId] = true;
               }
             });

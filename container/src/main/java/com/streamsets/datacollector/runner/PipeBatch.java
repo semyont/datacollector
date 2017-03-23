@@ -46,14 +46,12 @@ public interface PipeBatch {
   /**
    * Complete stage on normal execution (while pipeline is running)
    */
-  void completeStage(BatchMakerImpl batchMaker, EventSink eventSink);
+  void completeStage(BatchMakerImpl batchMaker);
 
   /**
    * Complete stage on during destroy() phase.
    */
-  void completeStage(StagePipe pipe, EventSink eventSink);
-
-  void commitOffset();
+  void completeStage(StagePipe pipe);
 
   Map<String, List<Record>> getLaneOutputRecords(List<String> pipeLanes);
 
@@ -62,6 +60,8 @@ public interface PipeBatch {
   List<StageOutput> getSnapshotsOfAllStagesOutput();
 
   ErrorSink getErrorSink();
+
+  EventSink getEventSink();
 
   void moveLane(String inputLane, String outputLane);
 

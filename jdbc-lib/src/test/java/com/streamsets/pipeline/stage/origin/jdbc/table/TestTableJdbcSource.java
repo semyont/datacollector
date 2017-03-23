@@ -20,11 +20,11 @@
 package com.streamsets.pipeline.stage.origin.jdbc.table;
 
 import com.google.common.collect.ImmutableList;
+import com.streamsets.pipeline.api.PushSource;
 import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.Stage;
-import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
+import com.streamsets.pipeline.sdk.PushSourceRunner;
 import com.streamsets.pipeline.sdk.SourceRunner;
-import com.streamsets.pipeline.stage.origin.jdbc.CommonSourceConfigBean;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -33,43 +33,19 @@ import java.util.Collections;
 import java.util.List;
 
 public class TestTableJdbcSource {
-  static HikariPoolConfigBean createHikariPoolConfigBean(String connectionString, String username, String password) {
-    HikariPoolConfigBean hikariPoolConfigBean = new HikariPoolConfigBean();
-    hikariPoolConfigBean.connectionString = connectionString;
-    hikariPoolConfigBean.username = username;
-    hikariPoolConfigBean.password = password;
-    return hikariPoolConfigBean;
-  }
-
-  static CommonSourceConfigBean createCommonSourceConfigBean(long queryInterval, int maxBatchSize, int maxClobSize, int maxBlobSize) {
-    return new CommonSourceConfigBean(queryInterval, maxBatchSize, maxClobSize, maxBlobSize);
-  }
-
-  static TableJdbcConfigBean createTableJdbcConfigBean(
-      List<TableConfigBean> tableConfigs,
-      boolean configureFetchSize,
-      int fetchSize,
-      TableOrderStrategy tableOrderStrategy,
-      BatchTableStrategy batchTableStrategy
-  ) {
-    TableJdbcConfigBean tableJdbcConfigBean = new TableJdbcConfigBean();
-    tableJdbcConfigBean.tableConfigs = tableConfigs;
-    tableJdbcConfigBean.configureFetchSize = configureFetchSize;
-    tableJdbcConfigBean.fetchSize = fetchSize;
-    tableJdbcConfigBean.tableOrderStrategy = tableOrderStrategy;
-    tableJdbcConfigBean.timeZoneID = "UTC";
-    tableJdbcConfigBean.batchTableStrategy = batchTableStrategy;
-    return tableJdbcConfigBean;
-  }
+  private static final String USER_NAME = "sa";
+  private static final String PASSWORD = "sa";
+  private static final String database = "TEST";
+  private static final String JDBC_URL = "jdbc:h2:mem:" + database;
 
   private void testWrongConfiguration(TableJdbcSource tableJdbcSource, boolean isMockNeeded) throws Exception {
     if (isMockNeeded) {
       tableJdbcSource = Mockito.spy(tableJdbcSource);
       Mockito.doNothing().when(tableJdbcSource).checkConnectionAndBootstrap(
-          Mockito.any(Source.Context.class), Mockito.anyListOf(Stage.ConfigIssue.class)
+          Mockito.any(PushSource.Context.class), Mockito.anyListOf(Stage.ConfigIssue.class)
       );
     }
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
         .addOutputLane("a").build();
     List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
     Assert.assertEquals(1, issues.size());
@@ -77,37 +53,51 @@ public class TestTableJdbcSource {
 
   @Test
   public void testNoTableConfiguration() throws Exception {
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        createHikariPoolConfigBean("jdbc:h2:mem:database", "sa", "test"),
-        createCommonSourceConfigBean(1000, 1000, 1000, 1000),
-        createTableJdbcConfigBean(Collections.<TableConfigBean>emptyList(), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
-
-    testWrongConfiguration(tableJdbcSource, true);
-  }
-
-  @Test
-  public void testFetchSizeGreaterThanBatchSize() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "testTable";
-
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        createHikariPoolConfigBean("jdbc:h2:mem:database", "sa", "test"),
-        createCommonSourceConfigBean(1000, 1000, 1000, 1000),
-        createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), true, 2000, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(Collections.emptyList())
+        .build();
     testWrongConfiguration(tableJdbcSource, true);
   }
 
   @Test
   public void testWrongSqlConnectionConfig() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "testTable";
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        createHikariPoolConfigBean("jdbc:db://localhost:1000", "sa", "test"),
-        createCommonSourceConfigBean(1000, 1000, 1000, 1000),
-        createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, 1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder( "jdbc:db://localhost:1000", true, USER_NAME, PASSWORD)
+        .tableConfigBeans(
+            ImmutableList.of(
+                new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder().tablePattern("testTable").build()
+            )
+        )
+        .build();
     testWrongConfiguration(tableJdbcSource, false);
+  }
+
+  @Test
+  public void testLessConnectionPoolSizeThanNoOfThreads() throws Exception {
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder( "jdbc:db://localhost:1000", true, USER_NAME, PASSWORD)
+        .tableConfigBeans(
+            ImmutableList.of(
+                new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder().tablePattern("testTable").build()
+            )
+        )
+        .numberOfThreads(3)
+        .maximumPoolSize(2)
+        .build();
+    testWrongConfiguration(tableJdbcSource, true);
+  }
+
+  @Test
+  public void testWrongBatchesFromResultSetConfig() throws Exception {
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder( "jdbc:db://localhost:1000", true, USER_NAME, PASSWORD)
+        .tableConfigBeans(
+            ImmutableList.of(
+                new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+                    .tablePattern("testTable")
+                    .build()
+            )
+        )
+        .numberOfBatchesFromResultset(0)
+        .batchTableStrategy(BatchTableStrategy.SWITCH_TABLES)
+        .build();
+    testWrongConfiguration(tableJdbcSource, true);
   }
 }

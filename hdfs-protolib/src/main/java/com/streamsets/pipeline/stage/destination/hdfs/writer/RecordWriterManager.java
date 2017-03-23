@@ -31,6 +31,8 @@ import com.streamsets.pipeline.config.WholeFileExistsAction;
 import com.streamsets.pipeline.lib.el.FakeRecordEL;
 import com.streamsets.pipeline.lib.el.TimeEL;
 import com.streamsets.pipeline.lib.generator.DataGeneratorFactory;
+import com.streamsets.pipeline.lib.parser.shaded.com.google.code.regexp.Matcher;
+import com.streamsets.pipeline.lib.parser.shaded.com.google.code.regexp.Pattern;
 import com.streamsets.pipeline.stage.destination.hdfs.Errors;
 import com.streamsets.pipeline.stage.destination.hdfs.HdfsFileType;
 import com.streamsets.pipeline.stage.destination.hdfs.HdfsTarget;
@@ -180,7 +182,7 @@ public class RecordWriterManager {
   }
 
   String getTempFileName() {
-    return TMP_FILE_PREFIX + uniquePrefix + getExtension();
+    return TMP_FILE_PREFIX + uniquePrefix + "_" + context.getRunnerId() + getExtension();
   }
 
   public String getDirPath(Date date) throws StageException {
@@ -294,6 +296,44 @@ public class RecordWriterManager {
   }
 
   /**
+   * rename all _tmp_ files under directory path (dirPathTemplate)
+   * return the number of _tmp_ files
+   */
+  public int handleAlreadyExistingFiles() throws StageException, IOException {
+    int result = 0;
+
+    String globPath = dirPathTemplate;
+
+    final String staticExpReg = "\\$\\{(sdc:|pipeline:|runtime:)[a-zA-Z0-9\\(\\)]*\\}";
+    Pattern pattern = Pattern.compile(staticExpReg);
+    Matcher matcher = pattern.matcher(globPath);
+    ELEval eval = context.createELEval("dirPathTemplate");
+    ELVars vars = context.createELVars();
+
+    while (matcher.find()) {
+      String expressionString = eval.eval(vars, matcher.group(), String.class);
+      globPath = globPath.replace(matcher.group(), expressionString);
+    }
+
+    final String expReg = "\\$\\{[^}]*\\}";
+    pattern = Pattern.compile(expReg);
+    matcher = pattern.matcher(globPath);
+    while (matcher.find()) {
+      globPath = globPath.replace(matcher.group(), "*");
+    }
+    globPath = globPath.replaceAll("\\*+", "*");
+    globPath = globPath + TMP_FILE_PREFIX + uniquePrefix + "*";
+
+    FileStatus[] fileStatuses = fs.globStatus(new Path(globPath));
+    for (FileStatus fileStatus : fileStatuses) {
+      fsHelper.handleAlreadyExistingFile(fs, fileStatus.getPath());
+      result++;
+    }
+
+    return result;
+  }
+
+  /**
    * This method must always be called after the closeLock() method on the writer has been called.
    */
   public Path commitWriter(RecordWriter writer) throws IOException, StageException {
@@ -398,7 +438,7 @@ public class RecordWriterManager {
   }
 
   private FsHelper getFsHelper(
-      final Stage.Context context,
+      final Target.Context context,
       final String fileNameEL,
       final WholeFileExistsAction wholeFileAlreadyExistsAction,
       final String permissionEL

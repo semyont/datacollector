@@ -46,7 +46,7 @@ public class MapReduceConfig {
     type = ConfigDef.Type.STRING,
     defaultValue = "/etc/hadoop/conf/",
     label = "MapReduce Configuration Directory",
-    description = "Directory containing configuration files for MapReduce (core-site.xml, yarn-site.xml and mapreduce-site.xml)",
+    description = "Directory containing configuration files for MapReduce (core-site.xml, yarn-site.xml, hdfs-site.xml and mapreduce-site.xml)",
     displayPosition = 10,
     group = "MAPREDUCE"
   )
@@ -90,8 +90,9 @@ public class MapReduceConfig {
     return configuration;
   }
   private UserGroupInformation loginUgi;
+  private UserGroupInformation userUgi;
   public UserGroupInformation getUGI() {
-    return mapreduceUser.isEmpty() ? loginUgi : HadoopSecurityUtil.getProxyUser(mapreduceUser, loginUgi);
+    return userUgi;
   }
 
   public List<Stage.ConfigIssue> init(Stage.Context context, String prefix) {
@@ -116,6 +117,7 @@ public class MapReduceConfig {
     }
 
     addResourceFileToConfig(prefix, confDir, "core-site.xml", context, issues);
+    addResourceFileToConfig(prefix, confDir, "hdfs-site.xml", context, issues);
     addResourceFileToConfig(prefix, confDir, "yarn-site.xml", context, issues);
     addResourceFileToConfig(prefix, confDir, "mapred-site.xml", context, issues);
 
@@ -127,6 +129,14 @@ public class MapReduceConfig {
     // We're doing here the same as HDFS (which should be at some point refactored to shared code)
     try {
       loginUgi = HadoopSecurityUtil.getLoginUser(configuration);
+      userUgi = HadoopSecurityUtil.getProxyUser(
+        mapreduceUser,
+        context,
+        loginUgi,
+        issues,
+        Groups.MAPREDUCE.name(),
+        Joiner.on(".").join(prefix, "mapreduceUser")
+      );
       if(kerberos) {
         if (loginUgi.getAuthenticationMethod() != UserGroupInformation.AuthenticationMethod.KERBEROS) {
           issues.add(context.createConfigIssue(

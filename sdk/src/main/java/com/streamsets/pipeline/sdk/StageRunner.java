@@ -33,9 +33,11 @@ import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.pipeline.api.BatchMaker;
 import com.streamsets.pipeline.api.ConfigDef;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.OnRecordError;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.StageDef;
 import com.streamsets.pipeline.api.StageException;
@@ -210,15 +212,46 @@ public abstract class StageRunner<S extends Stage> {
   }
 
   @SuppressWarnings("unchecked")
-  StageRunner(Class<S> stageClass, StageType stageType, Map<String, Object> configuration, List<String> outputLanes,
-      boolean isPreview, OnRecordError onRecordError, Map<String, Object> constants, ExecutionMode executionMode, String resourcesDir) {
-    this(stageClass, (S) getStage(Utils.checkNotNull(stageClass, "stageClass")), stageType, configuration, outputLanes,
-      isPreview, onRecordError, constants, executionMode, resourcesDir);
+  StageRunner(
+    Class<S> stageClass,
+    StageType stageType,
+    Map<String, Object> configuration,
+    List<String> outputLanes,
+    boolean isPreview,
+    OnRecordError onRecordError,
+    Map<String, Object> constants,
+    ExecutionMode executionMode,
+    DeliveryGuarantee deliveryGuarantee,
+    String resourcesDir
+  ) {
+    this(
+      stageClass,
+      (S) getStage(Utils.checkNotNull(stageClass, "stageClass")),
+      stageType,
+      configuration,
+      outputLanes,
+      isPreview,
+      onRecordError,
+      constants,
+      executionMode,
+      deliveryGuarantee,
+      resourcesDir
+    );
   }
 
-  StageRunner(Class<S> stageClass, S stage, StageType stageType, Map < String, Object > configuration,
-              List< String > outputLanes, boolean isPreview, OnRecordError onRecordError,
-              Map<String, Object> constants, ExecutionMode executionMode, String resourcesDir) {
+  StageRunner(
+    Class<S> stageClass,
+    S stage,
+    StageType stageType,
+    Map < String, Object > configuration,
+    List< String > outputLanes,
+    boolean isPreview,
+    OnRecordError onRecordError,
+    Map<String, Object> constants,
+    ExecutionMode executionMode,
+    DeliveryGuarantee deliveryGuarantee,
+    String resourcesDir
+  ) {
     Utils.checkNotNull(stage, "stage");
     Utils.checkNotNull(configuration, "configuration");
     Utils.checkNotNull(outputLanes, "outputLanes");
@@ -242,14 +275,17 @@ public abstract class StageRunner<S extends Stage> {
     context = new StageContext(
         instanceName,
         stageType,
+        0,
         isPreview,
         onRecordError,
         outputLanes,
         configToElDefMap,
         constants,
         executionMode,
+        deliveryGuarantee,
         resourcesDir,
-        new EmailSender(new Configuration())
+        new EmailSender(new Configuration()),
+        new Configuration()
     );
     status = Status.CREATED;
   }
@@ -327,7 +363,7 @@ public abstract class StageRunner<S extends Stage> {
   }
 
   public List<Record> getEventRecords() {
-    return context.getEventSink().getEventRecords();
+    return context.getEventSink().getStageEvents(info.getInstanceName());
   }
 
   public void clearEvents() {
@@ -335,15 +371,21 @@ public abstract class StageRunner<S extends Stage> {
   }
 
   public static class Output {
+    private final String offsetEntity;
     private final String newOffset;
     private final Map<String, List<Record>> records;
 
-    Output(String newOffset, Map<String, List<Record>> records) {
+    Output(String offsetEntity, String newOffset, Map<String, List<Record>> records) {
+      this.offsetEntity = offsetEntity;
       this.newOffset = newOffset;
       for (Map.Entry<String, List<Record>> entry : records.entrySet()) {
         entry.setValue(Collections.unmodifiableList(entry.getValue()));
       }
       this.records = Collections.unmodifiableMap(records);
+    }
+
+    public String getOffsetEntity() {
+      return offsetEntity;
     }
 
     public String getNewOffset() {
@@ -363,6 +405,7 @@ public abstract class StageRunner<S extends Stage> {
     final Map<String, Object> constants;
     boolean isPreview;
     ExecutionMode executionMode = ExecutionMode.STANDALONE;
+    DeliveryGuarantee deliveryGuarantee = DeliveryGuarantee.AT_LEAST_ONCE;
     OnRecordError onRecordError;
     String resourcesDir;
 
@@ -383,6 +426,11 @@ public abstract class StageRunner<S extends Stage> {
 
     public B setExecutionMode(ExecutionMode executionMode) {
       this.executionMode = executionMode;
+      return (B) this;
+    }
+
+    public B setDeliveryGuarantee(DeliveryGuarantee deliveryGuarantee) {
+      this.deliveryGuarantee = deliveryGuarantee;
       return (B) this;
     }
 
@@ -427,7 +475,11 @@ public abstract class StageRunner<S extends Stage> {
   }
 
   static Output getOutput(BatchMaker batchMaker) {
-    return new Output("sdk:offset", ((BatchMakerImpl)batchMaker).getOutput());
+    return getOutput(Source.POLL_SOURCE_OFFSET_KEY, "sdk:offset", batchMaker);
+  }
+
+  static Output getOutput(String offsetEntity, String offset, BatchMaker batchMaker) {
+    return new Output(offsetEntity, offset, ((BatchMakerImpl)batchMaker).getOutput());
   }
 
 

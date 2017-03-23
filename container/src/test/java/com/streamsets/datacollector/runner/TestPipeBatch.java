@@ -55,44 +55,13 @@ public class TestPipeBatch {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void testSourceOffsetTracker() throws Exception {
-    SourceOffsetTracker tracker = Mockito.mock(SourceOffsetTracker.class);
-    Mockito.when(tracker.getOffset()).thenReturn("foo");
-    PipeBatch pipeBatch = new FullPipeBatch(tracker, -1, false);
-    Assert.assertEquals("foo", pipeBatch.getPreviousOffset());
-    Mockito.verify(tracker, Mockito.times(1)).getOffset();
-    Mockito.verifyNoMoreInteractions(tracker);
-    pipeBatch.setNewOffset("bar");
-    Mockito.verify(tracker, Mockito.times(1)).setOffset(Mockito.eq("bar"));
-    Mockito.verifyNoMoreInteractions(tracker);
-
-    pipeBatch.commitOffset();
-    Mockito.verify(tracker, Mockito.times(1)).commitOffset();
-    Mockito.verifyNoMoreInteractions(tracker);
-
-    PipelineBean pipelineBean = getPipelineBean();
-    StageBean stageBean = pipelineBean.getOrigin();
-
-    StageRuntime stage = new StageRuntime(pipelineBean, stageBean);
-
-    StagePipe pipe = new StagePipe(stage, Collections.EMPTY_LIST,
-      LaneResolver.getPostFixed(stage.getConfiguration().getOutputLanes(),
-                                LaneResolver.STAGE_OUT), Collections.EMPTY_LIST);
-
-    Batch batch = pipeBatch.getBatch(pipe);
-    Assert.assertEquals("foo", batch.getSourceOffset());
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
   public void testStageMethodsNoSnapshot() throws Exception {
-    SourceOffsetTracker tracker = Mockito.mock(SourceOffsetTracker.class);
-    PipeBatch pipeBatch = new FullPipeBatch(tracker, -1, false);
+    PipeBatch pipeBatch = new FullPipeBatch(null,null, -1, false);
 
     PipelineBean pipelineBean = getPipelineBean();
     StageRuntime[] stages = {
       new StageRuntime(pipelineBean, pipelineBean.getOrigin()),
-      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().get(0).getStages().get(0))
+      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().getStages().get(0))
     };
 
     StageContext context = Mockito.mock(StageContext.class);
@@ -113,7 +82,7 @@ public class TestPipeBatch {
     batchMaker.addRecord(origRecord, stageOutputLanes.get(0));
 
     // completing source
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     pipe = new StagePipe(stages[1], LaneResolver.getPostFixed(stageOutputLanes, LaneResolver.STAGE_OUT),
       Collections.EMPTY_LIST, Collections.EMPTY_LIST);
@@ -124,7 +93,7 @@ public class TestPipeBatch {
     BatchImpl batch = pipeBatch.getBatch(pipe);
 
     // completing target
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     Iterator<Record> records = batch.getRecords();
     Record recordFromBatch = records.next();
@@ -151,13 +120,12 @@ public class TestPipeBatch {
   @Test
   @SuppressWarnings("unchecked")
   public void testStageMethodsWithSnapshot() throws Exception {
-    SourceOffsetTracker tracker = Mockito.mock(SourceOffsetTracker.class);
-    PipeBatch pipeBatch = new FullPipeBatch(tracker, -1, true);
+    PipeBatch pipeBatch = new FullPipeBatch(null,null, -1, true);
 
     PipelineBean pipelineBean = getPipelineBean();
     StageRuntime[] stages = {
       new StageRuntime(pipelineBean, pipelineBean.getOrigin()),
-      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().get(0).getStages().get(0))
+      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().getStages().get(0))
     };
 
     StageContext context = Mockito.mock(StageContext.class);
@@ -178,7 +146,7 @@ public class TestPipeBatch {
     batchMaker.addRecord(origRecord, stageOutputLanes.get(0));
 
     // completing source
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     StagePipe targetPipe = new StagePipe(stages[1], LaneResolver.getPostFixed(stageOutputLanes, LaneResolver.STAGE_OUT),
       Collections.EMPTY_LIST, Collections.EMPTY_LIST);
@@ -189,7 +157,7 @@ public class TestPipeBatch {
     BatchImpl batch = pipeBatch.getBatch(targetPipe);
 
     // completing target
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     Iterator<Record> records = batch.getRecords();
     Record recordFromBatch = records.next();
@@ -246,13 +214,12 @@ public class TestPipeBatch {
   @Test
   @SuppressWarnings("unchecked")
   public void testMoveLane() throws Exception {
-    SourceOffsetTracker tracker = Mockito.mock(SourceOffsetTracker.class);
-    FullPipeBatch pipeBatch = new FullPipeBatch(tracker, -1, true);
+    FullPipeBatch pipeBatch = new FullPipeBatch(null, null, -1, true);
 
     PipelineBean pipelineBean = getPipelineBean();
     StageRuntime[] stages = {
       new StageRuntime(pipelineBean, pipelineBean.getOrigin()),
-      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().get(0).getStages().get(0))
+      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().getStages().get(0))
     };
 
     StageContext context = Mockito.mock(StageContext.class);
@@ -272,7 +239,7 @@ public class TestPipeBatch {
     batchMaker.addRecord(record, stageOutputLanes.get(0));
 
     // completing source
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     Record origRecord = pipeBatch.getFullPayload().get(pipe.getOutputLanes().get(0)).get(0);
     pipeBatch.moveLane(pipe.getOutputLanes().get(0), "x");
@@ -288,13 +255,12 @@ public class TestPipeBatch {
   @Test
   @SuppressWarnings("unchecked")
   public void testMoveLaneCopying() throws Exception {
-    SourceOffsetTracker tracker = Mockito.mock(SourceOffsetTracker.class);
-    FullPipeBatch pipeBatch = new FullPipeBatch(tracker, -1, true);
+    FullPipeBatch pipeBatch = new FullPipeBatch(null, null, -1, true);
 
     PipelineBean pipelineBean = getPipelineBean();
     StageRuntime[] stages = {
       new StageRuntime(pipelineBean, pipelineBean.getOrigin()),
-      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().get(0).getStages().get(0))
+      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().getStages().get(0))
     };
 
     StageContext context = Mockito.mock(StageContext.class);
@@ -314,7 +280,7 @@ public class TestPipeBatch {
     batchMaker.addRecord(record, stageOutputLanes.get(0));
 
     // completing source
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     List<String> list = ImmutableList.of("x", "y");
 
@@ -342,13 +308,12 @@ public class TestPipeBatch {
   @Test
   @SuppressWarnings("unchecked")
   public void testCombineLanes() throws Exception {
-    SourceOffsetTracker tracker = Mockito.mock(SourceOffsetTracker.class);
-    FullPipeBatch pipeBatch = new FullPipeBatch(tracker, -1, true);
+    FullPipeBatch pipeBatch = new FullPipeBatch(null, null, -1, true);
 
     PipelineBean pipelineBean = getPipelineBean();
     StageRuntime[] stages = {
       new StageRuntime(pipelineBean, pipelineBean.getOrigin()),
-      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().get(0).getStages().get(0))
+      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().getStages().get(0))
     };
 
     StageContext context = Mockito.mock(StageContext.class);
@@ -368,7 +333,7 @@ public class TestPipeBatch {
     batchMaker.addRecord(record, stageOutputLanes.get(0));
 
     // completing source
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     List<String> list = ImmutableList.of("x", "y");
     pipeBatch.moveLaneCopying(pipe.getOutputLanes().get(0), list);
@@ -390,13 +355,12 @@ public class TestPipeBatch {
   @Test
   @SuppressWarnings("unchecked")
   public void testOverride() throws Exception {
-    SourceOffsetTracker tracker = Mockito.mock(SourceOffsetTracker.class);
-    PipeBatch pipeBatch = new FullPipeBatch(tracker, -1, true);
+    PipeBatch pipeBatch = new FullPipeBatch(null, null, -1, true);
 
     PipelineBean pipelineBean = getPipelineBean();
     StageRuntime[] stages = {
       new StageRuntime(pipelineBean, pipelineBean.getOrigin()),
-      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().get(0).getStages().get(0))
+      new StageRuntime(pipelineBean, pipelineBean.getPipelineStageBeans().getStages().get(0))
     };
 
     StageContext context = Mockito.mock(StageContext.class);
@@ -417,7 +381,7 @@ public class TestPipeBatch {
     batchMaker.addRecord(origRecord, stageOutputLanes.get(0));
 
     // completing source
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     StagePipe targetPipe = new StagePipe(stages[1], LaneResolver.getPostFixed(stageOutputLanes,
       LaneResolver.STAGE_OUT), Collections.EMPTY_LIST, Collections.EMPTY_LIST);
@@ -428,7 +392,7 @@ public class TestPipeBatch {
     BatchImpl batch = pipeBatch.getBatch(targetPipe);
 
     // completing target
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
 
     // getting stages ouptut
     List<StageOutput> stageOutputs = pipeBatch.getSnapshotsOfAllStagesOutput();
@@ -442,7 +406,7 @@ public class TestPipeBatch {
     sourceOutput.getOutput().get(stages[0].getConfiguration().getOutputLanes().get(0)).set(0, modRecord);
 
     //starting a new pipe batch
-    pipeBatch = new FullPipeBatch(tracker, -1, true);
+    pipeBatch = new FullPipeBatch(null, null, -1, true);
 
     //instead running source, we inject its previous-modified output, it implicitly starts the pipe
     pipeBatch.overrideStageOutput(sourcePipe, sourceOutput);
@@ -457,6 +421,6 @@ public class TestPipeBatch {
     Assert.assertFalse(it.hasNext());
 
     // completing target
-    pipeBatch.completeStage(batchMaker, new EventSink());
+    pipeBatch.completeStage(batchMaker);
   }
 }

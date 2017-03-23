@@ -47,12 +47,14 @@ public abstract class RuntimeInfo {
   public static final String UNDEF = "UNDEF";
   public static final String CALLBACK_URL = "/public-rest/v1/cluster/callback";
   private boolean DPMEnabled;
-
+  private boolean aclEnabled;
 
   private final static String USER_ROLE = "user";
 
   public static final String LOG4J_CONFIGURATION_URL_ATTR = "log4j.configuration.url";
   public static final String LOG4J_PROPERTIES = "-log4j.properties";
+
+  private static final String STREAMSETS_LIBRARIES_EXTRA_DIR_SYS_PROP = "STREAMSETS_LIBRARIES_EXTRA_DIR";
 
   private final MetricRegistry metrics;
   private final List<? extends ClassLoader> stageLibraryClassLoaders;
@@ -136,6 +138,9 @@ public abstract class RuntimeInfo {
     return System.getProperty(propertyPrefix + RESOURCES_DIR, getRuntimeDir() + "/resources");
   }
 
+  public String getLibsExtraDir() {
+    return System.getProperty(STREAMSETS_LIBRARIES_EXTRA_DIR_SYS_PROP, null);
+  }
 
   public boolean hasAttribute(String key) {
     Utils.checkNotNull(key, "key");
@@ -259,5 +264,13 @@ public abstract class RuntimeInfo {
 
   public boolean isDPMEnabled() {
     return DPMEnabled;
+  }
+
+  public boolean isAclEnabled() {
+    return aclEnabled;
+  }
+
+  public void setAclEnabled(boolean aclEnabled) {
+    this.aclEnabled = aclEnabled;
   }
 }

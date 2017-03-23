@@ -45,8 +45,17 @@ public class StatsAggregationHandler {
     return  statsAggregator.init();
   }
 
-  public void handle(String sourceOffset, List<Record> statsRecords) throws StageException {
-    ((Target) statsAggregator.getStage()).write(new BatchImpl(STATS_AGGREGATOR, sourceOffset, statsRecords));
+  public void handle(String sourceEntity, String sourceOffset, List<Record> statsRecords) throws StageException {
+    synchronized (statsAggregator) {
+      statsAggregator.execute(
+        sourceOffset,     // Source offset for this batch
+        -1,     // BatchSize is not used for target
+        new BatchImpl(STATS_AGGREGATOR, sourceEntity, sourceOffset, statsRecords),
+        null,  // BatchMaker doesn't make sense for target
+        null,    // Stats stage can't generate error records
+        null    // And also can't generate events
+      );
+    }
   }
 
   public void destroy() {

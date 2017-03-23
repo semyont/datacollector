@@ -29,7 +29,7 @@ import com.streamsets.pipeline.configurablestage.DSource;
 import com.streamsets.pipeline.stage.common.mongodb.Groups;
 
 @StageDef(
-    version = 2,
+    version = 3,
     label = "MongoDB",
     description = "Reads records from a MongoDB collection",
     icon="mongodb.png",

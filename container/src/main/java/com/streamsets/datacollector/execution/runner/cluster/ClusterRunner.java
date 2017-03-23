@@ -58,8 +58,11 @@ import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.restapi.bean.IssuesJson;
 import com.streamsets.datacollector.runner.Pipeline;
 import com.streamsets.datacollector.runner.PipelineRuntimeException;
+import com.streamsets.datacollector.runner.UserContext;
+import com.streamsets.datacollector.runner.production.OffsetFileUtil;
 import com.streamsets.datacollector.security.SecurityConfiguration;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
+import com.streamsets.datacollector.store.AclStoreTask;
 import com.streamsets.datacollector.store.PipelineStoreException;
 import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.updatechecker.UpdateChecker;
@@ -71,6 +74,7 @@ import com.streamsets.datacollector.validation.Issues;
 import com.streamsets.datacollector.validation.ValidationError;
 import com.streamsets.dc.execution.manager.standalone.ResourceManager;
 import com.streamsets.dc.execution.manager.standalone.ThreadUsage;
+import com.streamsets.lib.security.acl.dto.Acl;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.ProtoSource;
 import com.streamsets.pipeline.api.Record;
@@ -162,7 +166,7 @@ public class ClusterRunner extends AbstractRunner {
   ClusterRunner(String name, String rev, String user, RuntimeInfo runtimeInfo, Configuration configuration,
     PipelineStoreTask pipelineStore, PipelineStateStore pipelineStateStore, StageLibraryTask stageLibrary,
     SafeScheduledExecutorService executorService, ClusterHelper clusterHelper, ResourceManager resourceManager,
-    EventListenerManager eventListenerManager, String sdcToken) {
+    EventListenerManager eventListenerManager, String sdcToken, AclStoreTask aclStoreTask) {
     this.runtimeInfo = runtimeInfo;
     this.configuration = configuration;
     this.pipelineStateStore = pipelineStateStore;
@@ -182,6 +186,7 @@ public class ClusterRunner extends AbstractRunner {
     this.eventListenerManager = eventListenerManager;
     this.slaveCallbackManager = new SlaveCallbackManager();
     this.slaveCallbackManager.setClusterToken(sdcToken);
+    this.aclStoreTask = aclStoreTask;
   }
 
   @SuppressWarnings("deprecation")
@@ -270,7 +275,7 @@ public class ClusterRunner extends AbstractRunner {
   }
 
   @Override
-  public void onDataCollectorStart() throws PipelineStoreException, PipelineRunnerException, PipelineRuntimeException, StageException {
+  public void onDataCollectorStart() throws PipelineException, StageException {
     PipelineStatus status = getState().getStatus();
     LOG.info("Pipeline '{}::{}' has status: '{}'", name, rev, status);
     switch (status) {
@@ -302,6 +307,11 @@ public class ClusterRunner extends AbstractRunner {
 
   @Override
   public void resetOffset() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Map<String, String> getCommittedOffsets() throws PipelineException {
     throw new UnsupportedOperationException();
   }
 
@@ -347,8 +357,8 @@ public class ClusterRunner extends AbstractRunner {
   }
 
   @SuppressWarnings("unchecked")
-  private void connectOrStart() throws PipelineStoreException, PipelineRunnerException, PipelineRuntimeException,
-    StageException {
+  private void connectOrStart() throws PipelineException,
+      StageException {
     final Map<String, Object> attributes = new HashMap<>();
     attributes.putAll(getAttributes());
     ApplicationState appState = new ApplicationState((Map) attributes.get(APPLICATION_STATE));
@@ -369,8 +379,7 @@ public class ClusterRunner extends AbstractRunner {
     }
   }
 
-  private void retryOrStart() throws PipelineStoreException, PipelineRunnerException, PipelineRuntimeException,
-      StageException {
+  private void retryOrStart() throws PipelineException, StageException {
     PipelineState pipelineState = getState();
     if (pipelineState.getRetryAttempt() == 0) {
       prepareForStart();
@@ -406,8 +415,8 @@ public class ClusterRunner extends AbstractRunner {
   }
 
   @Override
-  public synchronized void start() throws PipelineStoreException, PipelineRunnerException, PipelineRuntimeException,
-    StageException {
+  public synchronized void start(Map<String, Object> runtimeConstants) throws PipelineException, StageException {
+    // runtimeConstants is not used in Cluster Mode for now
     try {
       Utils.checkState(!isClosed,
         Utils.formatL("Cannot start the pipeline '{}::{}' as the runner is already closed", name, rev));
@@ -418,7 +427,7 @@ public class ClusterRunner extends AbstractRunner {
       }
       LOG.debug("State of pipeline for '{}::{}' is '{}' ", name, rev, getState());
       pipelineConf = getPipelineConf(name, rev);
-      doStart(pipelineConf, getClusterSourceInfo(name, rev, pipelineConf));
+      doStart(pipelineConf, getClusterSourceInfo(name, rev, pipelineConf), getAcl(name));
     } catch (Exception e) {
       validateAndSetStateTransition(PipelineStatus.START_ERROR, e.toString(), getAttributes());
       throw e;
@@ -428,6 +437,17 @@ public class ClusterRunner extends AbstractRunner {
   @Override
   public PipelineState getState() throws PipelineStoreException {
     return pipelineStateStore.getState(name, rev);
+  }
+
+  @Override
+  public void startAndCaptureSnapshot(
+      Map<String, Object> runtimeConstants,
+      String snapshotName,
+      String snapshotLabel,
+      int batches,
+      int batchSize
+  ) throws PipelineException, StageException {
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -576,7 +596,12 @@ public class ClusterRunner extends AbstractRunner {
       }
       // This should be out of sync block
       if (eventListenerManager != null) {
-        eventListenerManager.broadcastStateChange(fromState, pipelineState, ThreadUsage.CLUSTER);
+        eventListenerManager.broadcastStateChange(
+            fromState,
+            pipelineState,
+            ThreadUsage.CLUSTER,
+            OffsetFileUtil.getOffsets(runtimeInfo, name, rev)
+        );
       }
     }
   }
@@ -676,9 +701,16 @@ public class ClusterRunner extends AbstractRunner {
     if (rateLimit > 0) {
       runner.setRateLimit(rateLimit);
     }
-    ProductionPipelineBuilder builder =
-      new ProductionPipelineBuilder(name, rev, configuration, runtimeInfo, stageLibrary,  runner, null);
-    return builder.build(pipelineConfiguration);
+    ProductionPipelineBuilder builder = new ProductionPipelineBuilder(
+      name,
+      rev,
+      configuration,
+      runtimeInfo,
+      stageLibrary,
+      runner,
+      null
+    );
+    return builder.build(new UserContext(user), pipelineConfiguration, null);
   }
 
   static class ManagerRunnable implements Runnable {
@@ -776,8 +808,11 @@ public class ClusterRunner extends AbstractRunner {
     FileUtils.deleteQuietly(hostingDir);
   }
 
-  private synchronized void doStart(PipelineConfiguration pipelineConf, ClusterSourceInfo clusterSourceInfo) throws PipelineStoreException,
-    PipelineRunnerException {
+  private synchronized void doStart(
+      PipelineConfiguration pipelineConf,
+      ClusterSourceInfo clusterSourceInfo,
+      Acl acl
+  ) throws PipelineStoreException, PipelineRunnerException {
     String msg;
     try {
       Utils.checkNotNull(pipelineConf, "PipelineConfiguration cannot be null");
@@ -815,7 +850,7 @@ public class ClusterRunner extends AbstractRunner {
       slaveCallbackManager.clearSlaveList();
       ApplicationState applicationState = clusterHelper.submit(pipelineConf, stageLibrary, new File(runtimeInfo.getConfigDir()),
           new File(runtimeInfo.getResourcesDir()), new File(runtimeInfo.getStaticWebDir()), bootstrapDir, environment,
-          sourceInfo, SUBMIT_TIMEOUT_SECS, getRules());
+          sourceInfo, SUBMIT_TIMEOUT_SECS, getRules(), acl);
       // set state of running before adding callback which modified attributes
       Map<String, Object> attributes = new HashMap<>();
       attributes.putAll(getAttributes());
@@ -904,7 +939,7 @@ public class ClusterRunner extends AbstractRunner {
     return updateChecker.getUpdateInfo();
   }
 
-  RuleDefinitions getRules() throws PipelineStoreException {
+  RuleDefinitions getRules() throws PipelineException {
     return pipelineStore.retrieveRules(name, rev);
   }
 

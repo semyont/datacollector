@@ -26,7 +26,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.streamsets.datacollector.config.ConfigDefinition;
-import com.streamsets.datacollector.config.DeliveryGuarantee;
 import com.streamsets.datacollector.config.PipelineConfiguration;
 import com.streamsets.datacollector.config.PipelineGroups;
 import com.streamsets.datacollector.config.StageConfiguration;
@@ -47,6 +46,7 @@ import com.streamsets.datacollector.util.ElUtil;
 import com.streamsets.pipeline.api.Config;
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.ExecutionMode;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.el.ELEvalException;
@@ -56,6 +56,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -359,6 +360,10 @@ public class PipelineConfigurationValidator {
         validatedNumberConfig(config, confDef, pipelineConfs, issueCreator);
       }
     }
+
+    if (pipelineConfiguration.getTitle() != null && pipelineConfiguration.getTitle().isEmpty()) {
+      issues.add(IssueCreator.getPipeline().create(ValidationError.VALIDATION_0093));
+    }
     issues.addAll(errors);
     return errors.isEmpty();
   }
@@ -660,8 +665,23 @@ public class PipelineConfigurationValidator {
         isNullOrEmptyString = true;
       }
     } else if (confDef.getType() == ConfigDef.Type.MAP) {
-      if (((Map<?, ?>) config.getValue()).isEmpty()) {
-        isNullOrEmptyString = true;
+      final Object value = config.getValue();
+      if (value instanceof Collection) {
+        if (((Collection<?>) value).isEmpty()) {
+          isNullOrEmptyString = true;
+        }
+      } else if (value instanceof Map) {
+        if (((Map<?,?>) value).isEmpty()) {
+          isNullOrEmptyString = true;
+        }
+      } else {
+        throw new IllegalStateException(String.format(
+            "ConfigDefinition with name %s is type %s but config value class is instance of %s, with toString of %s",
+            confDef.getName(),
+            confDef.getType().name(),
+            value.getClass().getName(),
+            value.toString()
+        ));
       }
     }
     return isNullOrEmptyString;

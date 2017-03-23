@@ -14,7 +14,7 @@
 -->
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="concept_vhs_5tz_xp">
-      <title>Reusable phrases for the book</title>
+      <title>Reusable phrases</title>
       <shortdesc>Use the following reusable phrases for conrefs in the book. <draft-comment
                   author="Loretta">Company name - not really using this</draft-comment></shortdesc>
       <conbody>
@@ -29,6 +29,43 @@
                   Collector</ph></p>
             <p>DPM long only: <ph id="DPM-LongOnly">Dataflow Performance Manager</ph></p>
             <p>DPM short: <ph id="DPM-short">DPM</ph></p>
+            <p>
+                  <draft-comment author="Loretta">The following ph is used by the registration DPM
+                        topics. </draft-comment>
+            </p>
+            <p><ph id="ph-DPMTransferPerm">To enable <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/DPM-short"
+                        /> users to work with pipelines, transfer permissions to the <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/DPM-short"
+                        /> users and groups. For more information, see <xref
+                              href="../DPM/TransferPermissions.dita"/>.</ph></p>
+            <p>
+                  <draft-comment author="Loretta">The following ph is used by the unregistration
+                        from DPM topics. </draft-comment>
+            </p>
+            <p><ph id="ph-SDCuser-uninstall">After restarting <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
+                        />, use your <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
+                        /> user account to log in. </ph></p>
+            <p>
+                  <draft-comment author="Loretta">The following two ph is used by the unregistration
+                        from DPM topics. </draft-comment>
+            </p>
+            <p><ph id="ph-TransferPerms-Unregister">To ensure that users can access pipelines,
+                        transfer pipeline permissions from the obsolete <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/DPM-short"
+                        /> users and groups back to <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
+                        /> users and groups. Or, you can edit pipeline permissions
+                        individually.</ph></p>
+            <p><ph id="ph-DPMperm-xrefs">For more information about transferring permissions, see
+                              <xref
+                              href="../Configuration/TransferringPermissions.dita#task_wkr_gdd_1z"
+                        />. For information about configuring individual pipeline permissions, see
+                              <xref
+                              href="../Pipeline_Maintenance/SharingPipelines.dita#concept_jrg_1vy_wy"
+                        />.</ph></p>
             <p>
                   <draft-comment author="Loretta"><uicontrol>ph-VaultFunctions-Usage</uicontrol> -
                         used in Vault-Step3-CallVault.dita</draft-comment>
@@ -53,6 +90,7 @@
                         <li>Directory</li>
                         <li>File Tail</li>
                         <li>HTTP Client</li>
+                        <li>HTTP Server</li>
                         <li>SDC RPC</li>
                         <li>SFTP/FTP Client</li>
                         <li>UDP Source</li>
@@ -79,7 +117,7 @@
                   <draft-comment author="Loretta">KafkaSecure - used in KConsumer &amp; Producer
                         encryption areas. Original value: Kafka 0.9.0.0</draft-comment>
             </p>
-            <p>Kafka version that supports SSL and SASL/Kerberos security: <ph id="KafkaSecure"
+            <p>Kafka version that supports SSL/TLS and SASL/Kerberos security: <ph id="KafkaSecure"
                         >Kafka version 0.9.0.0 or later</ph></p>
             <draft-comment author="Loretta">Using this in all DC Console topics:</draft-comment>
             <p>
@@ -138,11 +176,26 @@
                         several processors (Expression Evaluator, Field Converter, Field Hasher, -
                         whichever ones allow wildcard use:</draft-comment>
             </p>
-            <p id="wildcard">You can use the asterisk wildcard to represent array indices and map
-                  elements. <xref
-                        href="../Pipeline_Configuration/WildcardsArraysMaps.dita#concept_vqr_sqc_wr"
-                              ><image href="../Graphics/icon_moreInfo.png" scale="10"/>
-                  </xref>
+            <p id="wildcard"><ph id="ph-wildcard">You can use the asterisk wildcard to represent
+                        array indices and map elements. <xref
+                              href="../Pipeline_Configuration/WildcardsArraysMaps.dita#concept_vqr_sqc_wr"
+                                    ><image href="../Graphics/icon_moreInfo.png" scale="10"
+                                    id="image_ukp_2dt_bz"/>
+                        </xref></ph>
+            </p>
+            <p>
+                  <draft-comment author="Loretta">The following tip is used several times in
+                        Configuring the Value Replacer.</draft-comment>
+            </p>
+            <p>
+                  <note type="tip" id="tip-asterisk">To use all fields, you can use the asterisk
+                        wildcard as follows: <codeph>/*</codeph>. You can also use the asterisk
+                        wildcard to represent array indices and map elements. <ph><xref
+                                    href="../Pipeline_Configuration/WildcardsArraysMaps.dita#concept_vqr_sqc_wr"
+                                          ><image href="../Graphics/icon_moreInfo.png" scale="10"
+                                          id="image_phy_rdt_bz"/>
+                              </xref></ph>
+                  </note>
             </p>
             <p>
                   <draft-comment author="Loretta"><uicontrol>DataFormats-ALL</uicontrol> - <b>no
@@ -256,11 +309,11 @@
                         </dlentry>
                   </dl>
             </p>
+            <p/>
             <p>
-                  <draft-comment author="Loretta">AVRO-Files - used by Directory and Amazon S3 and
-                        other file origins except Hadoop FS</draft-comment>
-            </p>
-            <p>
+                  <draft-comment author="Loretta">AVRO-Files - used by Amazon S3 and other file
+                        origins except Hadoop FS, and Directory and HTTP Server. Directory and HTTP
+                        Server each have standalone content.</draft-comment>
                   <dl>
                         <dlentry id="OriginDF-AVROfiles">
                               <dt>Avro</dt>
@@ -568,7 +621,8 @@
                         <dlentry id="OriginDF-WFile">
                               <dt>Whole File</dt>
                               <dd>Streams whole files from the origin system to the destination
-                                    system. </dd>
+                                    system. You can specify a transfer rate or use all available
+                                    resources to perform the transfer. </dd>
                               <dd>The origin generates two fields: one for a file reference and one
                                     for file information. For more information, see <xref
                                           href="../Pipeline_Design/WholeFile.dita#concept_nfc_qkh_xw"
@@ -585,35 +639,53 @@
                         <dlentry id="OriginDF-WFile-Checksum">
                               <dt>Whole File</dt>
                               <dd>Streams whole files from the origin system to the destination
-                                    system. The origin uses checksums to verify the integrity of
-                                    data transmission.</dd>
+                                    system. You can specify a transfer rate or use all available
+                                    resources to perform the transfer. </dd>
+                              <dd>The origin uses checksums to verify the integrity of data
+                                    transmission.</dd>
                               <dd>The origin generates two fields: one for a file reference and one
                                     for file information. For more information, see <xref
                                           href="../Pipeline_Design/WholeFile.dita#concept_nfc_qkh_xw"
                                     />.</dd>
                         </dlentry>
+                  </dl>
+            </p>
+            <p>
+                  <draft-comment author="Loretta">Two versions of XML below. First for message
+                        origins, then file origins - which have the extra error
+                        info.</draft-comment>
+                  <dl>
                         <dlentry id="OriginDF-XML">
                               <dt>XML</dt>
-                              <dd>Generates records based on the location of the XML element that
-                                    you define as the record delimiter. If you do not define a
-                                    delimiter element, the origin treats the XML file as a single
-                                    record.</dd>
+                              <dd>Generates records based on a user-defined delimiter element. Use
+                                    an XML element directly under the root element or define a
+                                    simplified XPath expression. </dd>
+                              <dd>If you do not define a delimiter element, the origin treats the
+                                    XML file as a single record.</dd>
+                              <dd>For more information about XML processing, see <xref
+                                          href="../Pipeline_Design/XMLDFormat.dita#concept_lty_42b_dy"
+                                    />.</dd>
                               <dd>When a record exceeds the user-defined maximum record length, the
                                     origin skips the record and continues processing with the next
                                     record. It sends the skipped record to the pipeline for error
                                     handling. </dd>
-                              <dd>If you want to process invalid XML documents, you can try using
-                                    the text data format with custom delimiters. For more
-                                    information, see <xref
+                              <dd>Use the XML data format to process valid XML documents. If you
+                                    want to process invalid XML documents, you can try using the
+                                    text data format with custom delimiters. For more information,
+                                    see <xref
                                           href="../Pipeline_Design/TextCDelim-XMLdata.dita#concept_okt_kmg_jx"
                                     />.</dd>
                         </dlentry>
                         <dlentry id="OriginDF-XMLFILE">
                               <dt>XML</dt>
-                              <dd>Generates records based on the location of the XML element that
-                                    you define as the record delimiter. If you do not define a
-                                    delimiter element, the origin treats the XML file as a single
-                                    record.</dd>
+                              <dd>Generates records based on a user-defined delimiter element. Use
+                                    an XML element directly under the root element or define a
+                                    simplified XPath expression. </dd>
+                              <dd>If you do not define a delimiter element, the origin treats the
+                                    XML file as a single record.</dd>
+                              <dd>For more information about XML processing, see <xref
+                                          href="../Pipeline_Design/XMLDFormat.dita#concept_lty_42b_dy"
+                                    />.</dd>
                               <dd>When a record exceeds the user-defined maximum record length, the
                                     origin cannot continue processing data in the file. Records
                                     already processed from the file are passed to the pipeline. The
@@ -628,14 +700,48 @@
                                                 partially-processed file to the error directory.
                                                 Otherwise, it leaves the file in the directory.</li>
                                           <li>Stop Pipeline - The origin stops the pipeline. </li>
-                                    </ul>If you want to process invalid XML documents, you can try
-                                    using the text data format with custom delimiters. For more
-                                    information, see <xref
-                                          href="../Pipeline_Design/TextCDelim-XMLdata.dita#concept_okt_kmg_jx"
-                                    />.</dd>
+                                    </ul></dd>
+                              <dd>Use the XML data format to process valid XML documents. <ph
+                                          id="ph-p-InvalidXML-CustomDelimXref">If you want to
+                                          process invalid XML documents, you can try using the text
+                                          data format with custom delimiters. For more information,
+                                          see <xref
+                                                href="../Pipeline_Design/TextCDelim-XMLdata.dita#concept_okt_kmg_jx"
+                                          />.</ph></dd>
                         </dlentry>
                   </dl>
             </p>
+            <p>
+                  <draft-comment author="Loretta">XML delimiter - Used in XML > Creating Multiple
+                        Records and XML Parser overview.</draft-comment>
+            </p>
+            <p><ph id="XML-ph-MultRecords">To create multiple records from an XML document, you
+                        define a delimiter element. You can use an actual XML element name, such as
+                              <codeph>msg</codeph>. You can also use a simplified XPath expression
+                        to specify the location of the delimiter element, such as
+                              <codeph>/root/*/msg</codeph>.</ph></p>
+            <p id="XML-p-MultRec2"><ph id="XML-ph-MultRec2">Use an XML element when the element
+                        resides directly under the root node. Use a simplified XPath expression to
+                        access data deeper in the XML document.</ph></p>
+            <p>
+                  <draft-comment author="Loretta">XML syntax - The following ph and code are used in
+                        the XPath Syntax and Node Predicates topics.</draft-comment>
+            </p>
+            <p><ph id="XML-ph-PosPredicate">The position predicate indicates the instance of the
+                        element to use in the file. Use a position predicate when the element
+                        appears multiple times in a file, and you want to use a particular instance
+                        based on the position of the instances in the file, e.g. the first, second,
+                        or third time the element appears in the file. </ph></p>
+            <p id="XML-p-PosPred-Syntax">Use the following syntax to specify a position
+                  predicate:<codeblock>/&lt;element>[&lt;position number>]</codeblock></p>
+            <p><ph id="XML-ph-AttPredicate">The attribute value predicate limits the data to
+                        elements with the specified attribute value. Use the attribute value
+                        predicate when you want to specify an element with a particular attribute
+                        values or an element that simply has an attribute value defined. </ph></p>
+            <p id="XML-p-AttPred-Syntax">Use the following syntax to specify an attribute value
+                  predicate:<codeblock>/&lt;element>[@&lt;attribute name>='&lt;attribute value>']</codeblock></p>
+            <p><ph id="XML-ph-AttAsterisk">You can use the asterisk wildcard as the attribute value.
+                        Surround the value in single quotation marks.</ph></p>
             <p>
                   <draft-comment author="Loretta">Amazon <uicontrol>S3origin-CopyMove1</uicontrol>
                         and 2 used in Amazon S3 origin Configuring.</draft-comment>
@@ -753,6 +859,18 @@ web-0011.log</codeblock></dd>
                         </dlentry>
                   </dl>
             </p>
+            <p>
+                  <draft-comment author="Loretta"><uicontrol>TIP-CompareHTTPOrigins</uicontrol> used
+                        in all HTTP origin overviews. </draft-comment>
+            </p>
+            <p>
+                  <note type="tip" id="Tip-CompareHTTPOrigins"><ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
+                        /> provides several HTTP origins to address different needs. For a quick
+                        comparison chart to help you choose the right one, see <xref
+                              href="../Origins/Origins-HTTPComparison.dita#concept_rsz_cnw_qy"
+                        />.</note>
+            </p>
             
             <p>
                   <draft-comment author="Loretta"><uicontrol>O-EventHandling-overview</uicontrol> -
@@ -790,7 +908,7 @@ web-0011.log</codeblock></dd>
                               or change permissions on closed files. <p>For an example, see <xref
                                           href="../Event_Handling/CaseStudy-FileManagement.dita#concept_d1q_xl4_lx"
                                     />.</p></li>
-                        <li>With the Hive Query executor to run a Hive or Impala query after closing
+                        <li>With the Hive Query executor to run Hive or Impala queries after closing
                               output files. <p>For an example, see <xref
                                           href="../Event_Handling/CaseStudy-Impala.dita#concept_szz_xwm_lx"
                                     />.</p></li>
@@ -805,6 +923,32 @@ web-0011.log</codeblock></dd>
                   </ul>
             </p>
             <p/>
+            <draft-comment author="Loretta">Used in Pipeline Concepts &amp; Design > Single &amp;
+                  Multithreaded Pipes, and Multithreaded > Overview.</draft-comment>
+            <p><ph id="ph-MultiThread-def1">When you start the pipeline, the origin creates the
+                        specified number of threads and <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
+                        /> creates a matching number of <term>pipeline runners</term> to perform
+                        pipeline processing. The origin creates batches and passes each batch to a
+                        pipeline runner. Each pipeline runner runs a <term>sourceless pipeline
+                              instance</term> - an instance of the pipeline that includes all of the
+                        processors and destinations in the pipeline and performs all pipeline
+                        processing after the origin.</ph></p>
+            <p><ph id="ph-MultiThread-def2"> Each pipeline runner can process one batch at a time,
+                        just like a pipeline that runs on a single thread. When the flow of data
+                        slows, the pipeline runners wait idly until they are needed.</ph></p>
+            <p>
+                  <draft-comment author="Loretta">Used in Multithreaded > How it works and origins >
+                        HTTP Server > Multithreaded Processing</draft-comment>
+            </p>
+            <p><ph id="HTTPServer-process-ph">the origin creates five threads, and <ph
+                              conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
+                        /> creates five pipeline runners. Upon receiving data, the origin passes a
+                        batch to each of the pipeline runners for processing. </ph></p>
+            <p id="HTTPServer-process-p">At any given moment, the five pipeline runners can each
+                  process a batch, so this multithreaded pipeline processes up to five batches at a
+                  time. When incoming data slows, the pipeline runners sit idle, available for use
+                  as soon as the data flow increases.</p>
             <p>
                   <draft-comment author="Loretta">JDBC Consumer,  Oracle CDC Client origin, and JDBC
                         Query executor use these in the overview:</draft-comment>
@@ -821,7 +965,7 @@ web-0011.log</codeblock></dd>
             <p><ph id="ph-JDBCdriver">install the JDBC driver for the database. You cannot access
                         the database until you install the required driver. </ph></p>
             <p id="p-JDBCdriver-link">For more information about installing drivers, see <xref
-                        href="../Install_Config/AdditionalDrivers.dita#concept_pdv_qlw_ft"/>.</p>
+                        href="../Configuration/ExternalLibs.dita#concept_pdv_qlw_ft"/>.</p>
             <p/>
             <p>
                   <draft-comment author="Loretta">Oracle CDC Client uses this in Initial Change and
@@ -840,8 +984,9 @@ web-0011.log</codeblock></dd>
                   <draft-comment author="Loretta">UDP Source and UDP to Kafka use the following ph
                         and ul:</draft-comment>
             </p>
-            <p><ph id="UDP-messagetypes">can read collectd messages, Netflow messages from NetFlow
-                        Version 5, and the following types of syslog messages:</ph><ul
+            <p><ph id="UDP-messagetypes">can read <xref href="https://collectd.org/" format="html"
+                              scope="external">collectd</xref> messages, Netflow messages from
+                        NetFlow Version 5, and the following types of syslog messages:</ph><ul
                         id="UDP-syslog">
                         <li>RFC 5424 (<xref href="https://tools.ietf.org/html/rfc5424" format="html"
                                     scope="external"
@@ -864,6 +1009,14 @@ web-0011.log</codeblock></dd>
             <p id="O-p-PipeConfig">However, since a pipeline requires a destination, you should
                   connect the origin to the Trash destination to satisfy pipeline validation
                   requirements.</p>
+            <p>
+                  <draft-comment author="Loretta">Use din SDC to Kafka > Batch Request Size, Kafka
+                        Message Size... > Important:  and also in HTTP to Kafka > Request Message
+                        Size > Important</draft-comment>
+            </p>
+            <p><ph id="ph-ToKafka-DefKafkaMessageSize">By default, the maximum message size in a
+                        Kafka cluster is 1 MB, as defined by the message.max.bytes property.
+                  </ph></p>
             <p>
                   <draft-comment author="Loretta">PROCESSOR INFO –-</draft-comment>
             </p>
@@ -1288,7 +1441,10 @@ input_stream.read()</codeblock></p>
             </dl>
             <p>
                   <draft-comment author="Loretta"><uicontrol>D-DF-WholeFile</uicontrol> - must be
-                        used by S3. <uicontrol>D-DF-WholeF-Basic</uicontrol> is used by Local FS.
+                        used by S3 - cannot change permissions.
+                              <uicontrol>D-DF-WholeF-Basic</uicontrol> is used by Local FS.
+                              <uicontrol>D-DF-WholeF-noEvent</uicontrol> - can change permission, no
+                        events - used by Azure Data Lake Store.
                               <uicontrol>D-DF-WholeF-HDFS</uicontrol> is used by Hadoop FS and MapR
                         FS.</draft-comment>
             </p>
@@ -1320,6 +1476,19 @@ input_stream.read()</codeblock></p>
                         <dd>You can configure the destination to generate a checksum for the written
                               file and pass checksum information to the destination system in an
                               event record. </dd>
+                        <dd>For more information about the whole file data format, see <xref
+                                    href="../Pipeline_Design/WholeFile.dita#concept_nfc_qkh_xw"
+                              />.</dd>
+                  </dlentry>
+                  <dlentry id="D-DF-WholeF-noEvent">
+                        <dt>Whole File</dt>
+                        <dd>Streams whole files to the destination system. The destination writes
+                              the data to the file and location defined in the stage. If a file of
+                              the same name already exists, you can configure the destination to
+                              overwrite the existing file or send the current file to error.</dd>
+                        <dd>By default, written files use the default access permissions for the
+                              destination system. You can specify an expression that defines access
+                              permissions. </dd>
                         <dd>For more information about the whole file data format, see <xref
                                     href="../Pipeline_Design/WholeFile.dita#concept_nfc_qkh_xw"
                               />.</dd>
@@ -1476,11 +1645,12 @@ input_stream.read()</codeblock></p>
                         <uicontrol>D-HM-compression</uicontrol> - used by Hadoop FS and MapR FS
                         oreviews</draft-comment>
             </p>
-            <p id="D-HM-HiveSolutionOverview1">As part of the Hive Drift Solution, you can
-                  alternatively use record header attributes to perform record-based writes. You can
-                  write records to the specified directory, use the defined Avro schema, and roll
-                  files based on record header attributes. For more information, see <xref
-                        href="../Destinations/RecordHeaderAttributes.dita#concept_lmn_gdc_1w"/>.</p>
+            <p id="D-HM-HiveSolutionOverview1">As part of the Drift Synchronization Solution for
+                  Hive, you can alternatively use record header attributes to perform record-based
+                  writes. You can write records to the specified directory, use the defined Avro
+                  schema, and roll files based on record header attributes. For more information,
+                  see <xref href="../Pipeline_Design/RecordBasedWrites-overview.dita#concept_lmn_gdc_1w"
+                  />.</p>
             <p id="D-HM-Overview2">You can define a file prefix and suffix, the data time zone, and
                   properties that define when the destination closes a file. You can specify the
                   amount of time that a record can be written to its associated directory and what
@@ -1507,22 +1677,23 @@ input_stream.read()</codeblock></p>
                         Attributes</draft-comment>
             </p>
             <p><ph id="D-GenAttributes">The Hive Metadata processor automatically generates record
-                        header attributes for Hadoop FS and MapR FS to use as part of the Hive Drift
-                        Solution. For all other destinations, you can use the Expression Evaluator
-                        to add record header attributes.</ph>
+                        header attributes for Hadoop FS and MapR FS to use as part of the Drift
+                        Synchronization Solution for Hive. For all other destinations, you can use
+                        the Expression Evaluator or a scripting processor to add record header
+                        attributes.</ph>
             </p>
             <draft-comment author="alisontaylor">Directory Templates - used for Hadoop FS, Local FS,
                   and MapR FS destinations</draft-comment>
             <p id="DirectoryTemplate_Intro">When you define a directory template, you can use a mix
                   of constants, field values, and datetime variables. You can use the
                         <codeph>every</codeph> function to create new directories at regular
-                  intervals based on seconds or minutes. You can also use the
-                        <codeph>record:valueOrDefault</codeph> function to use field values or a
+                  intervals based on hours, minutes, or seconds, starting on the hour. You can also
+                  use the <codeph>record:valueOrDefault</codeph> function to use field values or a
                   default in the directory template. </p>
             <p id="DirectoryTemplate_Example">For example, the following directory template creates
                   output directories for event data based on the state and timestamp of a record
-                  with hours as the smallest unit of measure, creating a new directory every twelve
-                  hours:<codeblock> /outputfiles/${record:valueOrDefault("/State", "unknown")}/${YY()}-${MM()}-${DD()}-${every(12,hh())}</codeblock></p>
+                  with hours as the smallest unit of measure, creating a new directory every
+                  hour:<codeblock> /outputfiles/${record:valueOrDefault("/State", "unknown")}/${YY()}-${MM()}-${DD()}-${hh()}</codeblock></p>
             <p id="DirectoryTemplate_DL">You can use the following elements in a directory template:<dl>
                         <dlentry>
                               <dt>Constants</dt>
@@ -1551,23 +1722,23 @@ ${YY()}_${MM()}_${DD()}</codeblock>
                                     />.</dd>
                         </dlentry>
                         <dlentry>
-                              <dt>every() function</dt>
-                              <dd>You can use the <codeph>every()</codeph> function in a directory
+                              <dt><codeph>every</codeph> function</dt>
+                              <dd>You can use the <codeph>every</codeph> function in a directory
                                     template to create directories at regular intervals based on
-                                    minutes or seconds. The intervals should be a submultiple or
-                                    integer factor of 60. For example, you can create directories
-                                    every 15 minutes or 30 seconds. </dd>
-                              <dd>Use the <codeph>every()</codeph> function to replace the smallest
+                                    hours, minutes, or seconds, beginning on the hour. The intervals
+                                    should be a submultiple or integer factor of 60. For example,
+                                    you can create directories every 15 minutes or 30 seconds. </dd>
+                              <dd>Use the <codeph>every</codeph> function to replace the smallest
                                     datetime variable used in the template.</dd>
                               <dd>For example, the following directory template creates directories
-                                    every 5
-                                    minutes:<codeblock>/HDFS_output/${YYYY()}-${MM()}-${DD()}-${hh()}-${every(5,mm())}</codeblock></dd>
-                              <dd>For details about the <codeph>every()</codeph> function, see <xref
+                                    every 5 minutes, starting on the
+                                    hour:<codeblock>/HDFS_output/${YYYY()}-${MM()}-${DD()}-${hh()}-${every(5,mm())}</codeblock></dd>
+                              <dd>For details about the <codeph>every</codeph> function, see <xref
                                           href="../Expression_Language/MiscFunctions.dita#concept_ddw_ld1_1s"
                                     />.</dd>
                         </dlentry>
                         <dlentry>
-                              <dt>record:valueOrDefault function</dt>
+                              <dt><codeph>record:valueOrDefault</codeph> function</dt>
                               <dd>You can use the following expression to use the value of a field
                                     and the specified default value if the field does not exist or
                                     if the field is null:
@@ -1671,7 +1842,60 @@ ${YY()}_${MM()}_${DD()}</codeblock>
                   </ul></p>
             <p id="IdleTimeoutSummary">In either situation, configure an idle timeout so that other
                   systems can process the files sooner, instead of waiting for the configured
-                  maximum records, maximum file size, or late records conditions to occur. </p>
+                  maximum records, maximum file size, or late records conditions to occur.
+                        <draft-comment author="alisontaylor">Recovery - used for Hadoop FS, Local
+                        FS, and MapR FS destinations</draft-comment></p>
+            <p id="RecoveryIntro">The destination names temporary open output files using the
+                  following format:<codeblock>_tmp_&lt;prefix>_&lt;runnerId></codeblock>Where
+                        <codeph>&lt;prefix></codeph> is the file prefix defined for the destination
+                  and <codeph>&lt;runnerId></codeph> is the ID of the pipeline runner performing the
+                  pipeline processing. For example, when the destination prefix is defined as
+                        <codeph>sdc</codeph> and the destination runs from a single-threaded
+                  pipeline, the temporary file is named like so: <codeph>_tmp_sdc_0</codeph>. </p>
+            <p id="RecoveryClose">When the destination closes the file, either after it is fully
+                  written, after the idle timeout expires, or when you deliberately stop the
+                  pipeline, it renames the file to remove the <codeph>_tmp_</codeph> string and to
+                  replace the pipeline runner ID with a random unique identifier like
+                  so:<codeblock>&lt;prefix>_e7ce67c5-013d-47a7-9496-8c882ddb28a0</codeblock></p>
+            <p id="RecoveryUnexpected">However, when the pipeline stops unexpectedly, the temporary
+                  files remain. When the pipeline restarts, the destination scans all subdirectories
+                  of the defined directory template to rename any temporary files that match the
+                  defined prefix for the destination. After the destination renames the temporary
+                  files, it continues writing to new output files.</p>
+            <note id="RecoveryRename">The destination renames all temporary files that match the
+                  defined prefix in all subdirectories of the defined directory template, even if
+                  those files were not written by that pipeline. So if you happen to have another
+                  file whose name begins with the same pattern - <codeph>_tmp_&lt;prefix></codeph> -
+                  the destination renames that file also.</note>
+            <p id="RecoveryExceptions">The destination might not rename all temporary files in the following situations:<dl>
+                        <dlentry>
+                              <dt>The directory template includes an expression with the
+                                    record:value or record:valueOrDefault function.</dt>
+                              <dd>If the record:value or record:valueOrDefault function evaluates to
+                                    an empty string or to a subdirectory, the destination cannot
+                                    determine those locations when the pipeline restarts. As a
+                                    result, the destination cannot rename any temporary files
+                                    written to those locations.</dd>
+                              <dd>For example, let’s assume that the directory template is defined
+                                    as
+                                    follows:<codeblock>/tmp/out/${YY()}-${MM()}-${DD()}/${sdc:hostname()}/${record:value('/a')}/${record:value('/b')}</codeblock></dd>
+                              <dd>If the expression <codeph>${record:value('/b')}</codeph> evaluates
+                                    to an empty string or to a subdirectory such as
+                                          <codeph>/folder1/folder2</codeph>, then the destination
+                                    cannot determine those locations when the pipeline restarts. </dd>
+                        </dlentry>
+                        <dlentry>
+                              <dt>The directory is defined in the targetDirectory record header
+                                    attribute.</dt>
+                              <dd>When the directory is defined in the targetDirectory record header
+                                    attribute, the destination cannot determine where to look for
+                                    temporary files when the pipeline restarts. As a result, it
+                                    cannot rename the temporary files.</dd>
+                        </dlentry>
+                  </dl></p>
+            <p id="RecoveryManual">In either of these situations, you must manually rename the temporary files.</p>
+            <p id="RecoveryDisable">File recovery can slow down the pipeline as it restarts. If needed, you can configure
+                  the destination to skip file recovery.</p>
             <p>
                   <draft-comment author="Loretta">Record Header Attributes - Hadoop FS, Local FS,
                         MapR FS. But Local and MapR FS don't have full functionality yet
@@ -1910,14 +2134,14 @@ ${YY()}_${MM()}_${DD()}</codeblock>
             <p id="MapRPrereq">Before you use any MapR stage in a pipeline, you must perform
                   additional steps to enable <ph conref="#concept_vhs_5tz_xp/pName-long"/> to
                   process MapR data. For more information, see <xref
-                        href="../Install_Config/MapR-Prerequisites.dita#concept_jgs_qpg_2v"/>.</p>
+                        href="../Installation/MapR-Prerequisites.dita#concept_jgs_qpg_2v"/>.</p>
             <draft-comment author="alisontaylor">MapR-PrereqHiveStream - Use in Hive Streaming
                   destination for MapR library to make sure they configure SDC.</draft-comment>
             <p id="MapRPrereqHiveStream">Before you use the Hive Streaming destination with the MapR
                   library in a pipeline, you must perform additional steps to enable <ph
                         conref="#concept_vhs_5tz_xp/pName-long"/> to process MapR data. For more
                   information, see <xref
-                        href="../Install_Config/MapR-Prerequisites.dita#concept_jgs_qpg_2v"/>. </p>
+                        href="../Installation/MapR-Prerequisites.dita#concept_jgs_qpg_2v"/>. </p>
             <draft-comment author="alisontaylor">Two versions of Lookup Cache below. Be sure to make
                   the same updates to both.</draft-comment>
             <draft-comment author="alisontaylor">Lookup Cache - used for Redis Lookup and HBase
@@ -2047,22 +2271,6 @@ ${YY()}_${MM()}_${DD()}</codeblock>
                               properties in the origin.</dd>
                   </dlentry>
             </dl>
-            <draft-comment author="alisontaylor">Additional Drivers: used by main install and
-                  Cloudera Manager install</draft-comment>
-            <p id="AdditionalDrivers_list">Before you use the following stages, you need to install drivers for the implementation that
-                  you want to use: <ul id="ul_k3t_mrw_jx">
-                        <li>JDBC Consumer origin</li>
-                        <li>JMS Consumer origin</li>
-                        <li>Oracle CDC Client origin</li>
-                        <li>JDBC Lookup processor</li>
-                        <li>JDBC Tee processor</li>
-                        <li>JDBC Producer destination</li>
-                        <li>JDBC Query executor</li>
-                  </ul></p>
-            <p id="AdditionalDrivers_example">For example, to use the JDBC Consumer or JDBC Producer with Oracle, install the Oracle JDBC
-                  drivers.</p>
-            <p id="AdditionalDrivers_optional">Additional drivers for other stages are optional. For example, you can install custom classes
-                  for the JavaScript or Jython Evaluators. </p>
             <draft-comment author="alisontaylor"><uicontrol>Tip_Usernames</uicontrol> Used in
                   username/password properties for all stages. <uicontrol>Tip_AccessKeys</uicontrol>
                   used in AWS Credentials topic for AWS stages. <uicontrol>Tip_Passwords</uicontrol>
@@ -2070,17 +2278,29 @@ ${YY()}_${MM()}_${DD()}</codeblock>
             <note type="tip" id="Tip_Usernames">To secure sensitive information such as usernames
                   and passwords, you can use runtime resources or Hashicorp Vault secrets. For more
                   information, see <xref
-                        href="../Install_Config/RuntimeResources.dita#concept_bs4_5nm_2s"/> or <xref
-                        href="../Install_Config/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note>
+                        href="../Configuration/RuntimeResources.dita#concept_bs4_5nm_2s"/> or <xref
+                        href="../Configuration/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note>
             <note type="tip" id="Tip_AccessKeys">To secure sensitive information such as access key
                   pairs, you can use runtime resources or Hashicorp Vault secrets. For more
                   information, see <xref
-                        href="../Install_Config/RuntimeResources.dita#concept_bs4_5nm_2s"/> or <xref
-                        href="../Install_Config/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note>
+                        href="../Configuration/RuntimeResources.dita#concept_bs4_5nm_2s"/> or <xref
+                        href="../Configuration/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note>
             <note type="tip" id="Tip_Passwords">To secure sensitive information such as passwords,
                   you can use runtime resources or Hashicorp Vault secrets. For more information,
-                  see <xref href="../Install_Config/RuntimeResources.dita#concept_bs4_5nm_2s"/> or
-                        <xref href="../Install_Config/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note><p>
+                  see <xref href="../Configuration/RuntimeResources.dita#concept_bs4_5nm_2s"/> or
+                        <xref href="../Configuration/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note>
+            <note type="tip" id="Tip_ConsumerKey">To secure sensitive information such as the consumer key and secret,
+                  you can use runtime resources or Hashicorp Vault secrets. For more information,
+                  see <xref href="../Configuration/RuntimeResources.dita#concept_bs4_5nm_2s"/> or
+                  <xref href="../Configuration/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note>
+            <note type="tip" id="Tip_ClientID">To secure sensitive information such as the client ID and secret,
+                  you can use runtime resources or Hashicorp Vault secrets. For more information,
+                  see <xref href="../Configuration/RuntimeResources.dita#concept_bs4_5nm_2s"/> or
+                  <xref href="../Configuration/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note>
+            <note type="tip" id="Tip_JWTKey">To secure sensitive information such as the JWT signing key,
+                  you can use runtime resources or Hashicorp Vault secrets. For more information,
+                  see <xref href="../Configuration/RuntimeResources.dita#concept_bs4_5nm_2s"/> or
+                  <xref href="../Configuration/Vault-Overview.dita#concept_bmq_gl1_mw"/>.</note><p>
                         <draft-comment author="Loretta">Cluster mode: MapR Streaming mode and Kafka
                               (Yarn) requirements:</draft-comment>
                   </p><p>
@@ -2106,17 +2326,179 @@ ${YY()}_${MM()}_${DD()}</codeblock>
             </p>
             <p>
                   <note id="note-HiveQuery"><ph id="ph-HiveQuery">The Hive Query executor waits for
-                              each query to complete before starting a query for a new event record.
-                              Depending on the speed of the pipeline and the complexity of the
-                              query, the wait for query completion can slow pipeline
-                              performance.</ph></note>
+                              each query to complete before continuing with the next query for the
+                              same event record. It also waits for all queries to complete before
+                              starting the queries for the next event record. Depending on the speed
+                              of the pipeline and the complexity of the queries, the wait for query
+                              completion can slow pipeline performance.</ph></note>
             </p>
-            <draft-comment author="alisontaylor">Note is used in all places where we mention Java 7:
-                  Permanent Generation Size and 2 topics in JavaScript Evaluator.</draft-comment>
-            <note id="Java7">Java 7 is supported but deprecated. Oracle announced the end of public updates for
-                  Java 7 in April 2015. StreamSets recommends migrating to Java 8, as Java 7 support
-                  will be removed in a future <ph conref="#concept_vhs_5tz_xp/pName-long"/>
-                  release.</note>
+            <p>
+                  <draft-comment author="Loretta">Using CDCoverview in CDC origin
+                        overviews.</draft-comment>
+            </p>
+            <p><ph id="ph-CDCoverview">includes the CRUD operation type in a record header attribute
+                        so generated records can be easily processed by CRUD-enabled destinations.
+                        For an overview of <ph conref="#concept_vhs_5tz_xp/pName-long"/> changed
+                        data processing and a list of CRUD-enabled destinations, see <xref
+                              href="../Pipeline_Design/CDC-Overview.dita#concept_apw_l2c_ty"
+                  />.</ph></p>
+            <p>
+                  <draft-comment author="Loretta">CDC reusable content.
+                              <uicontrol>CDC-useCDCdest</uicontrol> used in MongoDBOplog > CDC
+                        header, JDBC Query Consumer > CDC header, </draft-comment>
+            </p>
+            <p id="CDC-UseCDCdest">If you use a CRUD-enabled destination in the pipeline such as
+                  JDBC Producer or Kudu, the destination can use the operation type when writing to
+                  destination systems. When necessary, you can use an Expression Evaluator or
+                  scripting processors to manipulate the value in the sdc.operation.type header
+                  attribute. For an overview of <ph conref="#concept_vhs_5tz_xp/pName-long"/>
+                  changed data processing and a list of CRUD-enabled destinations, see <xref
+                        href="../Pipeline_Design/CDC-Overview.dita#concept_apw_l2c_ty"/>.</p>
+            <p/>
+            <draft-comment author="Loretta">CRUD-dest-def is used in Processing Changed Data
+                  overview &amp; sdc.operation.type overview</draft-comment>
+            <p id="CRUD-dest-def">CRUD-enabled processors and destinations can use the CRUD
+                  operation type in the sdc.operation.type header attribute when writing records,
+                  enabling the external system to perform the appropriate operation. </p>
+            <draft-comment author="alisontaylor">dd's are used in the Define the Operation topic for
+                  Elasticsearch and Kudu destinations – Also in JDBC Producer - - make all changes
+                  here to JDBC Tee > Define the CRUD Operation</draft-comment>
+            <dl>
+                  <dlentry>
+                        <dt>Record header attribute ** dlentries not used ** </dt>
+                        <dd id="RecordHeaderAtt">You can define the CRUD operation in a CRUD
+                              operation record header attribute. The destination looks for the CRUD
+                              operation to use in the sdc.operation.type record header attribute.  </dd>
+                        <dd id="DefineRecordHeaderAtt">If your pipeline includes a CRUD-enabled
+                              origin that processes changed data, the destination simply reads the
+                              operation type from the sdc.operation.type header attribute that the
+                              origin generates. If your pipeline uses a non-CDC origin, you can use
+                              the Expression Evaluator or a scripting processor to define the record
+                              header attribute. For more information about <ph
+                                    conref="#concept_vhs_5tz_xp/pName-long"/> changed data
+                              processing and a list of CDC-enabled origins, see <xref
+                                    href="../Pipeline_Design/CDC-Overview.dita#concept_apw_l2c_ty"
+                              />.</dd>
+                  </dlentry>
+                  <dlentry>
+                        <dt>Default operation ** dlentries not used ** </dt>
+                        <dd id="DefaultOperation">You define a default operation in the destination
+                              properties. The destination uses the default operation when the
+                              sdc.operation.type record header attribute is not set.</dd>
+                        <dd id="UnsupportedOp">You can also define how to handle records with
+                              unsupported operations defined in the sdc.operation.type  header
+                              attribute. The destination can discard them, send them to error, or
+                              use the default operation. </dd>
+                  </dlentry>
+            </dl>
+            <p>
+                  <draft-comment author="Loretta">These paragraphs used in JDBC Tee and JDBC
+                        Producer overviews</draft-comment>
+            </p>
+            <p><ph id="Dest-CRUDoverview">can use CRUD operations defined in the sdc.operation.type
+                        record header attribute to write data. You can define a default operation
+                        for records without the header attribute or value. You can also configure
+                        how to handle records with unsupported operations. </ph>.</p>
+            <p><ph id="Dest-ChangeLog">When processing data from a CDC-enabled origin, you can
+                        specify the origin change log to aid record processing. </ph></p>
+            <p><ph id="CDC-xref">For information about <ph conref="#concept_vhs_5tz_xp/pName-long"/>
+                        change data processing and a list of CDC-enabled origins, see <xref
+                              href="../Pipeline_Design/CDC-Overview.dita#concept_apw_l2c_ty"
+                  />.</ph></p>
+            <p/>
+            <p/>
+            <draft-comment author="alisontaylor">Used in the OAuth 2 Authorization topic for HTTP
+                  Client origin and processor</draft-comment>
+            <p id="OAuth2_Credentials">The credentials that you enter to request an access token
+                  depend on the credentials grant type required by the HTTP service. You can define
+                  the following OAuth 2 credentials grant types for HTTP Client: <dl>
+                        <dlentry>
+                              <dt>Client credentials grant</dt>
+                              <dd>
+                                    <p>HTTP Client sends its own credentials - the client ID and
+                                          client secret or the basic, digest, or universal
+                                          authentication credentials - to the HTTP service. For
+                                          example, use the client credentials grant to read from the
+                                          Twitter API or from the Microsoft Azure Active Directory
+                                          (Azure AD) API.</p>
+                                    <p>For more information about the client credentials grant, see
+                                                <xref
+                                                href="https://tools.ietf.org/html/rfc6749#section-4.4"
+                                                format="html" scope="external"/>.</p>
+                              </dd>
+                        </dlentry>
+                        <dlentry>
+                              <dt>Resource owner password credentials grant</dt>
+                              <dd>
+                                    <p>HTTP Client sends the credentials for the resource owner -
+                                          the resource owner username and password - to the HTTP
+                                          service. Or, you can use this grant type to migrate
+                                          existing clients using basic, digest, or universal
+                                          authentication to OAuth 2 by converting the stored
+                                          credentials to an access token.</p>
+                                    <p>For example, use the resource owner password credentials
+                                          grant to read from the Getty Images API. For more
+                                          information about using OAuth 2 to connect to the Getty
+                                          Images API, see <xref
+                                                href="http://developers.gettyimages.com/api/docs/v3/oauth2.html"
+                                                format="html" scope="external"
+                                                >http://developers.gettyimages.com/api/docs/v3/oauth2.html</xref>.</p>
+                                    <p>For more information about the resource owner password
+                                          credentials grant, see <xref
+                                                href="https://tools.ietf.org/html/rfc6749#section-4.3"
+                                                format="html" scope="external"/>.</p>
+                              </dd>
+                        </dlentry>
+                        <dlentry>
+                              <dt>JSON Web Tokens (JWT)</dt>
+                              <dd>
+                                    <p>HTTP Client sends a JSON-based security token encoding to the
+                                          HTTP service. For example, use JSON Web Tokens to read
+                                          from the Google API.</p>
+                              </dd>
+                        </dlentry>
+                  </dl></p>
+            <p id="OAuth2_Examples">Let’s look at some examples of how to configure authentication and OAuth 2 authorization
+                  to read Twitter, Microsoft Azure AD, and Google APIs.</p>
+            <draft-comment author="alisontaylor">Note used 2 times in Aggregated Statistics for
+                  Pipelines in DPM chapter</draft-comment>
+            <note type="important" id="AggStatsNote">For a production environment, use a Kafka
+                  cluster or Amazon Kinesis Streams to aggregate statistics. Using SDC RPC to
+                  aggregate statistics is not highly available and might cause the loss of some
+                  data. It should be used for development purposes only.</note>
+
+           <p>
+                  <draft-comment author="Loretta">This ph-PermissionsDisabled is used in Permissions
+                        overview and Config the Data Collector.</draft-comment>
+            </p>
+            <p><ph id="ph-PermissionsDisabled">When pipeline permissions are disabled, access to
+                        pipelines is based on the roles assigned to the user and its
+                  groups.</ph></p>
+            <draft-comment author="alisontaylor">This ul is the list of stages that need external
+                  libs/drivers to use a JDBC connection. Used in Install External Libs in Config
+                  chapter and in JDBC Connections in Troubleshooting chapter</draft-comment>
+            <ul id="ul_JDBCStages">
+                  <li>JDBC Multitable Consumer origin</li>
+                  <li>JDBC Query Consumer origin</li>
+                  <li>JMS Consumer origin</li>
+                  <li>MySQL Binary Log origin</li>
+                  <li>Oracle CDC Client origin</li>
+                  <li>JDBC Lookup processor</li>
+                  <li>JDBC Tee processor</li>
+                  <li>JDBC Producer destination</li>
+                  <li>JDBC Query executor</li>
+            </ul>
+            <draft-comment author="alisontaylor">Use this for any location in the help that mentions
+                  these environment variable files.</draft-comment>
+            <p id="EnvFileLocation">If you start Data Collector as a service, set the environment variable in the
+                        <systemoutput>$SDC_DIST/libexec/sdcd-env.sh</systemoutput> file. If you
+                  start Data Collector manually, set the variable in the
+                        <systemoutput>$SDC_DIST/libexec/sdc-env.sh</systemoutput> file.</p>
+            <draft-comment author="alisontaylor">Use this for the pipeline --name option for any
+                  commands in the CLI docs</draft-comment>
+            <p id="CliPipelineName">The name is automatically generated when the pipeline is created and is used by <ph
+                        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
+                  /> to identify the pipeline. The pipeline name cannot be changed.</p>
 
       </conbody>
 </concept>

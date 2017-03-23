@@ -21,12 +21,12 @@
   <parent>
     <groupId>com.streamsets</groupId>
     <artifactId>streamsets-datacollector-root</artifactId>
-    <version>2.3.0.0-SNAPSHOT</version>
+    <version>2.5.0.0-SNAPSHOT</version>
     <relativePath>../root</relativePath>
   </parent>
   <groupId>com.streamsets</groupId>
   <artifactId>streamsets-datacollector-dist</artifactId>
-  <version>2.3.0.0-SNAPSHOT</version>
+  <version>2.5.0.0-SNAPSHOT</version>
   <description>StreamSets Data Collector Distribution</description>
   <name>StreamSets Data Collector Dist</name>
   <packaging>jar</packaging>
@@ -43,6 +43,17 @@
     <dependency>
       <groupId>com.streamsets</groupId>
       <artifactId>streamsets-datacollector-api</artifactId>
+      <scope>compile</scope>
+    </dependency>
+
+    <!--
+      This needs to be loaded by api classloader, (since slf4j classes are blacklisted by BlacklistClassloader)
+      but not really required for the api project, so add it in the api-lib directory during assembly
+    -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>jul-to-slf4j</artifactId>
+      <version>${slf4j.version}</version>
       <scope>compile</scope>
     </dependency>
     <dependency>

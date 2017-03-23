@@ -25,8 +25,8 @@
 angular
   .module('commonUI.logs')
   .config(['$routeProvider', function ($routeProvider) {
-    $routeProvider.when('/collector/logs',
-      {
+    $routeProvider
+      .when('/collector/logs/:pipelineTitle/:pipelineName', {
         templateUrl: 'common/administration/logs/logs.tpl.html',
         controller: 'LogsController',
         resolve: {
@@ -37,12 +37,25 @@ angular
         data: {
           authorizedRoles: ['admin', 'creator', 'manager']
         }
-      }
-    );
+      })
+      .when('/collector/logs', {
+        templateUrl: 'common/administration/logs/logs.tpl.html',
+        controller: 'LogsController',
+        resolve: {
+          myVar: function(authService) {
+            return authService.init();
+          }
+        },
+        data: {
+          authorizedRoles: ['admin', 'creator', 'manager']
+        }
+      });
   }])
-  .controller('LogsController', function ($rootScope, $scope, $interval, api, configuration, Analytics,
-                                          $timeout, $modal) {
-
+  .controller('LogsController', function (
+    $rootScope, $scope, $routeParams, $interval, api, configuration, Analytics, $timeout, $modal
+  ) {
+    var pipelineNameParam = $routeParams.pipelineName;
+    var pipelineTitleParam = $routeParams.pipelineTitle;
     var webSocketLogURL = $rootScope.common.webSocketBaseURL + 'rest/v1/webSocket?type=log';
     var logWebSocket;
     var logWebSocketMessages = [];
@@ -54,15 +67,20 @@ angular
       }
     });
 
+    $rootScope.common.errors = [];
+
     angular.extend($scope, {
       logMessages: [],
       logEndingOffset: -1,
       logFiles: [],
+      loading: true,
       fetchingLog: false,
       extraMessage: undefined,
       filterSeverity: undefined,
-      filterPipeline: undefined,
+      filterPipeline: pipelineNameParam,
+      filterPipelineLabel: pipelineTitleParam + '/' + pipelineNameParam,
       pipelines: [],
+      pauseLogAutoFetch: $rootScope.$storage.pauseLogAutoFetch,
 
       loadPreviousLog: function() {
         $scope.fetchingLog = true;
@@ -88,22 +106,19 @@ angular
       severityFilterChanged: function(severity) {
         if ($scope.filterSeverity != severity) {
           $scope.filterSeverity = severity;
-          $scope.logEndingOffset = -1;
-          $scope.extraMessage = '';
-          $scope.logMessages = [];
-          lastMessageFiltered = false;
-          $scope.loadPreviousLog();
+          $scope.refreshLogs();
         }
       },
 
       pipelineFilterChanged: function(pipeline) {
-        if ($scope.filterPipeline != pipeline) {
-          $scope.filterPipeline = pipeline;
-          $scope.logEndingOffset = -1;
-          $scope.extraMessage = '';
-          $scope.logMessages = [];
-          lastMessageFiltered = false;
-          $scope.loadPreviousLog();
+        if (pipeline && $scope.filterPipeline != pipeline.name) {
+          $scope.filterPipeline = pipeline.name;
+          $scope.filterPipelineLabel = pipeline.title + '/' + pipeline.name;
+          $scope.refreshLogs();
+        } else if (pipeline == undefined && $scope.filterPipeline != undefined) {
+          $scope.filterPipeline = undefined;
+          $scope.filterPipelineLabel = 'All';
+          $scope.refreshLogs();
         }
       },
 
@@ -114,28 +129,78 @@ angular
           backdrop: 'static',
           size: 'lg'
         });
-      }
+      },
 
+      toggleAutoFetch: function () {
+        $rootScope.$storage.pauseLogAutoFetch = $scope.pauseLogAutoFetch = !$scope.pauseLogAutoFetch;
+        if ($scope.pauseLogAutoFetch) {
+          if (logWebSocket) {
+            logWebSocket.close();
+          }
+        } else {
+          $scope.refreshLogs();
+        }
+      },
+
+      refreshLogs: function () {
+        $scope.logEndingOffset = -1;
+        $scope.extraMessage = '';
+        $scope.logMessages = [];
+        lastMessageFiltered = false;
+        refreshLogContents();
+      }
     });
 
-    api.log.getCurrentLog($scope.logEndingOffset).then(function(res) {
-      //check if first message is extra line
-      if (res.data && res.data.length > 0 && !res.data[0].timeStamp && res.data[0].exception) {
-        $scope.extraMessage = res.data[0].exception;
-        res.data.shift();
+    var refreshLogContents = function () {
+      if (logWebSocket) {
+        logWebSocket.close();
       }
 
-      $scope.logMessages = res.data;
-      $scope.logEndingOffset = +res.headers('X-SDC-LOG-PREVIOUS-OFFSET');
+      if (!$rootScope.common.isUserAdmin && !$scope.filterPipeline) {
+        if ($scope.pipelines.length) {
+          $scope.filterPipeline = $scope.pipelines[0].name;
+          $scope.filterPipelineLabel = $scope.pipelines[0].title + '/' + $scope.pipelines[0].name;
+        } else {
+          // For non admins - they can access only pipeline filtered logs
+          $scope.logMessages = [];
+          $scope.loading = false;
+          return;
+        }
+      }
 
-      logWebSocket = new WebSocket(webSocketLogURL);
+      $scope.loading = true;
 
-      logWebSocket.onmessage = function (evt) {
-        var received_msg = JSON.parse(evt.data);
-        logWebSocketMessages.push(received_msg);
-      };
+      api.log.getCurrentLog(-1, $scope.extraMessage, $scope.filterPipeline, $scope.filterSeverity).then(
+        function(res) {
+          //check if first message is extra line
+          if (res.data && res.data.length > 0 && !res.data[0].timeStamp && res.data[0].exception) {
+            $scope.extraMessage = res.data[0].exception;
+            res.data.shift();
+          }
 
-    });
+          $scope.logMessages = res.data;
+          $scope.logEndingOffset = +res.headers('X-SDC-LOG-PREVIOUS-OFFSET');
+          $scope.loading = false;
+
+          $timeout(function() {
+            var $panelBody = $('.logs-page > .panel-body');
+            $panelBody.scrollTop($panelBody[0].scrollHeight);
+          }, 500);
+
+          if (!$scope.pauseLogAutoFetch && $rootScope.common.isUserAdmin) {
+            logWebSocket = new WebSocket(webSocketLogURL);
+            logWebSocket.onmessage = function (evt) {
+              var received_msg = JSON.parse(evt.data);
+              logWebSocketMessages.push(received_msg);
+            };
+          }
+        },
+        function (res) {
+          $scope.loading = false;
+          $rootScope.common.errors = [res.data];
+        }
+      );
+    };
 
     var intervalPromise = $interval(function() {
       if (logWebSocketMessages && logWebSocketMessages.length) {
@@ -148,13 +213,20 @@ angular
               return;
             }
 
-            if ($scope.filterPipeline && $scope.filterPipeline != logWebSocketMessage['s-entity']) {
+            if ($scope.filterPipeline && $scope.filterPipelineLabel != logWebSocketMessage['s-entity']) {
               lastMessageFiltered = true;
               return;
             }
 
             lastMessageFiltered = false;
+
             $scope.logMessages.push(logWebSocketMessage);
+
+
+            if ($scope.logMessages.length > 10) {
+              $scope.logMessages.shift();
+              $scope.logEndingOffset = -1;
+            }
 
           } else if (!lastMessageFiltered){
             var lastMessage = $scope.logMessages[$scope.logMessages.length - 1];
@@ -171,13 +243,21 @@ angular
 
     }, 2000);
 
-    api.log.getFilesList().then(function(res) {
-      $scope.logFiles = res.data;
-    });
+    if ($rootScope.common.isUserAdmin) {
+      api.log.getFilesList().then(
+        function(res) {
+          $scope.logFiles = res.data;
+        },
+        function (res) {
+          $rootScope.common.errors = [res.data];
+        }
+      );
+    }
 
     api.pipelineAgent.getPipelines(null, null, 0, 50, 'NAME', 'ASC', false).then(
       function (res) {
         $scope.pipelines = res.data;
+        refreshLogContents();
       },
       function (res) {
         $rootScope.common.errors = [res.data];
@@ -189,11 +269,8 @@ angular
         $interval.cancel(intervalPromise);
       }
 
-      logWebSocket.close();
+      if (logWebSocket) {
+        logWebSocket.close();
+      }
     });
-
-    $timeout(function() {
-      var $panelBody = $('.logs-page > .panel-body');
-      $panelBody.scrollTop($panelBody[0].scrollHeight);
-    }, 1000);
   });

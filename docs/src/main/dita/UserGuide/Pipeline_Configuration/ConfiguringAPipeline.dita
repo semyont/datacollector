@@ -291,12 +291,30 @@
                 <cmd>When writing error records to Elasticsearch, click the <uicontrol>Error Records
                         - Write to Elasticsearch</uicontrol> tab and configure the following
                     properties:</cmd>
+                <info>
+                    <table frame="all" rowsep="1" colsep="1" id="table_aln_mxx_ty">
+                        <tgroup cols="2">
+                            <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+                            <colspec colname="c2" colnum="2" colwidth="3.5*"/>
+                            <thead>
+                                <row>
+                                    <entry>Elasticsearch Property</entry>
+                                    <entry>Description</entry>
+                                </row>
+                            </thead>
+                            <tbody>
+                                <row
+                                    conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/row_ElasticCluster"
+                                    conrefend="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/row_ElasticCharset">
+                                    <entry/>
+                                </row>
+                            </tbody>
+                        </tgroup>
+                    </table>
+                </info>
+                <info>If you enabled security, configure the following security property:</info>
                 <info
-                    conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/ElasticProps-Info"/>
-                <info>If you enabled Shield, configure the following Shield properties:</info>
-                <info
-                    conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/ElasticSHIELD-Info"
-                />
+                    conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/ElasticSHIELD-Info"/>
             </step>
             <step>
                 <cmd>When writing error records to file, click the <wintitle>Error Records - Write
@@ -331,7 +349,7 @@
                                                 conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
                                             /> ID is stored in the following file:
                                                 <filepath>$SDC_DATA/sdc.id</filepath> file. For more information about environment variables, see <xref
-                                                    href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr"/>.
+                                                    href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr"/>.
                                         </p></entry>
                                 </row>
                                 <row>
@@ -415,8 +433,7 @@
                         - Write to MapR Streams</wintitle> tab and configure the following
                     properties:</cmd>
                 <info
-                    conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/MapRStreams-Info"
-                />
+                    conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/MapRStreams-Info"/>
             </step>
             <step>
                 <cmd>When using the cluster execution mode, click the <uicontrol>Cluster</uicontrol>
@@ -481,9 +498,9 @@
                                         properties with a space.<p>The following properties are set
                                             by default. </p><p>
                                             <ul id="ul_hf3_xqj_ws">
-                                                <li>XX:PermSize is set to 256 MB and XX:MaxPermSize
-                                                  is set to 512 MB. This defines the PermGen size
-                                                  for the pipeline. </li>
+                                                <li>XX:+UseConcMarkSweepGC and XX:+UseParNewGC are
+                                                  set to the Concurrent Mark Sweep (CMS) garbage
+                                                  collector.</li>
                                                 <li>Dlog4j.debug enables debug logging for
                                                   log4j.</li>
                                             </ul>

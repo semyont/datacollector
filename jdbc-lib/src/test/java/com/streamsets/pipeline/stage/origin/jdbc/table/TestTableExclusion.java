@@ -19,7 +19,13 @@
  */
 package com.streamsets.pipeline.stage.origin.jdbc.table;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.streamsets.pipeline.api.OnRecordError;
+import com.streamsets.pipeline.api.Stage;
+import com.streamsets.pipeline.api.el.ELVars;
+import com.streamsets.pipeline.lib.el.TimeNowEL;
+import com.streamsets.pipeline.sdk.ContextInfoCreator;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -29,6 +35,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Date;
 import java.util.Set;
 
 public class TestTableExclusion {
@@ -46,6 +53,7 @@ public class TestTableExclusion {
       );
 
   private static Connection connection;
+  private static TableJdbcELEvalContext tableJdbcELEvalContext;
 
   @BeforeClass
   public static void setup() throws SQLException {
@@ -57,6 +65,16 @@ public class TestTableExclusion {
       }
       s.executeBatch();
     }
+    Stage.Context context =
+        ContextInfoCreator.createSourceContext(
+            "a",
+            false,
+            OnRecordError.TO_ERROR,
+            ImmutableList.of("a")
+        );
+    ELVars elVars = context.createELVars();
+    TimeNowEL.setTimeNowInContext(elVars, new Date());
+    tableJdbcELEvalContext = new TableJdbcELEvalContext(context, elVars);
   }
 
   @AfterClass
@@ -73,47 +91,67 @@ public class TestTableExclusion {
 
   @Test
   public void testNoExclusionPattern() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.schema = database;
-    tableConfigBean.tablePattern = "%";
-    Assert.assertEquals(TABLE_NAMES.size(), TableContextUtil.listTablesForConfig(connection, tableConfigBean).size());
+    TableConfigBean tableConfigBean = new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("%")
+        .schema(database)
+        .build();
+    Assert.assertEquals(
+        TABLE_NAMES.size(),
+        TableContextUtil.listTablesForConfig(connection, tableConfigBean, tableJdbcELEvalContext).size()
+    );
   }
 
   @Test
   public void testExcludeEverything() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.schema = database;
-    tableConfigBean.tablePattern = "%";
-    tableConfigBean.tableExclusionPattern = ".*";
-    Assert.assertEquals(0, TableContextUtil.listTablesForConfig(connection, tableConfigBean).size());
+    TableConfigBean tableConfigBean = new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("%")
+        .schema(database)
+        .tableExclusionPattern(".*")
+        .build();
+    Assert.assertEquals(
+        0,
+        TableContextUtil.listTablesForConfig(connection, tableConfigBean, tableJdbcELEvalContext).size()
+    );
   }
 
   @Test
   public void testExcludeEndingWithNumbers() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.schema = database;
-    tableConfigBean.tablePattern = "TABLE%";
-    //Exclude tables ending with [0-9]+
-    tableConfigBean.tableExclusionPattern = "TABLE[0-9]+";
-    Assert.assertEquals(5, TableContextUtil.listTablesForConfig(connection, tableConfigBean).size());
+    TableConfigBean tableConfigBean = new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("TABLE%")
+        .schema(database)
+        //Exclude tables ending with [0-9]+
+        .tableExclusionPattern("TABLE[0-9]+")
+        .build();
+    Assert.assertEquals(
+        5,
+        TableContextUtil.listTablesForConfig(connection, tableConfigBean, tableJdbcELEvalContext).size()
+    );
   }
 
   @Test
   public void testExcludeTableNameAsRegex() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.schema = database;
-    tableConfigBean.tablePattern = "TABLE%";
-    tableConfigBean.tableExclusionPattern = "TABLE1";
-    Assert.assertEquals(9, TableContextUtil.listTablesForConfig(connection, tableConfigBean).size());
+    TableConfigBean tableConfigBean = new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("TABLE%")
+        .schema(database)
+        .tableExclusionPattern("TABLE1")
+        .build();
+
+    Assert.assertEquals(
+        9,
+        TableContextUtil.listTablesForConfig(connection, tableConfigBean, tableJdbcELEvalContext).size()
+    );
   }
 
   @Test
   public void testExcludeUsingOrRegex() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.schema = database;
-    tableConfigBean.tablePattern = "TABLE%";
-    tableConfigBean.tableExclusionPattern = "TABLE1|TABLE2";
-    Assert.assertEquals(8, TableContextUtil.listTablesForConfig(connection, tableConfigBean).size());
+    TableConfigBean tableConfigBean = new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("TABLE%")
+        .schema(database)
+        .tableExclusionPattern("TABLE1|TABLE2")
+        .build();
+    Assert.assertEquals(
+        8,
+        TableContextUtil.listTablesForConfig(connection, tableConfigBean, tableJdbcELEvalContext).size()
+    );
   }
-
 }

@@ -39,17 +39,15 @@ import com.streamsets.datacollector.restapi.bean.BeanHelper;
 import com.streamsets.datacollector.restapi.bean.PipelineConfigurationJson;
 import com.streamsets.datacollector.restapi.bean.RuleDefinitionsJson;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
-import com.streamsets.datacollector.store.PipelineStoreException;
 import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.task.Task;
 import com.streamsets.datacollector.task.TaskWrapper;
+import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.datacollector.validation.Issue;
 import com.streamsets.datacollector.validation.PipelineConfigurationValidator;
 import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.pipeline.impl.DataCollector;
-
 import dagger.ObjectGraph;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,14 +75,14 @@ public class MiniITDataCollector implements DataCollector {
   private Task task;
   private Runner runner;
 
-  private void createAndSave(String pipelineName) throws PipelineStoreException {
+  private void createAndSave(String pipelineName) throws PipelineException {
     String user = realPipelineConfig.getInfo().getCreator();
     String tag = realPipelineConfig.getInfo().getLastRev();
     String desc = realPipelineConfig.getDescription();
     StageLibraryTask stageLibrary = pipelineTask.getStageLibraryTask();
     PipelineStoreTask store = pipelineTask.getPipelineStoreTask();
     PipelineConfiguration tmpPipelineConfig =
-      store.create(user, pipelineName, desc, false);
+      store.create(user, pipelineName, pipelineName, desc, false);
     // we might want to add an import API as now to import have to create one then update it
     realPipelineConfig.setUuid(tmpPipelineConfig.getUuid());
     PipelineConfigurationValidator validator =

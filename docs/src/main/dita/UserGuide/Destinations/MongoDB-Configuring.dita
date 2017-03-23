@@ -15,9 +15,12 @@
 <!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
 <task id="task_mrc_k5n_4v">
     <title>Configuring a MongoDB Destination</title>
-    <shortdesc>Configure a MongoDB destination to write to MongoDB.</shortdesc>
     <taskbody>
-        <context/>
+        <context><indexterm>MongoDB
+            destination<indexterm>configuring</indexterm></indexterm>Configure a MongoDB destination
+            to write to MongoDB. <note type="important">Ensure that all records routed to the
+                destination include a CDC record header attribute. For more information, see <xref
+                    href="MongoDB-CRUDOperation.dita#concept_bkc_m24_4v"/>.</note></context>
         <steps>
             <step conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/1stStep-NoStageLib">
                 <cmd/>
@@ -37,11 +40,9 @@
                                 </row>
                             </thead>
                             <tbody>
-                                <row>
-                                    <entry>Connection String </entry>
-                                    <entry>MongoDB connection string. You can include any valid
-                                        MongoDB component in the connection string. <p>For more
-                                            information, see the MongoDB documentation.</p></entry>
+                                <row
+                                    conref="../Reusable_Content/ReusableSteps.dita#task_kzs_5vz_sq/row-MongoConnectString">
+                                    <entry/>
                                 </row>
                                 <row>
                                     <entry>Database</entry>
@@ -158,7 +159,7 @@
                                     </row>
                                     <row>
                                         <entry>SSL Enabled</entry>
-                                        <entry>Enables SSL between <ph
+                                        <entry>Enables SSL/TLS between <ph
                                                 conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
                                             /> and MongoDB.<p>You also must define the truststore
                                                 file and password in the SDC_JAVA_OPTS environment

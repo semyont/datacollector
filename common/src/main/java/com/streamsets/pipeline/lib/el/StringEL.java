@@ -23,9 +23,13 @@ import com.streamsets.pipeline.api.ElFunction;
 import com.streamsets.pipeline.api.ElParam;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.impl.Utils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -93,12 +97,12 @@ public class StringEL {
   @ElFunction(
     prefix = "str",
     name = "replace",
-    description = "Returns a new string resulting from replacing all occurrences of oldChar in this string with newChar")
+    description = "Returns a new string resulting from replacing all occurrences of oldString in this string with newString")
   public static String replace(
     @ElParam("string") String string,
-    @ElParam("oldChar") char oldChar,
-    @ElParam("newChar") char newChar) {
-    return string.replace(oldChar, newChar);
+    @ElParam("oldString") String oldString,
+    @ElParam("newString") String newString) {
+    return string.replace(oldString, newString);
   }
 
   @ElFunction(
@@ -227,6 +231,65 @@ public class StringEL {
   ) {
     string = (string == null)? "" : string;
     return string.length();
+  }
+
+  @ElFunction(
+      prefix = "str",
+      name = "urlEncode",
+      description = "Returns URL encoded variant of the string."
+  )
+  public static String urlEncode (
+      @ElParam("string") String string,
+      @ElParam("encoding") String encoding
+  ) throws UnsupportedEncodingException {
+    if(string == null) {
+      return null;
+    }
+
+    return URLEncoder.encode(string, encoding);
+  }
+
+  @ElFunction(
+      prefix = "str",
+      name = "urlDecode",
+      description = "Returns decoded string from URL encoded variant."
+  )
+  public static String urlDecode (
+      @ElParam("string") String string,
+      @ElParam("encoding") String encoding
+  ) throws UnsupportedEncodingException {
+    if(string == null) {
+      return null;
+    }
+
+    return URLDecoder.decode(string, encoding);
+  }
+
+  @ElFunction(
+      prefix = "str",
+      name = "escapeXML10",
+      description = "Returns a string safe to embed in an XML 1.0 or 1.1 document."
+  )
+  public static String escapeXml10(@ElParam("string") String string) {
+    return StringEscapeUtils.escapeXml10(string);
+  }
+
+  @ElFunction(
+      prefix = "str",
+      name = "escapeXML11",
+      description = "Returns a string safe to embed in an XML 1.1 document."
+  )
+  public static String escapeXml11(@ElParam("string") String string) {
+    return StringEscapeUtils.escapeXml11(string);
+  }
+
+  @ElFunction(
+      prefix = "str",
+      name = "unescapeXML",
+      description = "Returns an unescaped string from a string with XML special characters escaped."
+  )
+  public static String unescapeXml(@ElParam("string") String string) {
+    return StringEscapeUtils.unescapeXml(string);
   }
 
 }

@@ -22,8 +22,10 @@ package com.streamsets.datacollector.restapi;
 
 public enum PipelineOrderByFields {
   NAME("name"),
+  TITLE("title"),
   LAST_MODIFIED("lastModified"),
   CREATED("created"),
+  CREATOR("creator"),
   STATUS("status")
 
   ;

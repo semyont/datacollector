@@ -27,7 +27,6 @@ import com.streamsets.datacollector.metrics.MetricsConfigurator;
 import com.streamsets.datacollector.restapi.bean.IssuesJson;
 import com.streamsets.datacollector.runner.Pipeline;
 import com.streamsets.datacollector.runner.PipelineRuntimeException;
-import com.streamsets.datacollector.runner.production.ProductionSourceOffsetTracker;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.datacollector.util.PipelineException;
@@ -38,7 +37,6 @@ import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.impl.ClusterSource;
 import com.streamsets.pipeline.api.impl.ErrorMessage;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +47,7 @@ import java.util.Map;
 public class ProductionPipeline {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProductionPipeline.class);
+  public static final String RUNTIME_CONSTANTS_ATTR = "RUNTIME_CONSTANTS";
   private final PipelineConfiguration pipelineConf;
   private final Pipeline pipeline;
   private final ProductionPipelineRunner pipelineRunner;
@@ -104,7 +103,9 @@ public class ProductionPipeline {
         }
         if (issues.isEmpty()) {
           try {
-            stateChanged(PipelineStatus.RUNNING, null, null);
+            Map<String, Object> attributes = new HashMap<>();
+            attributes.put(RUNTIME_CONSTANTS_ATTR, pipeline.getRuntimeConstants());
+            stateChanged(PipelineStatus.RUNNING, null, attributes);
             LOG.debug("Running");
             pipeline.run();
             if (!wasStopped()) {
@@ -194,8 +195,14 @@ public class ProductionPipeline {
     return pipelineRunner.wasStopped();
   }
 
-  public String getCommittedOffset() {
-    return pipelineRunner.getCommittedOffset();
+  /**
+   * Returns committed offsets.
+   *
+   * This method returns unmodifiable view of the map where we're maintaining offsets - hence this is not
+   * a snapshot and as additional offsets are committed this map and the return view will change.
+   */
+  public Map<String, String> getCommittedOffsets() {
+    return pipelineRunner.getCommittedOffsets();
   }
 
   public void captureSnapshot(String snapshotName, int batchSize, int batches) {
@@ -204,12 +211,6 @@ public class ProductionPipeline {
 
   public void cancelSnapshot(String snapshotName) throws PipelineException {
     pipelineRunner.cancelSnapshot(snapshotName);
-  }
-
-  public void setOffset(String offset) {
-    ProductionSourceOffsetTracker offsetTracker = (ProductionSourceOffsetTracker) pipelineRunner.getOffSetTracker();
-    offsetTracker.setOffset(offset);
-    offsetTracker.commitOffset();
   }
 
   public List<Record> getErrorRecords(String instanceName, int size) {

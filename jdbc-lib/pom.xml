@@ -20,12 +20,12 @@
   <parent>
     <groupId>com.streamsets</groupId>
     <artifactId>streamsets-datacollector-stage-lib-parent</artifactId>
-    <version>2.3.0.0-SNAPSHOT</version>
+    <version>2.5.0.0-SNAPSHOT</version>
     <relativePath>../stage-lib-parent</relativePath>
   </parent>
   <groupId>com.streamsets</groupId>
   <artifactId>streamsets-datacollector-jdbc-lib</artifactId>
-  <version>2.3.0.0-SNAPSHOT</version>
+  <version>2.5.0.0-SNAPSHOT</version>
   <description>StreamSets Data Collector JDBC Lib</description>
   <name>StreamSets Data Collector JDBC Lib</name>
 
@@ -41,7 +41,6 @@
     <dependency>
       <groupId>com.streamsets</groupId>
       <artifactId>streamsets-datacollector-api</artifactId>
-      <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -134,6 +133,12 @@
       <groupId>org.powermock</groupId>
       <artifactId>powermock-api-mockito</artifactId>
       <version>${powermock.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <version>2.0.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

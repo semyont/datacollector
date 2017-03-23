@@ -39,10 +39,11 @@ angular
         }
       });
   }])
-  .controller('PipelineHomeController', function ($scope, $rootScope, $routeParams, $timeout, api, configuration, _, $q,
-                                          $modal, $localStorage, pipelineService, pipelineConstant,
-                                          visibilityBroadcaster, $translate, contextHelpService, $location, authService,
-                                          userRoles, Analytics) {
+  .controller('PipelineHomeController', function (
+    $scope, $rootScope, $routeParams, $timeout, api, configuration, _, $q, $modal, $localStorage, pipelineService,
+    pipelineConstant, visibilityBroadcaster, $translate, contextHelpService, $location, authService, userRoles,
+    Analytics
+  ) {
     var routeParamPipelineName = $routeParams.pipelineName;
     var configTimeout;
     var configDirty = false;
@@ -103,6 +104,8 @@ angular
       selectedDetailPaneTabCache: {},
       selectedConfigGroupCache: {},
       existingPipelineLabels: [],
+      canWrite: false,
+      canExecute: false,
 
       /**
        * Add New Pipeline Configuration
@@ -729,7 +732,8 @@ angular
      * Fetch definitions for Pipeline and Stages, fetch all pipeline configuration info, status and metric.
      */
     $q.all([
-      api.pipelineAgent.getPipelineStatus(routeParamPipelineName, "0"),
+      api.pipelineAgent.getPipelineStatus(routeParamPipelineName, '0'),
+      api.acl.getPipelinePermissions(routeParamPipelineName),
       pipelineService.init(),
       configuration.init()
     ])
@@ -737,7 +741,29 @@ angular
         var pipelineStatusMap = {};
         pipelineStatusMap[routeParamPipelineName] = results[0].data;
 
-        isWebSocketSupported = (typeof(WebSocket) === "function") && configuration.isWebSocketUseEnabled();
+        var permissions = results[1].data;
+        var isACLEnabled = configuration.isACLEnabled();
+        if (authService.isAuthorized([userRoles.admin]) || !isACLEnabled) {
+          // for admin user or if ACL is disabled
+          $scope.canWrite = true;
+          $scope.canExecute = true;
+        } else if (permissions) {
+          angular.forEach(permissions, function (permission) {
+            if (permission.actions.indexOf('WRITE') !== -1) {
+              $scope.canWrite = true;
+            }
+
+            if (permission.actions.indexOf('EXECUTE') !== -1) {
+              $scope.canExecute = true;
+            }
+          });
+
+          if (!$scope.canWrite) {
+            $scope.isPipelineReadOnly = true;
+          }
+        }
+
+        isWebSocketSupported = (typeof(WebSocket) === 'function') && configuration.isWebSocketUseEnabled();
         undoLimit = configuration.getUndoLimit();
 
         if (configuration.isAnalyticsEnabled()) {
@@ -773,7 +799,7 @@ angular
 
         //Pipelines
 
-        $scope.existingPipelineLabels = pipelineService.existingPipelineLabels;
+        $scope.existingPipelineLabels = pipelineService.existingPipelineLabels || [];
 
         $rootScope.common.pipelineStatusMap = pipelineStatusMap;
 
@@ -1409,7 +1435,7 @@ angular
         //WebSocket is not support use polling to get Pipeline Metrics
         pipelineMetricsTimer = $timeout(
           function() {
-            //console.log( "Pipeline Metrics Timeout executed", Date.now() );
+            //console.log( 'Pipeline Metrics Timeout executed', Date.now() );
           },
           configuration.getRefreshInterval()
         );
@@ -1434,7 +1460,7 @@ angular
               });
           },
           function() {
-            //console.log( "Timer rejected!" );
+            //console.log( 'Timer rejected!' );
           }
         );
 

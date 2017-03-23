@@ -5,7 +5,6 @@
       <h3 translate="logs.title">Logs</h3>
     </div>
 
-
     <div class="pull-left filter-toolbar">
 
       <span class="sort-by-label">Severity:</span>
@@ -57,33 +56,33 @@
       </div>
 
 
-      <span class="sort-by-label">Pipeline:</span>
-      <div class="btn-group pipeline-dropdown">
+      <span class="sort-by-label" ng-if="pipelines.length">Pipeline:</span>
+      <div class="btn-group pipeline-dropdown" ng-if="pipelines.length">
 
         <button class="btn btn-link dropdown-toggle icon-button" type="button" data-toggle="dropdown">
           <span ng-if="!filterPipeline" translate="logs.all">All</span>
-          <span ng-if="filterPipeline">{{filterPipeline}}</span>
+          <span ng-if="filterPipeline">{{filterPipelineLabel}}</span>
         </button>
 
-        <ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+        <ul class="dropdown-menu" role="menu"
+            aria-labelledby="dropdownMenu1">
 
-          <li role="presentation">
-            <a role="menuitem" tabindex="-1" href="#"
-               ng-click="pipelineFilterChanged(undefined);">
+          <li role="presentation" ng-if="common.isUserAdmin">
+            <a role="menuitem" tabindex="-1" ng-href="/collector/logs">
               <span translate="logs.all">All</span>
             </a>
           </li>
 
-
           <li role="presentation" ng-repeat="pipeline in pipelines">
-            <a role="menuitem" tabindex="-1" href="#"
-               ng-click="pipelineFilterChanged(pipeline.name);">
-              <span>{{pipeline.name}}</span>
+            <a role="menuitem" tabindex="-1" ng-href="/collector/logs/{{pipeline.title}}/{{pipeline.name}}">
+              <span>{{pipeline.title}}/{{pipeline.name}}</span>
             </a>
           </li>
 
         </ul>
       </div>
+
+      <a ng-if="filterPipeline" ng-href="/collector/pipeline/{{filterPipeline}}">( view pipeline... )</a>
 
     </div>
 
@@ -102,7 +101,7 @@
         </span>
       </button>
 
-      <div class="btn-group download-btn-group" ng-if="logFiles && logFiles.length">
+      <div class="btn-group download-btn-group" ng-if="logFiles && logFiles.length && common.isUserAdmin">
         <a href="/rest/v1/system/logs/files/{{logFiles[0].file}}?attachment=true" target="_self"
            class="btn btn-primary btn-sm">{{'logs.download' | translate}}</a>
         <button type="button" class="btn btn-primary btn-sm dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
@@ -116,17 +115,27 @@
         </ul>
       </div>
 
-      <button type="button" class="btn btn-primary btn-sm" ng-click="onLogConfigClick()">
+      <button type="button" class="btn btn-primary btn-sm"  ng-if="common.isUserAdmin" ng-click="onLogConfigClick()">
         {{'logs.logConfig.headerLabel' | translate}}
       </button>
 
+      <button type="button" class="btn btn-primary btn-sm"  ng-if="common.isUserAdmin" ng-click="toggleAutoFetch()">
+        {{(pauseLogAutoFetch ? 'logs.autoFetchContinue' : 'logs.autoFetchPause') | translate}}
+      </button>
+
+      <button type="button" class="btn btn-primary btn-sm"
+              ng-click="refreshLogs()">{{'global.form.refresh' | translate}}</button>
     </div>
 
   </div>
 
+  <ng-include src="'app/home/alerts/error/errorAlert.tpl.html'"></ng-include>
+  <ng-include src="'app/home/alerts/error/errorModal.tpl.html'"></ng-include>
+
   <div class="panel-body"
        ng-style="{'height': (windowHeight - 60 - 51) + 'px', 'width': (windowWidth) + 'px'}" resize>
-    <table class="table log-table">
+
+    <table class="table log-table" ng-if="!loading">
       <thead>
       <tr>
         <th>Timestamp</th>
@@ -135,6 +144,7 @@
         <th>Message</th>
         <th>Category</th>
         <th>User</th>
+        <th>Runner</th>
         <th>Thread</th>
       </tr>
       </thead>
@@ -152,6 +162,7 @@
         <td>{{logMessage.message}}</td>
         <td>{{logMessage.category}}</td>
         <td>{{logMessage['s-user']}}</td>
+        <td>{{logMessage['s-runner']}}</td>
         <td>{{logMessage.thread}}</td>
       </tr>
 
@@ -162,7 +173,18 @@
           </div>
         </td>
       </tr>
+
+      <tr ng-if="logMessages.length == 0">
+        <td colspan="7">{{'logs.noLogsMessage' | translate}}</td>
+      </tr>
+
       </tbody>
     </table>
+
+
+    <div class="stage-libraries-loading">
+      <div class="pipeline-home-loading" show-loading="loading"></div>
+    </div>
+
   </div>
 </div>

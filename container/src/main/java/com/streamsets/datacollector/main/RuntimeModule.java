@@ -22,9 +22,11 @@ package com.streamsets.datacollector.main;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
 import com.streamsets.datacollector.execution.EventListenerManager;
+import com.streamsets.datacollector.http.WebServerTask;
 import com.streamsets.datacollector.metrics.MetricsModule;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.lib.security.http.RemoteSSOService;
+import com.streamsets.pipeline.api.impl.Utils;
 import dagger.Module;
 import dagger.Provides;
 import org.slf4j.Logger;
@@ -49,6 +51,8 @@ public class RuntimeModule {
   public static final String DATA_COLLECTOR_BASE_HTTP_URL = "sdc.base.http.url";
   public static final String SDC_PROPERTY_PREFIX = "sdc";
   public static final String PIPELINE_EXECUTION_MODE_KEY = "pipeline.execution.mode";
+  public static final String PIPELINE_ACCESS_CONTROL_ENABLED = "pipeline.access.control.enabled";
+  public static final boolean PIPELINE_ACCESS_CONTROL_ENABLED_DEFAULT = true;
   private static List<ClassLoader> stageLibraryClassLoaders = Collections.emptyList();//ImmutableList.of(RuntimeModule.class.getClassLoader());
 
   public static synchronized void setStageLibraryClassLoaders(List<? extends ClassLoader> classLoaders) {
@@ -80,6 +84,13 @@ public class RuntimeModule {
         runtimeInfo.setAppAuthToken(appAuthToken);
         boolean isDPMEnabled = conf.get(RemoteSSOService.DPM_ENABLED, RemoteSSOService.DPM_ENABLED_DEFAULT);
         runtimeInfo.setDPMEnabled(isDPMEnabled);
+        boolean aclEnabled = conf.get(PIPELINE_ACCESS_CONTROL_ENABLED, PIPELINE_ACCESS_CONTROL_ENABLED_DEFAULT);
+        String auth = conf.get(WebServerTask.AUTHENTICATION_KEY, WebServerTask.AUTHENTICATION_DEFAULT);
+        if (aclEnabled && (!"none".equals(auth) || isDPMEnabled)) {
+          runtimeInfo.setAclEnabled(true);
+        } else {
+          runtimeInfo.setAclEnabled(false);
+        }
       } catch (IOException ex) {
         throw new RuntimeException(ex);
       }
@@ -95,8 +106,20 @@ public class RuntimeModule {
   }
 
   @Provides @Singleton
-  public UserGroupManager provideUserGroupManager() {
-    return new FileUserGroupManager();
+  public UserGroupManager provideUserGroupManager(Configuration configuration) {
+    String loginModule = configuration.get(
+        WebServerTask.HTTP_AUTHENTICATION_LOGIN_MODULE,
+        WebServerTask.HTTP_AUTHENTICATION_LOGIN_MODULE_DEFAULT
+    );
+    switch (loginModule) {
+      case WebServerTask.FILE:
+        return new FileUserGroupManager();
+      case WebServerTask.LDAP:
+        return new LdapUserGroupManager();
+      default:
+        throw new RuntimeException(Utils.format("Invalid Authentication Login Module '{}', must be one of '{}'",
+            loginModule, WebServerTask.LOGIN_MODULES));
+    }
   }
 
 }

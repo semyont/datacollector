@@ -20,9 +20,13 @@
 package com.streamsets.pipeline.stage.origin.jdbc.table;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.sdk.PushSourceRunner;
+import com.streamsets.pipeline.sdk.StageRunner;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.junit.AfterClass;
@@ -31,41 +35,189 @@ import org.junit.BeforeClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class BaseTableJdbcSourceIT {
+  private static final Logger LOG = LoggerFactory.getLogger(BaseTableJdbcSourceIT.class);
+
   protected static final String USER_NAME = "sa";
   protected static final String PASSWORD = "sa";
   protected static final String database = "TEST";
   protected static final String JDBC_URL = "jdbc:h2:mem:" + database;
-
-  private static final Logger LOG = LoggerFactory.getLogger(BaseTableJdbcSourceIT.class);
-
-
-  protected static final String CREATE_STATEMENT_TEMPLATE = "CREATE TABLE IF NOT EXISTS %s.%s ( %s )";
+  protected static final String CREATE_STATEMENT_TEMPLATE = "CREATE TABLE %s.%s ( %s )";
   protected static final String INSERT_STATEMENT_TEMPLATE = "INSERT INTO %s.%s values ( %s )";
-  protected static final String DROP_STATEMENT_TEMPLATE = "DROP TABLE IF EXISTS %s.%s";
-
+  protected static final String DROP_STATEMENT_TEMPLATE = "DROP TABLE %s.%s";
   protected static final Joiner COMMA_SPACE_JOINER = Joiner.on(", ");
+  protected static final Random RANDOM = new Random();
+
+
+  protected static final Map<Field.Type, String> FIELD_TYPE_TO_SQL_TYPE_AND_STRING =
+      ImmutableMap.<Field.Type, String>builder()
+          .put(Field.Type.BOOLEAN, "BIT")
+          .put(Field.Type.CHAR, "CHAR")
+          .put(Field.Type.BYTE, "TINYINT")
+          .put(Field.Type.SHORT, "SMALLINT")
+          .put(Field.Type.INTEGER, "INTEGER")
+          .put(Field.Type.LONG, "BIGINT")
+          //TO please h2 to return a Types.REAL which can be converted to FLOAT
+          //Types.FLOAT gets returned as double.
+          .put(Field.Type.FLOAT, "REAL")
+          .put(Field.Type.DOUBLE, "DOUBLE")
+          .put(Field.Type.DECIMAL, "DECIMAL(20, 10)")
+          .put(Field.Type.STRING, "varchar(100)")
+          .put(Field.Type.BYTE_ARRAY, "BINARY")
+          .put(Field.Type.DATE, "DATE")
+          .put(Field.Type.TIME, "TIME")
+          .put(Field.Type.DATETIME, "TIMESTAMP")
+          .build();
 
   protected static Connection connection;
+
+
+  static class JdbcPushSourceTestCallback implements PushSourceRunner.Callback {
+    private final PushSourceRunner pushSourceRunner;
+    private final List<List<Record>> batchRecords;
+    private final AtomicInteger batchesProduced;
+    private final int numberOfBatches;
+
+    JdbcPushSourceTestCallback(PushSourceRunner pushSourceRunner, int numberOfBatches) {
+      this.pushSourceRunner = pushSourceRunner;
+      this.batchRecords = new ArrayList<>(numberOfBatches);
+      this.numberOfBatches = numberOfBatches;
+      this.batchesProduced = new AtomicInteger(0);
+    }
+
+    synchronized List<List<Record>> waitForAllBatchesAndReset() {
+      try {
+        pushSourceRunner.waitOnProduce();
+      } catch (Exception e) {
+        Throwables.propagate(e);
+      }
+      List<List<Record>> records = ImmutableList.copyOf(batchRecords);
+      Assert.assertEquals(numberOfBatches, records.size());
+      batchRecords.clear();
+      batchesProduced.set(0);
+      return records;
+    }
+
+    @Override
+    public void processBatch(StageRunner.Output output) {
+      List<Record> records = output.getRecords().get("a");
+      if (!records.isEmpty()) {
+        batchRecords.add(batchesProduced.get(), records);
+        if (batchesProduced.incrementAndGet() == numberOfBatches) {
+          pushSourceRunner.setStop();
+        }
+      }
+    }
+  }
 
   @BeforeClass
   public static void setup() throws SQLException {
     connection = DriverManager.getConnection(JDBC_URL, USER_NAME, PASSWORD);
+    try (Statement statement = connection.createStatement()) {
+      //If not exists is skipped because some of the databases do not support that.
+      statement.execute("CREATE SCHEMA TEST");
+    }
   }
 
   @AfterClass
   public static void tearDown() throws SQLException {
+    try (Statement statement = connection.createStatement()) {
+      //If not exists is skipped because some of the databases do not support that.
+      statement.execute("DROP SCHEMA TEST");
+    }
     connection.close();
+  }
+
+
+  protected static Date getRandomDateTime(Field.Type type) {
+    Calendar calendar = Calendar.getInstance();
+    //1990-2020
+    calendar.set(Calendar.YEAR, RANDOM.nextInt(30) + 1990);
+    calendar.set(Calendar.MONTH, RANDOM.nextInt(11) + 1);
+    calendar.set(Calendar.DAY_OF_MONTH, RANDOM.nextInt(25));
+    calendar.set(Calendar.HOUR_OF_DAY, RANDOM.nextInt(24));
+    calendar.set(Calendar.MINUTE, RANDOM.nextInt(60));
+    calendar.set(Calendar.SECOND, RANDOM.nextInt(60));
+    calendar.set(Calendar.MILLISECOND, RANDOM.nextInt(1000));
+    if (type == Field.Type.DATE) {
+      //zero out time part
+      calendar.set(Calendar.HOUR_OF_DAY, 0);
+      calendar.set(Calendar.MINUTE, 0);
+      calendar.set(Calendar.SECOND, 0);
+      calendar.set(Calendar.MILLISECOND, 0);
+    } else if (type == Field.Type.TIME) {
+      //unset
+      calendar.set(Calendar.YEAR, 1970);
+      calendar.set(Calendar.MONTH, 0);
+      calendar.set(Calendar.DAY_OF_MONTH, 1);
+    }
+    return calendar.getTime();
+  }
+
+  protected static Object generateRandomData(Field.Type fieldType) {
+    switch(fieldType) {
+      case DATE:
+      case DATETIME:
+      case TIME:
+        return getRandomDateTime(fieldType);
+      case DOUBLE:
+        return RANDOM.nextDouble();
+      case FLOAT:
+        return RANDOM.nextFloat();
+      case SHORT:
+        return (short) RANDOM.nextInt(Short.MAX_VALUE + 1);
+      case INTEGER:
+        return RANDOM.nextInt();
+      case LONG:
+        return RANDOM.nextLong();
+      case CHAR:
+        return UUID.randomUUID().toString().charAt(0);
+      case STRING:
+        return UUID.randomUUID().toString();
+      case DECIMAL:
+        return new BigDecimal(BigInteger.valueOf(RANDOM.nextLong() % (long)Math.pow(10, 20)), 10);
+    }
+    return null;
+  }
+
+
+  protected static void setParamsToPreparedStatement(
+      PreparedStatement ps,
+      int paramIdx,
+      int sqlType,
+      Object value
+  ) throws SQLException {
+    switch (sqlType) {
+      case Types.DATE:
+        ps.setDate(paramIdx, new java.sql.Date(((Date)value).getTime()));
+        break;
+      case Types.TIME:
+        ps.setTime(paramIdx, new java.sql.Time(((Date)value).getTime()));
+        break;
+      case Types.TIMESTAMP:
+        ps.setTimestamp(paramIdx, new java.sql.Timestamp(((Date)value).getTime()));
+        break;
+      default:
+        ps.setObject(paramIdx, value);
+    }
   }
 
   protected static String getStringRepOfFieldValueForInsert(Field field) {
@@ -95,10 +247,12 @@ public abstract class BaseTableJdbcSourceIT {
   ) {
     List<String> fieldFormats = new ArrayList<>();
     for (Map.Entry<String, String> offsetFieldEntry : offsetFields.entrySet()) {
-      fieldFormats.add(offsetFieldEntry.getKey() + " " + offsetFieldEntry.getValue());
+      Assert.assertNotNull("Null Value for - " + offsetFieldEntry, offsetFieldEntry.getValue());
+      fieldFormats.add(offsetFieldEntry.getKey() + " " + offsetFieldEntry.getValue() + " NOT NULL");
     }
 
     for (Map.Entry<String, String> otherFieldEntry : otherFields.entrySet()) {
+      Assert.assertNotNull("Null Value for - " + otherFieldEntry, otherFieldEntry.getValue());
       fieldFormats.add(otherFieldEntry.getKey() + " " + otherFieldEntry.getValue());
     }
 
@@ -126,6 +280,7 @@ public abstract class BaseTableJdbcSourceIT {
               )
           )? "'"+ getStringRepOfFieldValueForInsert(field) +"'" : getStringRepOfFieldValueForInsert(field);
 
+      Assert.assertNotNull(fieldFormat);
       fieldFormats.add(fieldFormat);
     }
     String insertQuery = String.format(INSERT_STATEMENT_TEMPLATE, schemaName, tableName, COMMA_SPACE_JOINER.join(fieldFormats));
@@ -151,7 +306,7 @@ public abstract class BaseTableJdbcSourceIT {
   }
 
 
-  private static void checkField(String fieldPath, Field expectedField, Field actualField) throws Exception {
+  private static void checkField(String fieldPath, Field expectedField, Field actualField) {
     String errorString = String.format("Error in Field Path: %s", fieldPath);
     Assert.assertEquals(errorString, expectedField.getType(), actualField.getType());
     errorString = errorString + " of type: " + expectedField.getType().name();
@@ -183,7 +338,7 @@ public abstract class BaseTableJdbcSourceIT {
     }
   }
 
-  static void checkRecords(List<Record> expectedRecords, List<Record> actualRecords) throws Exception {
+  static void checkRecords(List<Record> expectedRecords, List<Record> actualRecords) {
     Assert.assertEquals("Record Size Does not match.", expectedRecords.size(), actualRecords.size());
     for (int i = 0; i < actualRecords.size(); i++) {
       Record actualRecord = actualRecords.get(i);

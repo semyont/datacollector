@@ -41,6 +41,7 @@ public class SSOPrincipalJson implements SSOPrincipal {
   private String organizationName;
   private String email;
   private Set<String> roles = new HashSet<>();
+  private Set<String> groups = new HashSet<>();
   private boolean app;
   private Map<String, String> attributes = new HashMap<>();
   private boolean locked;
@@ -136,6 +137,11 @@ public class SSOPrincipalJson implements SSOPrincipal {
   }
 
   @Override
+  public Set<String> getGroups() {
+    return groups;
+  }
+
+  @Override
   public boolean isApp() {
     return app;
   }
@@ -170,6 +176,7 @@ public class SSOPrincipalJson implements SSOPrincipal {
     locked = true;
     roles = (roles == null) ? Collections.<String>emptySet() : ImmutableSet.copyOf(roles);
     attributes = (attributes == null) ? Collections.<String, String>emptyMap() : ImmutableMap.copyOf(attributes);
+    groups = (groups == null) ? Collections.<String>emptySet() : ImmutableSet.copyOf(groups);
   }
 
   @JsonIgnore

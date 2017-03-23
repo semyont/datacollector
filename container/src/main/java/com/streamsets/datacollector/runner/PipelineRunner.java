@@ -20,6 +20,7 @@
 package com.streamsets.datacollector.runner;
 
 import com.codahale.metrics.MetricRegistry;
+import com.streamsets.datacollector.config.PipelineConfiguration;
 import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.restapi.bean.MetricRegistryJson;
 import com.streamsets.datacollector.runner.production.BadRecordsHandler;
@@ -37,29 +38,28 @@ public interface PipelineRunner {
   public MetricRegistry getMetrics();
 
   public void run(
-      Pipe[] pipes,
-      BadRecordsHandler badRecordsHandler,
-      StatsAggregationHandler statsAggregationHandler
+    SourcePipe originPipe,
+    List<PipeRunner> pipes,
+    BadRecordsHandler badRecordsHandler,
+    StatsAggregationHandler statsAggregationHandler
   ) throws StageException, PipelineRuntimeException;
 
   public void run(
-      Pipe[] pipes,
-      BadRecordsHandler badRecordsHandler,
-      List<StageOutput> stageOutputsToOverride,
-      StatsAggregationHandler statsAggregationHandler
+    SourcePipe originPipe,
+    List<PipeRunner> pipes,
+    BadRecordsHandler badRecordsHandler,
+    List<StageOutput> stageOutputsToOverride,
+    StatsAggregationHandler statsAggregationHandler
   ) throws StageException, PipelineRuntimeException;
 
   public void destroy(
-      Pipe[] pipes,
-      BadRecordsHandler badRecordsHandler,
-      StatsAggregationHandler statsAggregationHandler
+    SourcePipe originPipe,
+    List<PipeRunner> pipes,
+    BadRecordsHandler badRecordsHandler,
+    StatsAggregationHandler statsAggregationHandler
   ) throws StageException, PipelineRuntimeException;
 
   public List<List<StageOutput>> getBatchesOutput();
-
-  public String getSourceOffset();
-
-  public String getNewSourceOffset();
 
   public void setObserver(Observer observer);
 
@@ -67,8 +67,14 @@ public interface PipelineRunner {
 
   public MetricRegistryJson getMetricRegistryJson();
 
-  void errorNotification(Pipe[] pipes, Throwable throwable);
+  void errorNotification(
+    SourcePipe originPipe,
+    List<PipeRunner> pipes,
+    Throwable throwable
+  );
 
   public void setPipeContext(PipeContext pipeContext);
+
+  public void setPipelineConfiguration(PipelineConfiguration pipelineConfiguration);
 
 }

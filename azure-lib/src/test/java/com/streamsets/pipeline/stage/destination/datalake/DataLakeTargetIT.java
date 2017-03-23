@@ -27,9 +27,11 @@ import com.streamsets.pipeline.api.OnRecordError;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.sdk.RecordCreator;
 import com.streamsets.pipeline.sdk.TargetRunner;
+import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -41,6 +43,7 @@ import java.util.List;
  * Currently tests do not include client auth because of lack of support in MockWebServer in https protocol
  * so we need to implement after auth requests in https/SSL if necessary
  */
+@Ignore
 public class DataLakeTargetIT {
   private static ADLStoreClient client = null;
   private static String accountFQDN;
@@ -100,13 +103,12 @@ public class DataLakeTargetIT {
     webServer.enqueueFileInfoSuccessResponse()
         .enqueueTokenSuccess()
         .enqueueClientSuccessResponse()
-        .enqueueFileInfoSuccessResponse()
         .enqueueFileInfoSuccessResponse();
 
     DataLakeTarget target = new DataLakeTargetBuilder()
         .accountFQDN(accountFQDN)
         .authTokenEndpoint(authTokenEndpoint)
-        .filesPrefix("sdc-${sdc:id()}")
+        .filesPrefix("sdc-")
         .build();
 
     TargetRunner targetRunner = new TargetRunner.Builder(DataLakeDTarget.class, mockTarget(target))
@@ -130,6 +132,49 @@ public class DataLakeTargetIT {
     Assert.assertEquals(0, targetRunner.getErrorRecords().size());
   }
 
+  @Test
+  public void testWriteWith401Error() throws Exception {
+    webServer.enqueueFileInfoSuccessResponse()
+        .enqueueTokenSuccess()
+        .enqueueClientSuccessResponse()
+        // access token expiration error with 5 retries (default)
+        .enqueueTokenFailureResponse()
+        .enqueueTokenFailureResponse()
+        .enqueueTokenFailureResponse()
+        .enqueueTokenFailureResponse()
+        .enqueueTokenFailureResponse()
+        // acquire renewed token
+        .enqueueTokenSuccess()
+        .enqueueClientSuccessResponse()
+        // retry the request returns success
+        .enqueueFileInfoSuccessResponse();
+
+    DataLakeTarget target = new DataLakeTargetBuilder()
+        .accountFQDN(accountFQDN)
+        .authTokenEndpoint(authTokenEndpoint)
+        .filesPrefix("sdc-")
+        .build();
+
+    TargetRunner targetRunner = new TargetRunner.Builder(DataLakeDTarget.class, mockTarget(target))
+        .setOnRecordError(OnRecordError.DISCARD)
+        .build();
+
+    targetRunner.runInit();
+
+    final int totalNumber = 1;
+    List<Record> records = createStringRecords(totalNumber);
+
+    try {
+      targetRunner.runWrite(records);
+
+      Assert.assertEquals(0, targetRunner.getErrors().size());
+      Assert.assertEquals(0, targetRunner.getErrorRecords().size());
+    } finally {
+      targetRunner.runDestroy();
+    }
+  }
+
+  @Ignore
   @Test
   public void testExceptionWhileWriting() throws Exception {
     // one success write record and then 5 retries to write record to fail

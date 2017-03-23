@@ -25,6 +25,9 @@ import java.util.Map;
 
 public enum EventType {
 
+  // EVENT CODE for DPM->SDC events: 1000 - 1999
+  // EVENT CODE for SDC->DPM events: 2000 - 2999
+  // EVENT CODE FOR ACK events: >=5000
   VALIDATE_PIPELINE(1000),
   SAVE_PIPELINE(1001),
   SAVE_RULES_PIPELINE(1002),
@@ -36,6 +39,7 @@ public enum EventType {
   PING_FREQUENCY_ADJUSTMENT(1008),
   STOP_DELETE_PIPELINE(1009),
   SSO_DISCONNECTED_MODE_CREDENTIALS(1010),
+  SYNC_ACL(1011),
   STATUS_PIPELINE(2000),
   SDC_INFO_EVENT(2001),
   STATUS_MULTIPLE_PIPELINES(2002),
@@ -43,14 +47,14 @@ public enum EventType {
 
   private final int value;
 
-  private static final Map<Integer, EventType> intToTypeMap = new HashMap<Integer, EventType>();
+  private static final Map<Integer, EventType> intToTypeMap = new HashMap<>();
   static {
     for (EventType eventType : EventType.values()) {
       intToTypeMap.put(eventType.value, eventType);
     }
   }
 
-  private EventType(int value) {
+  EventType(int value) {
     this.value = value;
   }
 
@@ -60,9 +64,6 @@ public enum EventType {
 
   public static EventType fromValue(int x) {
     EventType eventType = intToTypeMap.get(x);
-    if (eventType == null) {
-      throw new IllegalArgumentException("Cannot find event type from value " + x);
-    }
     return eventType;
   }
 }

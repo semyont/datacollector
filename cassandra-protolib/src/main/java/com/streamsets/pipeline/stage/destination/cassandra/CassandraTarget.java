@@ -22,13 +22,13 @@ package com.streamsets.pipeline.stage.destination.cassandra;
 import com.datastax.driver.core.BatchStatement;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.CodecRegistry;
 import com.datastax.driver.core.ColumnMetadata;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ProtocolOptions;
-import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
+import com.datastax.driver.core.TypeCodec;
 import com.datastax.driver.core.exceptions.AuthenticationException;
 import com.datastax.driver.core.exceptions.CodecNotFoundException;
 import com.datastax.driver.core.exceptions.InvalidTypeException;
@@ -51,6 +51,8 @@ import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +69,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Cassandra Destination for StreamSets Data Collector
@@ -81,20 +84,15 @@ import java.util.TreeSet;
  */
 public class CassandraTarget extends BaseTarget {
   private static final Logger LOG = LoggerFactory.getLogger(CassandraTarget.class);
-  private static final int MAX_BATCH_SIZE = 65535;
-  private static final String CONTACT_NODES_LABEL = "contactNodes";
+  private static final String CONTACT_NODES_LABEL = "contactPoints";
+  private static final List<TypeCodec<?>> SDC_CODECS = ImmutableList.of(
+      new TimeUUIDAsStringCodec(),
+      new UUIDAsStringCodec(),
+      new LocalDateAsDateCodec()
+  );
 
-  private final List<String> addresses;
-  private final ProtocolOptions.Compression compression;
-  private final ProtocolVersion protocolVersion;
+  private final CassandraTargetConfig conf;
   private List<InetAddress> contactPoints;
-  private final int port;
-  private final String username;
-  private final String password;
-
-  private final String qualifiedTableName;
-  private final List<CassandraFieldMappingConfig> columnNames;
-
 
   private Cluster cluster;
   private Session session;
@@ -103,24 +101,8 @@ public class CassandraTarget extends BaseTarget {
   private LoadingCache<SortedSet<String>, PreparedStatement> statementCache;
   private ErrorRecordHandler errorRecordHandler;
 
-  public CassandraTarget(
-      final List<String> addresses,
-      final int port,
-      final ProtocolVersion protocolVersion,
-      final ProtocolOptions.Compression compression,
-      final String username,
-      final String password,
-      final String qualifiedTableName,
-      final List<CassandraFieldMappingConfig> columnNames
-  ) {
-    this.addresses = addresses;
-    this.port = port;
-    this.protocolVersion = protocolVersion;
-    this.compression = compression;
-    this.username = username;
-    this.password = password;
-    this.qualifiedTableName = qualifiedTableName;
-    this.columnNames = columnNames;
+  public CassandraTarget(CassandraTargetConfig conf) {
+    this.conf = conf;
   }
 
   @Override
@@ -129,24 +111,16 @@ public class CassandraTarget extends BaseTarget {
     errorRecordHandler = new DefaultErrorRecordHandler(getContext());
 
     Target.Context context = getContext();
-    if (addresses.isEmpty()) {
+    if (conf.contactPoints.isEmpty()) {
       issues.add(context.createConfigIssue(Groups.CASSANDRA.name(), CONTACT_NODES_LABEL, Errors.CASSANDRA_00));
     }
 
-    for (String address : addresses) {
-      if (address.isEmpty()) {
-        issues.add(context.createConfigIssue(Groups.CASSANDRA.name(), CONTACT_NODES_LABEL, Errors.CASSANDRA_01));
-      }
+    if (conf.contactPoints.stream().anyMatch(StringUtils::isEmpty)) {
+      issues.add(context.createConfigIssue(Groups.CASSANDRA.name(), CONTACT_NODES_LABEL, Errors.CASSANDRA_01));
     }
 
-    contactPoints = new ArrayList<>(addresses.size());
-    for (String address : addresses) {
-      if (null == address) {
-        LOG.warn("A null value was passed in as a contact point.");
-        // This isn't valid but InetAddress won't complain so we skip this entry.
-        continue;
-      }
-
+    contactPoints = new ArrayList<>(conf.contactPoints.size());
+    for (String address : conf.contactPoints) {
       try {
         contactPoints.add(InetAddress.getByName(address));
       } catch (UnknownHostException e) {
@@ -159,7 +133,7 @@ public class CassandraTarget extends BaseTarget {
       issues.add(context.createConfigIssue(Groups.CASSANDRA.name(), CONTACT_NODES_LABEL, Errors.CASSANDRA_00));
     }
 
-    if (!qualifiedTableName.contains(".")) {
+    if (!conf.qualifiedTableName.contains(".")) {
       issues.add(context.createConfigIssue(Groups.CASSANDRA.name(), "qualifiedTableName", Errors.CASSANDRA_02));
     } else {
       if (checkCassandraReachable(issues)) {
@@ -178,13 +152,7 @@ public class CassandraTarget extends BaseTarget {
     }
 
     if (issues.isEmpty()) {
-      cluster = Cluster.builder()
-          .addContactPoints(contactPoints)
-          .withCompression(compression)
-          .withPort(port)
-              // If authentication is disabled on the C* cluster, this method has no effect.
-          .withCredentials(username, password)
-          .build();
+      cluster = getCluster();
 
       try {
         session = cluster.connect();
@@ -194,7 +162,7 @@ public class CassandraTarget extends BaseTarget {
             .build(
                 new CacheLoader<SortedSet<String>, PreparedStatement>() {
                   @Override
-                  public PreparedStatement load(SortedSet<String> columns) {
+                  public PreparedStatement load(@NotNull SortedSet<String> columns) {
                     // The INSERT query we're going to perform (parameterized).
                     SortedSet<String> statementColumns = new TreeSet<>();
                     for (String fieldPath : columnMappings.keySet()) {
@@ -205,7 +173,7 @@ public class CassandraTarget extends BaseTarget {
                     }
                     final String query = String.format(
                         "INSERT INTO %s (%s) VALUES (%s);",
-                        qualifiedTableName,
+                        conf.qualifiedTableName,
                         Joiner.on(", ").join(statementColumns),
                         Joiner.on(", ").join(Collections.nCopies(statementColumns.size(), "?"))
                     );
@@ -233,11 +201,11 @@ public class CassandraTarget extends BaseTarget {
     List<String> invalidColumnMappings = new ArrayList<>();
 
     columnMappings = new TreeMap<>();
-    for (CassandraFieldMappingConfig column : columnNames) {
+    for (CassandraFieldMappingConfig column : conf.columnNames) {
       columnMappings.put(column.columnName, column.field);
     }
 
-    final String[] tableNameParts = qualifiedTableName.split("\\.");
+    final String[] tableNameParts = conf.qualifiedTableName.split("\\.");
     final String keyspace = tableNameParts[0];
     final String table = tableNameParts[1];
 
@@ -255,11 +223,11 @@ public class CassandraTarget extends BaseTarget {
           }
       );
 
-      for (String columnName : columnMappings.keySet()) {
-        if (!columns.contains(columnName)) {
-          invalidColumnMappings.add(columnName);
-        }
-      }
+      invalidColumnMappings.addAll(columnMappings.keySet()
+          .stream()
+          .filter(columnName -> !columns.contains(columnName))
+          .collect(Collectors.toList())
+      );
     }
 
     return invalidColumnMappings;
@@ -275,10 +243,10 @@ public class CassandraTarget extends BaseTarget {
       Target.Context context = getContext();
       LOG.error(Errors.CASSANDRA_05.getMessage(), e.toString(), e);
       issues.add(
-              context.createConfigIssue(
-              Groups.CASSANDRA.name(),
-              CONTACT_NODES_LABEL,
-              Errors.CASSANDRA_05, e.toString()
+          context.createConfigIssue(
+          Groups.CASSANDRA.name(),
+          CONTACT_NODES_LABEL,
+          Errors.CASSANDRA_05, e.toString()
           )
       );
     }
@@ -289,7 +257,7 @@ public class CassandraTarget extends BaseTarget {
   @SuppressWarnings("unchecked")
   public void write(Batch batch) throws StageException {
     // The batch holding the current batch to INSERT.
-    BatchStatement batchedStatement = new BatchStatement();
+    BatchStatement batchedStatement = new BatchStatement(conf.batchType);
 
     Iterator<Record> records = batch.getRecords();
 
@@ -303,7 +271,7 @@ public class CassandraTarget extends BaseTarget {
       if (boundStmt != null) {
         // if this batch is currently at the max batch size, then let's execute it and make a new batch before adding
         // this latest statement to it.
-        if (batchedStatement.size() == MAX_BATCH_SIZE) {
+        if (batchedStatement.size() == conf.maxBatchSize) {
           session.execute(batchedStatement);
           batchedStatement = new BatchStatement();
         }
@@ -329,7 +297,8 @@ public class CassandraTarget extends BaseTarget {
       String fieldPath = mapping.getValue();
 
       // If we're missing fields, skip them.
-      if (!record.has(fieldPath)) {
+      // If a field is present, but null, also remove it from columnsPresent since we can't write nulls.
+      if (!record.has(fieldPath) || record.get(fieldPath).getValue() == null) {
         columnsPresent.remove(columnName);
         continue;
       }
@@ -382,9 +351,11 @@ public class CassandraTarget extends BaseTarget {
   private Cluster getCluster() {
     return Cluster.builder()
         .addContactPoints(contactPoints)
-        .withCredentials(username, password)
-        .withProtocolVersion(protocolVersion)
-        .withPort(port)
+        // If authentication is disabled on the C* cluster, this method has no effect.
+        .withCredentials(conf.username, conf.password)
+        .withProtocolVersion(conf.protocolVersion)
+        .withPort(conf.port)
+        .withCodecRegistry(new CodecRegistry().register(SDC_CODECS))
         .build();
   }
 }

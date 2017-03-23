@@ -40,6 +40,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 public class EmailNotifier implements StateEventListener {
@@ -72,8 +73,13 @@ public class EmailNotifier implements StateEventListener {
   }
 
   @Override
-  public void onStateChange(PipelineState fromState, PipelineState toState, String toStateJson,
-                            ThreadUsage threadUsage) throws PipelineRuntimeException {
+  public void onStateChange(
+      PipelineState fromState,
+      PipelineState toState,
+      String toStateJson,
+      ThreadUsage threadUsage,
+      Map<String, String> offset
+  ) throws PipelineRuntimeException {
     //should not be active in slave mode
     if(toState.getExecutionMode() != ExecutionMode.SLAVE && name.equals(toState.getName())) {
       if (pipelineStates != null && pipelineStates.contains(toState.getStatus().name())) {

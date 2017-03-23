@@ -23,6 +23,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.function.VoidFunction;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * This function executes in the driver.
@@ -33,7 +34,10 @@ public class MapRSparkDriverFunction<T1, T2>  implements VoidFunction<JavaPairRD
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public void call(JavaPairRDD<T1, T2> byteArrayJavaRDD) throws Exception {
+    Map<Integer, Long> offsets = MaprStreamsOffsetUtil.getOffsets(byteArrayJavaRDD);
     byteArrayJavaRDD.foreachPartition(new MapRBootstrapSparkFunction());
+    MaprStreamsOffsetUtil.saveOffsets(offsets);
   }
 }

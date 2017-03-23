@@ -20,9 +20,6 @@
    <topicmeta>
     <shortdesc/>
    </topicmeta>
-   <topicref href="../Destinations/RecordHeaderAttributes.dita">
-    <topicref href="../Destinations/RecordHeaderAttributes-Generating.dita"/>
-   </topicref>
   </topicref>
   <topicref href="../Destinations/AmazonS3.dita" chunk="to-content">
    <topicmeta>
@@ -38,7 +35,6 @@
    <topicref href="../Destinations/AmazonS3-EventGeneration.dita">
     <topicref href="../Destinations/AmazonS3-EventRecords.dita"/>
    </topicref>
-   <topicref href="../Destinations/AmazonS3-DataFormat.dita"/>
    <topicref href="../Destinations/AmazonS3-ServerSideEncryption.dita"/>
    <topicref href="../Destinations/AmazonS3-DataFormat.dita"/>
    <topicref href="../Destinations/AmazonS3-Configuring.dita"/>
@@ -69,7 +65,8 @@
     <shortdesc/>
    </topicmeta>
    <topicref href="../Destinations/Elastic-TimeBasis.dita"/>
-   <topicref href="../Destinations/Elastic-DocIDandUpserts.dita"/>
+   <topicref href="../Destinations/Elastic-DocID.dita"/>
+   <topicref href="../Destinations/Elastic-DefineOperation.dita"/>
    <topicref href="../Destinations/Elasticsearch-Configuring.dita"/>
   </topicref>
   <topicref href="../Destinations/Flume.dita" chunk="to-content">
@@ -101,6 +98,7 @@
    <topicref href="../Destinations/HadoopFS-TimeBasis.dita"/>
    <topicref href="../Destinations/HadoopFS-LateRecordHandling.dita"/>
    <topicref href="../Destinations/HadoopFS-IdleTimeout.dita"/>
+   <topicref href="../Destinations/HadoopFS-Recovery.dita"/>
    <topicref href="../Destinations/HadoopFS-DataFormat.dita"/>
    <topicref href="../Destinations/HadoopFS-AzureHDInsight.dita"/>
    <topicref href="../Destinations/HadoopFS-EventGeneration.dita">
@@ -156,6 +154,7 @@
     <shortdesc/>
    </topicmeta>
    <topicref href="../Destinations/JDBCProducer-DriverInstall.dita"/>
+   <topicref href="../Destinations/JDBCProducer-CRUDOperation.dita"/>
    <topicref href="../Destinations/JDBCProducer-Configuring.dita"/>
   </topicref>
   <topicref href="../Destinations/KProducer.dita" chunk="to-content">
@@ -206,6 +205,7 @@
    <topicref href="../Destinations/LocalFS-TimeBasis.dita"/>
    <topicref href="../Destinations/LocalFS-LateRecordHandling.dita"/>
    <topicref href="../Destinations/LocalFS-IdleTimeout.dita"/>
+   <topicref href="../Destinations/LocalFS-Recovery.dita"/>
    <topicref href="../Destinations/LocalFS-EventGeneration.dita">
     <topicref href="../Destinations/LocalFS-EventRecords.dita"/>
    </topicref>
@@ -223,6 +223,15 @@
    <topicref href="../Destinations/MapRDB-HBaseProperties.dita"/>
    <topicref href="../Destinations/MapRDB-Configuring.dita"/>
   </topicref>
+  <topicref href="../Destinations/MapRDBJSON.dita" chunk="to-content">
+   <topicmeta>
+    <shortdesc/>
+   </topicmeta>
+   <topicref href="../Destinations/MapRDBJSON-RowKey.dita">
+    <topicref href="../Destinations/MapRDBJSON-RowKeyDataType.dita"/>
+   </topicref>
+   <topicref href="../Destinations/MapRDBJSON-Configuring.dita"/>
+  </topicref>
   <topicref href="../Destinations/MapRFS.dita" chunk="to-content">
    <topicmeta>
     <shortdesc/>
@@ -231,6 +240,7 @@
    <topicref href="../Destinations/MapRFS-TimeBasis.dita"/>
    <topicref href="../Destinations/MapRFS-LateRecordHandling.dita"/>
    <topicref href="../Destinations/MapRFS-IdleTimeout.dita"/>
+   <topicref href="../Destinations/MapRFS-Recovery.dita"/>
    <topicref href="../Destinations/MapRFS-EventGeneration.dita">
     <topicref href="../Destinations/MapRFS-EventRecords.dita"/>
    </topicref>
@@ -254,7 +264,7 @@
    <topicmeta>
     <shortdesc/>
    </topicmeta>
-   <topicref href="../Destinations/MongoDB-OperationHeader.dita"/>
+   <topicref href="../Destinations/MongoDB-CRUDOperation.dita"/>
    <topicref href="../Destinations/MongoDB-EnableSSL.dita"/>
    <topicref href="../Destinations/MongoDB-Configuring.dita"/>
   </topicref>
@@ -294,7 +304,6 @@
    <topicmeta>
     <shortdesc/>
    </topicmeta>
-   <topicref href="../Destinations/Solr-Prerequisites.dita"/>
    <topicref href="../Destinations/Solr-IndexMode.dita"/>
    <topicref href="../Destinations/Solr-Kerberos.dita"/>
    <topicref href="../Destinations/Solr-configuring.dita"/>

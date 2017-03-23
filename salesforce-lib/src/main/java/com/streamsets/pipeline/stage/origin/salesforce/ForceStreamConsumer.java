@@ -24,6 +24,7 @@ import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.lib.salesforce.Errors;
 import org.cometd.bayeux.Channel;
 import org.cometd.bayeux.Message;
+import org.cometd.bayeux.client.ClientSession;
 import org.cometd.bayeux.client.ClientSessionChannel;
 import org.cometd.client.BayeuxClient;
 import org.cometd.client.transport.ClientTransport;
@@ -42,14 +43,14 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ForceStreamConsumer {
-  private static final Logger LOG = LoggerFactory.getLogger(ForceSource.class);
-  private final BlockingQueue<Object> entityQueue;
-  // This URL is used only for logging in. The LoginResult
-  // returns a serverUrl which is then used for constructing
-  // the streaming URL. The serverUrl points to the endpoint
-  // where your organization is hosted.
+  private static final Logger LOG = LoggerFactory.getLogger(ForceStreamConsumer.class);
+  private static final String REPLAY_ID_EXPIRED = "400::The replayId \\{\\d+} you provided was invalid.  "
+      + "Please provide a valid ID, -2 to replay all events, or -1 to replay only new events.";
+  private final BlockingQueue<Message> messageQueue;
 
   // The long poll duration.
   private static final int CONNECTION_TIMEOUT = 20 * 1000;  // milliseconds
@@ -59,26 +60,67 @@ public class ForceStreamConsumer {
   private final PartnerConnection connection;
   private final String bayeuxChannel;
   private final String streamingEndpointPath;
-  private final long replayFrom;
 
   private HttpClient httpClient;
   private BayeuxClient client;
 
+  private Pattern replayIdExpiredPattern = Pattern.compile(REPLAY_ID_EXPIRED);
   private AtomicBoolean subscribed = new AtomicBoolean(false);
+  private ClientSession.Extension forceReplayExtension;
 
   public ForceStreamConsumer(
-      BlockingQueue<Object> entityQueue,
+      BlockingQueue<Message> messageQueue,
       PartnerConnection connection,
       String apiVersion,
-      String pushTopic,
-      String lastSourceOffset
+      String pushTopic
   ) {
-    this.entityQueue = entityQueue;
+    this.messageQueue = messageQueue;
     this.connection = connection;
     this.bayeuxChannel = "/topic/" + pushTopic;
     String streamingEndpointPrefix = apiVersion.equals("36.0") ? "/cometd/replay/" : "/cometd/";
     this.streamingEndpointPath = streamingEndpointPrefix + apiVersion;
-    this.replayFrom = Long.valueOf(lastSourceOffset.substring(lastSourceOffset.indexOf(':') + 1));
+  }
+
+  private boolean isReplayIdExpired(String message) {
+    Matcher matcher = replayIdExpiredPattern.matcher(message);
+    return matcher.find();
+  }
+
+  private ClientSession.Extension getForceReplayExtension(long replayId) {
+    Map<String, Long> replayMap = new HashMap<>();
+    replayMap.put(bayeuxChannel, replayId);
+    return new ForceReplayExtension<>(replayMap, messageQueue);
+  }
+
+  public void subscribeForNotifications(String offset) throws InterruptedException {
+    LOG.info("Subscribing for channel: " + bayeuxChannel);
+
+    if (forceReplayExtension != null) {
+      client.removeExtension(forceReplayExtension);
+    }
+    long replayId = Long.valueOf(offset.substring(offset.indexOf(':') + 1));
+    forceReplayExtension = getForceReplayExtension(replayId);
+    client.addExtension(forceReplayExtension);
+
+    client.getChannel(bayeuxChannel).subscribe(new ClientSessionChannel.MessageListener() {
+      @Override
+      public void onMessage(ClientSessionChannel channel, Message message) {
+        LOG.info("Placing message on queue: {}", message);
+        try {
+          boolean accepted = messageQueue.offer(message, 1000L, TimeUnit.MILLISECONDS);
+          if (!accepted) {
+            LOG.error("Response buffer full, dropped record.");
+          }
+        } catch (InterruptedException e) {
+          LOG.error(Errors.FORCE_10.getMessage(), e);
+        }
+      }
+    });
+
+    long start = System.currentTimeMillis();
+    while (!subscribed.get() && System.currentTimeMillis() - start < SUBSCRIBE_TIMEOUT) {
+      Thread.sleep(1000);
+    }
   }
 
   public void start() throws StageException {
@@ -87,46 +129,19 @@ public class ForceStreamConsumer {
     try {
       client = makeClient();
 
-      Map<String, Long> replayMap = new HashMap<>();
-      replayMap.put(bayeuxChannel, replayFrom);
-      client.addExtension(new ForceReplayExtension<>(replayMap, entityQueue));
-
       client.getChannel(Channel.META_HANDSHAKE).addListener(new ClientSessionChannel.MessageListener() {
 
         public void onMessage(ClientSessionChannel channel, Message message) {
-
           LOG.info("[CHANNEL:META_HANDSHAKE]: " + message);
 
-          boolean success = message.isSuccessful();
-          if (!success) {
-            String error = (String) message.get("error");
-            if (error != null) {
-              LOG.info("Error during HANDSHAKE: " + error);
-              try {
-                entityQueue.offer(
-                    new StageException(Errors.FORCE_09, error),
-                    1000L/* conf.requestTimeoutMillis */,
-                    TimeUnit.MILLISECONDS
-                );
-              } catch (InterruptedException e) {
-                LOG.error(Errors.FORCE_10.getMessage(), e);
-              }
+          // Pass these back to the source as we need to resubscribe or propagate the error
+          try {
+            boolean accepted = messageQueue.offer(message, 1000L, TimeUnit.MILLISECONDS);
+            if (!accepted) {
+              LOG.error("Response buffer full, dropped record.");
             }
-
-            Exception exception = (Exception) message.get("exception");
-            if (exception != null) {
-              LOG.info("Exception during HANDSHAKE: ");
-              exception.printStackTrace();
-              try {
-                entityQueue.offer(
-                    new StageException(Errors.FORCE_09, exception),
-                    1000L/* conf.requestTimeoutMillis */,
-                    TimeUnit.MILLISECONDS
-                );
-              } catch (InterruptedException e) {
-                LOG.error(Errors.FORCE_10.getMessage(), e);
-              }
-            }
+          } catch (InterruptedException e) {
+            LOG.error(Errors.FORCE_10.getMessage(), e.getMessage(), e);
           }
         }
 
@@ -134,25 +149,8 @@ public class ForceStreamConsumer {
 
       client.getChannel(Channel.META_CONNECT).addListener(new ClientSessionChannel.MessageListener() {
         public void onMessage(ClientSessionChannel channel, Message message) {
-
+          // Just log for troubleshooting - Bayeux client will rehandshake
           LOG.info("[CHANNEL:META_CONNECT]: " + message);
-
-          boolean success = message.isSuccessful();
-          if (!success) {
-            String error = (String) message.get("error");
-            if (error != null) {
-              LOG.info("Error during CONNECT: " + error);
-              try {
-                entityQueue.offer(
-                    new StageException(Errors.FORCE_09, error),
-                    1000L/* conf.requestTimeoutMillis */,
-                    TimeUnit.MILLISECONDS
-                );
-              } catch (InterruptedException e) {
-                LOG.error(Errors.FORCE_10.getMessage(), e);
-              }
-            }
-          }
         }
 
       });
@@ -161,19 +159,23 @@ public class ForceStreamConsumer {
 
         public void onMessage(ClientSessionChannel channel, Message message) {
           LOG.info("[CHANNEL:META_SUBSCRIBE]: " + message);
-          boolean success = message.isSuccessful();
-          if (!success) {
+          if (!message.isSuccessful()) {
             String error = (String) message.get("error");
             if (error != null) {
-              LOG.info("Error during SUBSCRIBE: " + error);
               try {
-                entityQueue.offer(
-                    new StageException(Errors.FORCE_09, error),
-                    1000L/* conf.requestTimeoutMillis */,
-                    TimeUnit.MILLISECONDS
-                );
+                if (isReplayIdExpired(error)) {
+                  // Retry subscription for all available events
+                  LOG.info("Event ID was not available. Subscribing for available events.");
+                  subscribeForNotifications(ForceSource.READ_EVENTS_FROM_START);
+                  return;
+                } else {
+                    boolean accepted = messageQueue.offer(message, 1000L, TimeUnit.MILLISECONDS);
+                    if (!accepted) {
+                      LOG.error("Response buffer full, dropped record.");
+                    }
+                }
               } catch (InterruptedException e) {
-                LOG.error(Errors.FORCE_10.getMessage(), e);
+                LOG.error(Errors.FORCE_10.getMessage(), e.getMessage(), e);
               }
             }
           }
@@ -189,28 +191,6 @@ public class ForceStreamConsumer {
       if (!handshaken) {
         LOG.error("Failed to handshake: " + client);
         throw new StageException(Errors.FORCE_09, "Timed out waiting for handshake");
-      }
-
-      LOG.info("Subscribing for channel: " + bayeuxChannel);
-
-      client.getChannel(bayeuxChannel).subscribe(new ClientSessionChannel.MessageListener() {
-        @Override
-        public void onMessage(ClientSessionChannel channel, Message message) {
-          LOG.info("Received Message: " + message);
-          try {
-            boolean accepted = entityQueue.offer(message, 1000L/* conf.requestTimeoutMillis */, TimeUnit.MILLISECONDS);
-            if (!accepted) {
-              LOG.error("Response buffer full, dropped record.");
-            }
-          } catch (InterruptedException e) {
-            LOG.error(Errors.FORCE_10.getMessage(), e);
-          }
-        }
-      });
-
-      long start = System.currentTimeMillis();
-      while (!subscribed.get() && System.currentTimeMillis() - start < SUBSCRIBE_TIMEOUT) {
-        Thread.sleep(1000);
       }
     } catch (Exception e) {
       LOG.error("Exception making client", e.toString(), e);

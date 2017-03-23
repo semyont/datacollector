@@ -19,28 +19,13 @@
  */
 package com.streamsets.datacollector.event.handler.remote;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import javax.inject.Inject;
-
-import com.streamsets.datacollector.callback.CallbackObjectType;
-import com.streamsets.datacollector.event.dto.WorkerInfo;
-import com.streamsets.datacollector.execution.Runner;
-import com.streamsets.datacollector.main.RuntimeInfo;
-import com.streamsets.datacollector.runner.production.OffsetFileUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.streamsets.datacollector.callback.CallbackInfo;
+import com.streamsets.datacollector.callback.CallbackObjectType;
 import com.streamsets.datacollector.config.PipelineConfiguration;
 import com.streamsets.datacollector.config.RuleDefinitions;
 import com.streamsets.datacollector.config.dto.ValidationStatus;
+import com.streamsets.datacollector.event.dto.WorkerInfo;
 import com.streamsets.datacollector.event.handler.DataCollector;
 import com.streamsets.datacollector.execution.Manager;
 import com.streamsets.datacollector.execution.PipelineState;
@@ -49,14 +34,35 @@ import com.streamsets.datacollector.execution.PipelineStatus;
 import com.streamsets.datacollector.execution.PreviewOutput;
 import com.streamsets.datacollector.execution.PreviewStatus;
 import com.streamsets.datacollector.execution.Previewer;
+import com.streamsets.datacollector.execution.Runner;
+import com.streamsets.datacollector.main.RuntimeInfo;
+import com.streamsets.datacollector.runner.production.OffsetFileUtil;
+import com.streamsets.datacollector.store.AclStoreTask;
 import com.streamsets.datacollector.store.PipelineInfo;
 import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.datacollector.validation.Issues;
+import com.streamsets.lib.security.acl.dto.Acl;
 import com.streamsets.pipeline.api.ExecutionMode;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.impl.Utils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.inject.Inject;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public class RemoteDataCollector implements DataCollector {
 
@@ -68,17 +74,28 @@ public class RemoteDataCollector implements DataCollector {
   private final List<String> validatorIdList;
   private final PipelineStateStore pipelineStateStore;
   private final RemoteStateEventListener stateEventListener;
+  private final AclStoreTask aclStoreTask;
+  private final AclCacheHelper aclCacheHelper;
   private final RuntimeInfo runtimeInfo;
 
   @Inject
-  public RemoteDataCollector(Manager manager, PipelineStoreTask pipelineStore, PipelineStateStore pipelineStateStore,
-                             RemoteStateEventListener stateEventListener, RuntimeInfo runtimeInfo) {
+  public RemoteDataCollector(
+      Manager manager,
+      PipelineStoreTask pipelineStore,
+      PipelineStateStore pipelineStateStore,
+      AclStoreTask aclStoreTask,
+      RemoteStateEventListener stateEventListener,
+      RuntimeInfo runtimeInfo,
+      AclCacheHelper aclCacheHelper
+  ) {
     this.manager = manager;
     this.pipelineStore = pipelineStore;
     this.pipelineStateStore = pipelineStateStore;
     this.validatorIdList = new ArrayList<>();
     this.stateEventListener = stateEventListener;
     this.runtimeInfo = runtimeInfo;
+    this.aclStoreTask = aclStoreTask;
+    this.aclCacheHelper = aclCacheHelper;
   }
 
   public void init() {
@@ -132,7 +149,8 @@ public class RemoteDataCollector implements DataCollector {
       String description,
       String offset,
       PipelineConfiguration pipelineConfiguration,
-      RuleDefinitions ruleDefinitions
+      RuleDefinitions ruleDefinitions,
+      Acl acl
   ) throws PipelineException {
 
     List<PipelineState> pipelineInfoList = manager.getPipelines();
@@ -145,7 +163,7 @@ public class RemoteDataCollector implements DataCollector {
     }
     UUID uuid;
     if (!pipelineExists) {
-      uuid = pipelineStore.create(user, name, description, true).getUuid();
+      uuid = pipelineStore.create(user, name, name, description, true).getUuid();
     } else {
       validateIfRemote(name, rev, "SAVE");
       PipelineInfo pipelineInfo = pipelineStore.getInfo(name);
@@ -155,11 +173,17 @@ public class RemoteDataCollector implements DataCollector {
     pipelineConfiguration.setUuid(uuid);
     pipelineStore.save(user, name, rev, description, pipelineConfiguration);
     pipelineStore.storeRules(name, rev, ruleDefinitions);
+    if (acl != null) { // can be null for old dpm or when DPM jobs have no acl
+      aclStoreTask.saveAcl(name, acl);
+    }
     LOG.info("Offset for remote pipeline '{}:{}' is {}", name, rev, offset);
     if (offset != null) {
-      OffsetFileUtil.saveOffset(runtimeInfo, name, rev, offset);
+      // TODO(SDC-4920): DPM Doesn't support two dimensional offset
+      OffsetFileUtil.saveOffsets(runtimeInfo, name, rev, Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, offset));
     }
   }
+
+
 
   @Override
   public void savePipelineRules(String name, String rev, RuleDefinitions ruleDefinitions) throws PipelineException {
@@ -206,7 +230,8 @@ public class RemoteDataCollector implements DataCollector {
       }
       // If still active, force stop of this pipeline as we are deleting this anyways
       if (pipelineState.getStatus().isActive()) {
-        pipelineStateStore.saveState(user,
+        pipelineStateStore.saveState(
+            user,
             name,
             rev,
             PipelineStatus.STOPPED,
@@ -223,34 +248,57 @@ public class RemoteDataCollector implements DataCollector {
   }
 
   // Returns info about remote pipelines that have changed since the last sending of events
+  @Override
   public List<PipelineAndValidationStatus> getRemotePipelinesWithChanges() throws PipelineException {
     List<PipelineAndValidationStatus> pipelineAndValidationStatuses = new ArrayList<>();
-    for (PipelineState pipelineState : stateEventListener.getPipelineStateEvents()) {
+    for (Pair<PipelineState, Map<String, String>> pipelineStateAndOffset: stateEventListener.getPipelineStateEvents()) {
+      PipelineState pipelineState = pipelineStateAndOffset.getLeft();
+      Map<String, String> offset = pipelineStateAndOffset.getRight();
       String name = pipelineState.getName();
       String rev = pipelineState.getRev();
       PipelineState latestState;
       boolean isClusterMode = (pipelineState.getExecutionMode() != ExecutionMode.STANDALONE) ? true : false;
       List<WorkerInfo> workerInfos = new ArrayList<>();
+      String title;
       if (pipelineStore.hasPipeline(name)) {
+        title = pipelineStore.getInfo(name).getTitle();
         Runner runner = manager.getRunner(pipelineState.getUser(), name, rev);
         latestState = runner.getState();
         if (isClusterMode) {
           workerInfos = getWorkers(runner.getSlaveCallbackList(CallbackObjectType.METRICS));
         }
       } else {
+        title = null;
         latestState = pipelineState;
       }
-      pipelineAndValidationStatuses.add(new PipelineAndValidationStatus(name,
+      pipelineAndValidationStatuses.add(new PipelineAndValidationStatus(
+          name,
+          title,
           rev,
           true,
           latestState.getStatus(),
           latestState.getMessage(),
           workerInfos,
           isClusterMode,
-          getOffset(name, rev)
+          // TODO(SDC-4920): DPM Doesn't support two dimensional offset
+          offset.get(Source.POLL_SOURCE_OFFSET_KEY),
+          null
       ));
     }
     return pipelineAndValidationStatuses;
+  }
+
+  @Override
+  public void syncAcl(Acl acl) throws PipelineException {
+    if (acl == null) {
+      return;
+    }
+    if (pipelineStore.hasPipeline(acl.getResourceId())) {
+      validateIfRemote(acl.getResourceId(), "0", "SYNC_ACL");
+      aclStoreTask.saveAcl(acl.getResourceId(), acl);
+    } else {
+      LOG.warn(ContainerError.CONTAINER_0200.getMessage(), acl.getResourceId());
+    }
   }
 
   private List<WorkerInfo> getWorkers(Collection<CallbackInfo> callbackInfos) {
@@ -265,18 +313,22 @@ public class RemoteDataCollector implements DataCollector {
   }
 
   private String getOffset(String pipelineName, String rev) {
-    return OffsetFileUtil.getOffset(runtimeInfo, pipelineName, rev);
+    // TODO(SDC-4920): DPM Doesn't support two dimensional offset
+    return OffsetFileUtil.getOffsets(runtimeInfo, pipelineName, rev).get(Source.POLL_SOURCE_OFFSET_KEY);
   }
 
   @Override
-  public Collection<PipelineAndValidationStatus> getPipelines() throws PipelineException {
+  public Collection<PipelineAndValidationStatus> getPipelines() throws IOException, PipelineException {
     List<PipelineState> pipelineStates = manager.getPipelines();
     //clear the queue as we will fetch all events
     stateEventListener.clear();
     Map<String, PipelineAndValidationStatus> pipelineStatusMap = new HashMap<>();
+    Set<String> localPipelineIds = new HashSet<>();
     for (PipelineState pipelineState : pipelineStates) {
       boolean isRemote = false;
       String name = pipelineState.getName();
+      PipelineInfo pipelineInfo = pipelineStore.getInfo(name);
+      String title = pipelineInfo.getTitle();
       String rev = pipelineState.getRev();
       String user = pipelineState.getUser();
       if (manager.isRemotePipeline(name, rev)) {
@@ -294,26 +346,37 @@ public class RemoteDataCollector implements DataCollector {
             workerInfos.add(workerInfo);
           }
         }
+        Acl acl = null;
+        if (!isRemote) { // if remote, dpm owns acl, sdc sends null acl
+          localPipelineIds.add(name);
+          acl = aclCacheHelper.getAcl(name);
+        }
         pipelineStatusMap.put(getNameAndRevString(name, rev), new PipelineAndValidationStatus(
             name,
+            title,
             rev,
             isRemote,
             pipelineState.getStatus(),
             pipelineState.getMessage(),
             workerInfos,
             isClusterMode,
-            isRemote ? getOffset(name, rev) : null
+            isRemote ? getOffset(name, rev) : null,
+            acl
         ));
       }
     }
+    aclCacheHelper.removeIfAbsent(localPipelineIds);
     setValidationStatus(pipelineStatusMap);
     return pipelineStatusMap.values();
   }
 
   private void setValidationStatus(Map<String, PipelineAndValidationStatus> pipelineStatusMap) {
-    List<String> idsToRemove = new ArrayList<String>();
+    List<String> idsToRemove = new ArrayList<>();
     for (String previewerId : validatorIdList) {
       Previewer previewer = manager.getPreviewer(previewerId);
+      if (previewer == null) {
+        continue;
+      }
       ValidationStatus validationStatus = null;
       Issues issues = null;
       String message = null;

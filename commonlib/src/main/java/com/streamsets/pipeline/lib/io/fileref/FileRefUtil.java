@@ -21,13 +21,18 @@ package com.streamsets.pipeline.lib.io.fileref;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Meter;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.streamsets.pipeline.api.EventRecord;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.FileRef;
+import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Stage;
+import com.streamsets.pipeline.api.el.ELEval;
+import com.streamsets.pipeline.api.el.ELEvalException;
+import com.streamsets.pipeline.api.el.ELVars;
 import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.pipeline.config.ChecksumAlgorithm;
 import com.streamsets.pipeline.lib.event.EventCreator;
@@ -44,7 +49,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.Set;
 
 public final class FileRefUtil {
   private FileRefUtil() {}
@@ -55,7 +60,7 @@ public final class FileRefUtil {
   public static final String TRANSFER_THROUGHPUT = "Transfer Rate";
   public static final String SENT_BYTES = "Sent Bytes";
   public static final String REMAINING_BYTES = "Remaining Bytes";
-  public static final String TRANSFER_THROUGHPUT_METER = "transferRateKb";
+  public static final String TRANSFER_THROUGHPUT_METER = "transferRate";
   public static final String COMPLETED_FILE_COUNT = "Completed File Count";
 
   public static final String BRACKETED_TEMPLATE = "%s (%s)";
@@ -80,6 +85,8 @@ public final class FileRefUtil {
   public static final String WHOLE_FILE_CHECKSUM = "checksum";
   public static final String WHOLE_FILE_CHECKSUM_ALGO = "checksumAlgorithm";
 
+  public static final Joiner COMMA_JOINER = Joiner.on(",");
+
   public static final EventCreator FILE_TRANSFER_COMPLETE_EVENT =
       new EventCreator.Builder(FileRefUtil.WHOLE_FILE_WRITE_FINISH_EVENT, 1)
           .withRequiredField(FileRefUtil.WHOLE_FILE_SOURCE_FILE_INFO)
@@ -93,8 +100,8 @@ public final class FileRefUtil {
       new ImmutableSet.Builder<String>().add("size").build();
 
 
-  public static final List<String> MANDATORY_FIELD_PATHS =
-      ImmutableList.of(FILE_REF_FIELD_PATH, FILE_INFO_FIELD_PATH, FILE_INFO_FIELD_PATH + "/size");
+  public static final Set<String> MANDATORY_FIELD_PATHS =
+      ImmutableSet.of(FILE_REF_FIELD_PATH, FILE_INFO_FIELD_PATH, FILE_INFO_FIELD_PATH + "/size");
 
   public static final Map<String, Integer> GAUGE_MAP_ORDERING
       = new ImmutableMap.Builder<String, Integer>()
@@ -112,26 +119,15 @@ public final class FileRefUtil {
   @SuppressWarnings("unchecked")
   public static void initMetricsIfNeeded(Stage.Context context) {
     Gauge<Map<String, Object>> gauge = context.getGauge(FileRefUtil.GAUGE_NAME);
-    if (gauge == null) {
-      //Concurrent because the metrics thread will access this.
-      final Map<String, Object> gaugeStatistics = new ConcurrentSkipListMap<>(new Comparator<String>() {
-        @Override
-        public int compare(String o1, String o2) {
-          return GAUGE_MAP_ORDERING.get(o1).compareTo(GAUGE_MAP_ORDERING.get(o2));
-        }
-      });
+    if(gauge == null) {
+      gauge = context.createGauge(FileRefUtil.GAUGE_NAME, Comparator.comparing(GAUGE_MAP_ORDERING::get));
+      Map<String, Object> gaugeStatistics = gauge.getValue();
       //File name is populated at the MetricEnabledWrapperStream.
       gaugeStatistics.put(FileRefUtil.FILE, "");
       gaugeStatistics.put(FileRefUtil.TRANSFER_THROUGHPUT, 0L);
       gaugeStatistics.put(FileRefUtil.SENT_BYTES, String.format(FileRefUtil.BRACKETED_TEMPLATE, 0, 0));
       gaugeStatistics.put(FileRefUtil.REMAINING_BYTES, 0L);
       gaugeStatistics.put(FileRefUtil.COMPLETED_FILE_COUNT, 0L);
-      context.createGauge(FileRefUtil.GAUGE_NAME, new Gauge<Map<String, Object>>() {
-        @Override
-        public Map<String, Object> getValue() {
-          return gaugeStatistics;
-        }
-      });
     }
 
     Meter dataTransferMeter = context.getMeter(FileRefUtil.TRANSFER_THROUGHPUT_METER);
@@ -223,5 +219,23 @@ public final class FileRefUtil {
       stream = (T) new ChecksumCalculatingWrapperStream(stream, checksumAlgorithm.getHashType(), streamCloseEventHandler);
     }
     return stream;
+  }
+
+  public static void validateWholeFileRecord(Record record) {
+    Set<String> fieldPathsInRecord = record.getEscapedFieldPaths();
+    Utils.checkArgument(
+        fieldPathsInRecord.containsAll(MANDATORY_FIELD_PATHS),
+        Utils.format(
+            "Record does not contain the mandatory fields {} for Whole File Format.",
+            COMMA_JOINER.join(Sets.difference(MANDATORY_FIELD_PATHS, fieldPathsInRecord))
+        )
+    );
+  }
+  public static ELEval createElEvalForRateLimit(Stage.Context context) {
+    return context.createELEval("rateLimit");
+  }
+
+  public static Double evaluateAndGetRateLimit(ELEval elEval, ELVars elVars, String rateLimit) throws ELEvalException {
+    return elEval.eval(elVars, rateLimit, Double.class);
   }
 }

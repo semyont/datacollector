@@ -19,6 +19,7 @@
  */
 package com.streamsets.pipeline.stage.destination.jdbc;
 
+import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -29,15 +30,8 @@ import com.streamsets.pipeline.api.base.BaseTarget;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.el.ELVars;
 import com.streamsets.pipeline.lib.el.ELUtils;
-import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
-import com.streamsets.pipeline.lib.jdbc.JdbcErrors;
-import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
-import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnParamMapping;
-import com.streamsets.pipeline.lib.jdbc.JdbcGenericRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcMultiRowRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcUtil;
-import com.streamsets.pipeline.lib.jdbc.MicrosoftJdbcRecordWriter;
+import com.streamsets.pipeline.lib.jdbc.*;
+import com.streamsets.pipeline.lib.operation.UnsupportedOperationAction;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import com.zaxxer.hikari.HikariDataSource;
@@ -60,11 +54,14 @@ public class JdbcTarget extends BaseTarget {
   private static final String CONNECTION_STRING = HIKARI_CONFIG_PREFIX + "connectionString";
 
   private final boolean rollbackOnError;
-  private final boolean useMultiRowInsert;
+  private final boolean useMultiRowOp;
   private final int maxPrepStmtParameters;
+  private final int maxPrepStmtCache;
 
+  private final String schema;
   private final String tableNameTemplate;
   private final List<JdbcFieldColumnParamMapping> customMappings;
+  private final boolean caseSensitive;
 
   private final Properties driverProperties = new Properties();
   private final ChangeLogFormat changeLogFormat;
@@ -77,10 +74,25 @@ public class JdbcTarget extends BaseTarget {
 
   private Connection connection = null;
 
+  private JDBCOperationType defaultOperation;
+  private UnsupportedOperationAction unsupportedAction;
+
   class RecordWriterLoader extends CacheLoader<String, JdbcRecordWriter> {
     @Override
     public JdbcRecordWriter load(String tableName) throws Exception {
-      return createRecordWriter(tableName);
+      return JdbcRecordReaderWriterFactory.createJdbcRecordWriter(
+          hikariConfigBean.connectionString,
+          dataSource,
+          tableName,
+          customMappings,
+          rollbackOnError,
+          useMultiRowOp,
+          maxPrepStmtParameters,
+          maxPrepStmtCache,
+          defaultOperation,
+          unsupportedAction,
+          JdbcRecordReaderWriterFactory.createRecordReader(changeLogFormat)
+      );
     }
   }
 
@@ -90,21 +102,31 @@ public class JdbcTarget extends BaseTarget {
       .build(new RecordWriterLoader());
 
   public JdbcTarget(
+      final String schema,
       final String tableNameTemplate,
       final List<JdbcFieldColumnParamMapping> customMappings,
+      final boolean caseSensitive,
       final boolean rollbackOnError,
-      final boolean useMultiRowInsert,
+      final boolean useMultiRowOp,
       int maxPrepStmtParameters,
+      int maxPrepStmtCache,
       final ChangeLogFormat changeLogFormat,
+      final JDBCOperationType defaultOperation,
+      final UnsupportedOperationAction unsupportedAction,
       final HikariPoolConfigBean hikariConfigBean
   ) {
+    this.schema = schema;
     this.tableNameTemplate = tableNameTemplate;
     this.customMappings = customMappings;
+    this.caseSensitive = caseSensitive;
     this.rollbackOnError = rollbackOnError;
-    this.useMultiRowInsert = useMultiRowInsert;
+    this.useMultiRowOp = useMultiRowOp;
     this.maxPrepStmtParameters = maxPrepStmtParameters;
+    this.maxPrepStmtCache = maxPrepStmtCache;
     this.driverProperties.putAll(hikariConfigBean.driverProperties);
     this.changeLogFormat = changeLogFormat;
+    this.defaultOperation = defaultOperation;
+    this.unsupportedAction = unsupportedAction;
     this.hikariConfigBean = hikariConfigBean;
   }
 
@@ -136,7 +158,7 @@ public class JdbcTarget extends BaseTarget {
         dataSource = JdbcUtil.createDataSourceForWrite(
             hikariConfigBean,
             driverProperties,
-            tableNameTemplate,
+            Strings.isNullOrEmpty(schema) ? tableNameTemplate : schema + "." + tableNameTemplate,
             issues,
             customMappings,
             getContext()
@@ -160,42 +182,9 @@ public class JdbcTarget extends BaseTarget {
     super.destroy();
   }
 
-  private JdbcRecordWriter createRecordWriter(String tableName) throws StageException {
-    JdbcRecordWriter recordWriter;
-
-    switch (changeLogFormat) {
-      case NONE:
-        if (!useMultiRowInsert) {
-          recordWriter = new JdbcGenericRecordWriter(
-              hikariConfigBean.connectionString,
-              dataSource,
-              tableName,
-              rollbackOnError,
-              customMappings
-          );
-        } else {
-          recordWriter = new JdbcMultiRowRecordWriter(
-              hikariConfigBean.connectionString,
-              dataSource,
-              tableName,
-              rollbackOnError,
-              customMappings,
-              maxPrepStmtParameters
-          );
-        }
-        break;
-      case MSSQL:
-        recordWriter = new MicrosoftJdbcRecordWriter(dataSource, tableName);
-        break;
-      default:
-        throw new IllegalStateException("Unrecognized format specified: " + changeLogFormat);
-    }
-    return recordWriter;
-  }
-
   @Override
   @SuppressWarnings("unchecked")
   public void write(Batch batch) throws StageException {
-    JdbcUtil.write(batch, tableNameEval, tableNameVars, tableNameTemplate, recordWriters, errorRecordHandler);
+    JdbcUtil.write(batch, schema, tableNameEval, tableNameVars, tableNameTemplate, caseSensitive, recordWriters, errorRecordHandler);
   }
 }

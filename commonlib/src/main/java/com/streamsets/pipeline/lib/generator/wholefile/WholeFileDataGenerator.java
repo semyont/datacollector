@@ -59,10 +59,10 @@ final class WholeFileDataGenerator implements DataGenerator {
   }
 
   private void validateRecord(Record record) throws DataGeneratorException {
-    for (String fieldPath : FileRefUtil.MANDATORY_FIELD_PATHS) {
-      if (!record.has(fieldPath)) {
-        throw new DataGeneratorException(Errors.WHOLE_FILE_GENERATOR_ERROR_0, fieldPath);
-      }
+    try {
+      FileRefUtil.validateWholeFileRecord(record);
+    } catch (IllegalArgumentException e) {
+      throw new DataGeneratorException(Errors.WHOLE_FILE_GENERATOR_ERROR_0, e);
     }
   }
 
@@ -84,7 +84,8 @@ final class WholeFileDataGenerator implements DataGenerator {
     int bufferSize = fileRef.getBufferSize();
     boolean canUseDirectByteBuffer = fileRef.getSupportedStreamClasses().contains(ReadableByteChannel.class);
     if (canUseDirectByteBuffer) {
-      WritableByteChannel writableByteChannel = Channels.newChannel(outputStream);
+      //Don't have to close this here, because generate.close will call output stream close
+      WritableByteChannel writableByteChannel = Channels.newChannel(outputStream); //NOSONAR
       try (ReadableByteChannel readableByteChannel = getReadableStream(fileRef, ReadableByteChannel.class)){
         ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize);
         while ((readableByteChannel.read(buffer)) > 0) {

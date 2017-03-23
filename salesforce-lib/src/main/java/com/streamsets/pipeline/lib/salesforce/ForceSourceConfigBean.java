@@ -21,7 +21,10 @@ package com.streamsets.pipeline.lib.salesforce;
 
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.ConfigDefBean;
+import com.streamsets.pipeline.api.Dependency;
+import com.streamsets.pipeline.api.ValueChooserModel;
 import com.streamsets.pipeline.lib.el.OffsetEL;
+import com.streamsets.pipeline.lib.el.TimeEL;
 import com.streamsets.pipeline.stage.origin.lib.BasicConfig;
 
 public class ForceSourceConfigBean extends ForceConfigBean {
@@ -66,6 +69,39 @@ public class ForceSourceConfigBean extends ForceConfigBean {
       group = "QUERY"
   )
   public String soqlQuery;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.MODEL,
+      defaultValue = "NO_REPEAT",
+      label = "Repeat Query",
+      description = "Select one of the options to repeat the query, or not",
+      displayPosition = 85,
+      dependencies = {
+          @Dependency(configName = "queryExistingData", triggeredByValues = "true"),
+          @Dependency(configName = "subscribeToStreaming", triggeredByValues = "false")
+      },
+      group = "QUERY"
+  )
+  @ValueChooserModel(ForceRepeatQueryChooserValues.class)
+  public ForceRepeatQuery repeatQuery;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.NUMBER,
+      defaultValue = "${1 * MINUTES}",
+      label = "Query Interval",
+      displayPosition = 87,
+      dependencies = {
+          @Dependency(configName = "queryExistingData", triggeredByValues = "true"),
+          @Dependency(configName = "subscribeToStreaming", triggeredByValues = "false"),
+          @Dependency(configName = "repeatQuery", triggeredByValues = {"FULL", "INCREMENTAL"}),
+      },
+      elDefs = {TimeEL.class},
+      evaluation = ConfigDef.Evaluation.IMPLICIT,
+      group = "QUERY"
+  )
+  public long queryInterval;
 
   @ConfigDef(
       required = true,
@@ -118,6 +154,30 @@ public class ForceSourceConfigBean extends ForceConfigBean {
   )
   public String pushTopic;
 
-  @ConfigDefBean(groups = {"FORCE", "QUERY", "SUBSCRIBE"})
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Create Salesforce Header Attributes",
+      description = "Generates record header attributes that provide additional details about source data, such as the original data type or source object.",
+      defaultValue = "true",
+      displayPosition = 130,
+      group = "ADVANCED"
+  )
+  public boolean createSalesforceNsHeaders = true;
+
+  @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.STRING,
+      label = "Salesforce Header Prefix",
+      description = "Prefix for the header attributes, used as follows: <prefix>.<field name>.<type of information>. For example: salesforce.<field name>.precision and salesforce.<field name>.scale",
+      defaultValue = "salesforce.",
+      displayPosition = 140,
+      group = "ADVANCED",
+      dependsOn = "createSalesforceNsHeaders",
+      triggeredByValue = "true"
+  )
+  public String salesforceNsHeaderPrefix = "salesforce.";
+
+  @ConfigDefBean(groups = {"FORCE", "QUERY", "SUBSCRIBE", "ADVANCED"})
   public BasicConfig basicConfig = new BasicConfig();
 }

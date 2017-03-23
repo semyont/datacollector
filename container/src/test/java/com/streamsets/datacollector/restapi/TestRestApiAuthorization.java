@@ -205,8 +205,8 @@ public class TestRestApiAuthorization {
     list.add(new RestApi("/rest/v1/system/info", Method.GET, AuthzRole.ALL_ROLES));
     list.add(new RestApi("/rest/v1/system/info/currentUser", Method.GET, AuthzRole.ALL_ROLES));
 
-    list.add(new RestApi("/rest/v1/system/users", Method.GET, AuthzRole.ADMIN));
-    list.add(new RestApi("/rest/v1/system/groups", Method.GET, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/system/users", Method.GET, AuthzRole.ADMIN, AuthzRole.CREATOR));
+    list.add(new RestApi("/rest/v1/system/groups", Method.GET, AuthzRole.ADMIN, AuthzRole.CREATOR));
 
     list.add(new RestApi("/rest/v1/logout", Method.POST, AuthzRole.ALL_ROLES));
 
@@ -218,6 +218,7 @@ public class TestRestApiAuthorization {
     list.add(new RestApi("/rest/v1/pipelines/stop", Method.POST, AuthzRole.MANAGER, AuthzRole.ADMIN));
     list.add(new RestApi("/rest/v1/pipeline/foo/forceStop", Method.POST, AuthzRole.MANAGER, AuthzRole.ADMIN));
     list.add(new RestApi("/rest/v1/pipelines/forceStop", Method.POST, AuthzRole.MANAGER, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/pipeline/foo/committedOffsets", Method.GET, AuthzRole.MANAGER, AuthzRole.ADMIN));
     list.add(new RestApi("/rest/v1/pipeline/foo/resetOffset", Method.POST, AuthzRole.MANAGER, AuthzRole.ADMIN));
     list.add(new RestApi("/rest/v1/pipelines/resetOffsets", Method.POST, AuthzRole.MANAGER, AuthzRole.ADMIN));
     list.add(new RestApi("/rest/v1/pipelines/addLabels", Method.POST, AuthzRole.CREATOR, AuthzRole.ADMIN));
@@ -262,17 +263,22 @@ public class TestRestApiAuthorization {
     list.add(new RestApi("/rest/v1/stageLibraries/list", Method.GET, AuthzRole.ADMIN));
     list.add(new RestApi("/rest/v1/stageLibraries/install", Method.POST, AuthzRole.ADMIN));
     list.add(new RestApi("/rest/v1/stageLibraries/uninstall", Method.POST, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/stageLibraries/extras/list", Method.GET, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/stageLibraries/extras/foo/upload", Method.POST, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/stageLibraries/extras/delete", Method.POST, AuthzRole.ADMIN));
 
     list.add(new RestApi("/rest/v1/system/logs", Method.GET,
         AuthzRole.ADMIN, AuthzRole.CREATOR, AuthzRole.MANAGER));
-    list.add(new RestApi("/rest/v1/system/logs/files", Method.GET,
-        AuthzRole.ADMIN, AuthzRole.CREATOR, AuthzRole.MANAGER));
-    list.add(new RestApi("/rest/v1/system/logs/files/foo", Method.GET,
-        AuthzRole.ADMIN, AuthzRole.CREATOR, AuthzRole.MANAGER));
-    list.add(new RestApi("/rest/v1/system/log/config", Method.GET,
-        AuthzRole.ADMIN, AuthzRole.CREATOR, AuthzRole.MANAGER));
-    list.add(new RestApi("/rest/v1/system/log/config", Method.POST,
-        AuthzRole.ADMIN, AuthzRole.CREATOR, AuthzRole.MANAGER));
+    list.add(new RestApi("/rest/v1/system/logs/files", Method.GET, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/system/logs/files/foo", Method.GET, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/system/log/config", Method.GET, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/system/log/config", Method.POST, AuthzRole.ADMIN));
+
+    list.add(new RestApi("/rest/v1/acl/foo", Method.GET, AuthzRole.ALL_ROLES));
+    list.add(new RestApi("/rest/v1/acl/foo", Method.POST, AuthzRole.ALL_ROLES));
+    list.add(new RestApi("/rest/v1/acl/foo/permissions", Method.GET, AuthzRole.ALL_ROLES));
+    list.add(new RestApi("/rest/v1/acl/pipelines/subjects", Method.GET, AuthzRole.ADMIN));
+    list.add(new RestApi("/rest/v1/acl/pipelines/subjects", Method.POST, AuthzRole.ADMIN));
 
     return list;
   }

@@ -22,10 +22,8 @@ package com.streamsets.pipeline.lib.salesforce;
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.ConfigDefBean;
 import com.streamsets.pipeline.api.ListBeanModel;
-import com.streamsets.pipeline.lib.el.OffsetEL;
 import com.streamsets.pipeline.lib.el.RecordEL;
 import com.streamsets.pipeline.lib.el.StringEL;
-import com.streamsets.pipeline.stage.origin.lib.BasicConfig;
 import com.streamsets.pipeline.stage.processor.kv.CacheConfig;
 
 import java.util.List;
@@ -60,4 +58,28 @@ public class ForceLookupConfigBean extends ForceConfigBean {
 
   @ConfigDefBean(groups = "FORCE")
   public CacheConfig cacheConfig = new CacheConfig();
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Create Salesforce Header Attributes",
+      description = "Generates record header attributes that provide additional details about source data, such as the original data type or source object.",
+      defaultValue = "true",
+      displayPosition = 70,
+      group = "ADVANCED"
+  )
+  public boolean createSalesforceNsHeaders = true;
+
+  @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.STRING,
+      label = "Salesforce Header Prefix",
+      description = "Prefix for the header attributes, used as follows: <prefix>.<field name>.<type of information>. For example: salesforce.<field name>.precision and salesforce.<field name>.scale",
+      defaultValue = "salesforce.",
+      displayPosition = 80,
+      group = "ADVANCED",
+      dependsOn = "createSalesforceNsHeaders",
+      triggeredByValue = "true"
+  )
+  public String salesforceNsHeaderPrefix = "salesforce.";
 }

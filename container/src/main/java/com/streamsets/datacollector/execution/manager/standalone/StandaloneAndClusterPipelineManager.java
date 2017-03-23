@@ -47,6 +47,7 @@ import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.task.AbstractTask;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.ContainerError;
+import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.datacollector.validation.ValidationError;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.dc.execution.manager.standalone.ResourceManager;
@@ -92,7 +93,10 @@ public class StandaloneAndClusterPipelineManager extends AbstractTask implements
   private Cache<String, Previewer> previewerCache;
   static final long DEFAULT_RUNNER_EXPIRY_INTERVAL = 60*60*1000;
   static final String RUNNER_EXPIRY_INTERVAL = "runner.expiry.interval";
+  static final long DEFAULT_RUNNER_EXPIRY_INITIAL_DELAY = 30*60*1000;
+  static final String RUNNER_EXPIRY_INITIAL_DELAY = "runner.expiry.initial.delay";
   private final long runnerExpiryInterval;
+  private final long runnerExpiryInitialDelay;
   private ScheduledFuture<?> runnerExpiryFuture;
   private static final String NAME_AND_REV_SEPARATOR = "::";
 
@@ -101,6 +105,7 @@ public class StandaloneAndClusterPipelineManager extends AbstractTask implements
     this.objectGraph = objectGraph;
     this.objectGraph.inject(this);
     runnerExpiryInterval = this.configuration.get(RUNNER_EXPIRY_INTERVAL, DEFAULT_RUNNER_EXPIRY_INTERVAL);
+    runnerExpiryInitialDelay = configuration.get(RUNNER_EXPIRY_INITIAL_DELAY, DEFAULT_RUNNER_EXPIRY_INITIAL_DELAY);
     eventListenerManager.addStateEventListener(resourceManager);
     MetricsConfigurator.registerJmxMetrics(runtimeInfo.getMetrics());
   }
@@ -111,7 +116,7 @@ public class StandaloneAndClusterPipelineManager extends AbstractTask implements
   }
 
   @Override
-  public Previewer createPreviewer(String user, String name, String rev) throws PipelineStoreException {
+  public Previewer createPreviewer(String user, String name, String rev) throws PipelineException {
     if (!pipelineStore.hasPipeline(name)) {
       throw new PipelineStoreException(ContainerError.CONTAINER_0200, name);
     }
@@ -132,7 +137,7 @@ public class StandaloneAndClusterPipelineManager extends AbstractTask implements
 
   @Override
   @SuppressWarnings("deprecation")
-  public Runner getRunner(final String user, final String name, final String rev) throws PipelineStoreException, PipelineManagerException {
+  public Runner getRunner(final String user, final String name, final String rev) throws PipelineException {
     if (!pipelineStore.hasPipeline(name)) {
       throw new PipelineStoreException(ContainerError.CONTAINER_0200, name);
     }
@@ -196,12 +201,12 @@ public class StandaloneAndClusterPipelineManager extends AbstractTask implements
   }
 
   @Override
-  public boolean isPipelineActive(String name, String rev) throws PipelineStoreException {
+  public boolean isPipelineActive(String name, String rev) throws PipelineException {
     if (!pipelineStore.hasPipeline(name)) {
       throw new PipelineStoreException(ContainerError.CONTAINER_0200, name);
     }
     RunnerInfo runnerInfo = runnerCache.getIfPresent(getNameAndRevString(name, rev));
-    return (runnerInfo == null) ? false : runnerInfo.runner.getState().getStatus().isActive();
+    return runnerInfo != null && runnerInfo.runner.getState().getStatus().isActive();
   }
 
   @Override
@@ -263,7 +268,7 @@ public class StandaloneAndClusterPipelineManager extends AbstractTask implements
           }
         }
       }
-    }, 0, runnerExpiryInterval, TimeUnit.MILLISECONDS);
+    }, runnerExpiryInitialDelay, runnerExpiryInterval, TimeUnit.MILLISECONDS);
   }
 
   @VisibleForTesting
@@ -274,8 +279,10 @@ public class StandaloneAndClusterPipelineManager extends AbstractTask implements
 
   private boolean removeRunnerIfNotActive(Runner runner) throws PipelineStoreException {
     if (!runner.getState().getStatus().isActive()) {
-      runner.close();
+      // first invalidate the cache and then close the runner, so a closed runner can never
+      // sit in cache
       runnerCache.invalidate(getNameAndRevString(runner.getName(), runner.getRev()));
+      runner.close();
       LOG.info("Removing runner for pipeline '{}::'{}'", runner.getName(), runner.getRev());
       return true;
     } else {

@@ -27,9 +27,11 @@ import com.streamsets.pipeline.api.Label;
 public enum Groups implements Label {
   HTTP("HTTP"),
   CREDENTIALS("Credentials"),
+  OAUTH2("OAuth 2"),
   PROXY("Proxy"),
   SSL("SSL/TLS"),
   DATA_FORMAT("Data Format"),
+
   ;
 
   private final String label;

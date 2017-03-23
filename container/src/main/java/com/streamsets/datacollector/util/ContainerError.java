@@ -114,6 +114,7 @@ public enum ContainerError implements ErrorCode {
   CONTAINER_0403("Cannot load rule definitions for pipeline '{}': {}"),
   CONTAINER_0404("Cannot store rule definitions for pipeline '{}': {}"),
   CONTAINER_0405("Cannot store UI info for pipeline '{}': {}"),
+  CONTAINER_0406("Cannot store ACL for pipeline '{}': {}"),
 
   CONTAINER_0500("EmailSender error: {}"),
 
@@ -129,9 +130,12 @@ public enum ContainerError implements ErrorCode {
   CONTAINER_0701("Stage '{}' initialization error: {}"),
   CONTAINER_0702("Pipeline initialization error: {}"),
   CONTAINER_0703("Stats Aggregator stage initialization error: {}"),
+  CONTAINER_0704("Can't create additional pipeline runners: {}"),
+  CONTAINER_0705("Requested number of runners {} is higher than allowed maximum of {}"),
 
   //Runner
   CONTAINER_0800("Pipeline '{}' validation error : {}"),
+  CONTAINER_0801("Thread unexpectedly interrupted"),
 
   //PipelineConfigurationUpgrader
   CONTAINER_0900("Error while upgrading stage configuration from version '{}' to version '{}': {}"),
@@ -144,7 +148,14 @@ public enum ContainerError implements ErrorCode {
 
   // Remote Control pipelines
   CONTAINER_01100("Cannot perform operation: '{}' on local pipeline '{}'"),
-  CONTAINER_01101("Cannot perform operation: '{}' on remote pipeline '{}'")
+  CONTAINER_01101("Cannot perform operation: '{}' on remote pipeline '{}'"),
+
+  // ACL
+  CONTAINER_01200("{} '{}' doesn't have permissions {} on pipeline {}"),
+  CONTAINER_01201("Only owner of the pipeline {} or admin is allowed to updated the ACL information"),
+
+  // misc
+  CONTAINER_01300("Environment variable 'STREAMSETS_LIBRARIES_EXTRA_DIR' is not set"),
 
   ;
 

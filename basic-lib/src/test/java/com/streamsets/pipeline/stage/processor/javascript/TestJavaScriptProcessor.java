@@ -42,23 +42,6 @@ import java.util.Map;
 
 public class TestJavaScriptProcessor {
 
-
-  @Test
-  public void testOutErr() throws Exception {
-    Processor processor = new JavaScriptProcessor(
-        ProcessingMode.RECORD,
-        "for (var i = 0; i < records.length; i++){\n" +
-        "  var record = records[i];" +
-        "  output.write(record);\n" +
-        "  record.value = 'Bye';\n" +
-        "  output.write(record);\n" +
-        "  record.value = 'Error';\n" +
-        "  error.write(record, 'error');\n" +
-        "}"
-    );
-    ScriptingProcessorTestUtil.verifyWriteErrorRecord(JavaScriptDProcessor.class, processor);
-  }
-
   @Test
   public void testJavascriptAllTypes() throws Exception {
     Processor processor = new JavaScriptProcessor(ProcessingMode.RECORD,
@@ -560,5 +543,52 @@ public class TestJavaScriptProcessor {
         script
     );
     ScriptingProcessorTestUtil.verifyRecordHeaderAttribute(JavaScriptProcessor.class, processor, RecordCreator.create());
+  }
+
+  @Test
+  public void testInitDestroy() throws Exception {
+    String initScript = "state['initValue'] = 'init';";
+    String script = "for (var i = 0; i < records.length; i++) {\n" +
+        "  records[i].value['initValue'] = state['initValue'];\n" +
+        "  output.write(records[i])\n" +
+        "}";
+
+    Processor processor = new JavaScriptProcessor(
+        ProcessingMode.BATCH,
+        script,
+        initScript,
+        ""
+    );
+    ScriptingProcessorTestUtil.verifyInitDestroy(JavaScriptProcessor.class, processor);
+  }
+
+  private static final String WRITE_ERROR_SCRIPT = "for(var i = 0; i < records.length; i++) { error.write(records[i], 'oops'); }";
+
+  @Test
+  public void testErrorRecordStopPipeline() throws Exception {
+    Processor processor = new JavaScriptProcessor(
+      ProcessingMode.RECORD,
+      WRITE_ERROR_SCRIPT
+    );
+    ScriptingProcessorTestUtil.verifyErrorRecordStopPipeline(JavaScriptProcessor.class, processor);
+  }
+
+  @Test
+  public void testErrorRecordDiscard() throws Exception {
+    Processor processor = new JavaScriptProcessor(
+      ProcessingMode.RECORD,
+      WRITE_ERROR_SCRIPT
+    );
+    ScriptingProcessorTestUtil.verifyErrorRecordDiscard(JavaScriptProcessor.class, processor);
+  }
+
+
+  @Test
+  public void testErrorRecordErrorSink() throws Exception {
+    Processor processor = new JavaScriptProcessor(
+      ProcessingMode.RECORD,
+      WRITE_ERROR_SCRIPT
+    );
+    ScriptingProcessorTestUtil.verifyErrorRecordErrorSink(JavaScriptProcessor.class, processor);
   }
 }

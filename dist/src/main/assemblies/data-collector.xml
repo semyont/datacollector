@@ -23,11 +23,11 @@
 
   <files>
     <file>
-      <source>${basedir}/src/main/etc/sdc-log4j.properties</source>
+      <source>${basedir}/../container/src/main/resources/sdc-log4j.properties-default</source>
       <outputDirectory>etc</outputDirectory>
-      <destName>sdc-log4j.properties-default</destName>
+      <destName>sdc-log4j.properties</destName>
       <filtered>true</filtered>
-      <fileMode>0444</fileMode>
+      <fileMode>0644</fileMode>
     </file>
   </files>
 
@@ -86,17 +86,7 @@
         <exclude>*-realm.properties</exclude>
         <exclude>vault.properties</exclude>
         <exclude>sdc-keystore.jks</exclude>
-        <exclude>sdc-log4j.properties</exclude>
       </excludes>
-    </fileSet>
-
-    <fileSet>
-      <directory>${basedir}/src/main/etc</directory>
-      <outputDirectory>/etc</outputDirectory>
-      <includes>
-        <include>sdc-log4j.properties</include>
-      </includes>
-      <filtered>true</filtered>
     </fileSet>
 
     <fileSet>
@@ -162,6 +152,12 @@
     <fileSet>
       <directory>${basedir}/src/main/emptydir</directory>
       <outputDirectory>/user-libs</outputDirectory>
+    </fileSet>
+
+    <!-- Create an empty streamsets-libs-extras -->
+    <fileSet>
+      <directory>${basedir}/src/main/emptydir</directory>
+      <outputDirectory>/streamsets-libs-extras</outputDirectory>
     </fileSet>
 
     <!-- basic-lib -->
@@ -241,6 +237,10 @@
       <directory>${basedir}/../${cdh_5_9-lib}/target/streamsets-libs/</directory>
       <outputDirectory>/streamsets-libs/</outputDirectory>
     </fileSet>
+    <fileSet>
+      <directory>${basedir}/../${cdh_5_10-lib}/target/streamsets-libs/</directory>
+      <outputDirectory>/streamsets-libs/</outputDirectory>
+    </fileSet>
 
     <!-- CDH Spark Kafka lib -->
     <fileSet>
@@ -269,6 +269,10 @@
     </fileSet>
     <fileSet>
       <directory>${basedir}/../${cdh_5_9-cluster-cdh_kafka_2_0-lib}/target/streamsets-libs/</directory>
+      <outputDirectory>/streamsets-libs/</outputDirectory>
+    </fileSet>
+    <fileSet>
+      <directory>${basedir}/../${cdh_5_10-cluster-cdh_kafka_2_1-lib}/target/streamsets-libs/</directory>
       <outputDirectory>/streamsets-libs/</outputDirectory>
     </fileSet>
 
@@ -307,6 +311,14 @@
     <!-- Apache Kudu libs -->
     <fileSet>
       <directory>${basedir}/../${apache-kudu_1_0-lib}/target/streamsets-libs/</directory>
+      <outputDirectory>/streamsets-libs/</outputDirectory>
+    </fileSet>
+    <fileSet>
+      <directory>${basedir}/../${apache-kudu_1_1-lib}/target/streamsets-libs/</directory>
+      <outputDirectory>/streamsets-libs/</outputDirectory>
+    </fileSet>
+    <fileSet>
+      <directory>${basedir}/../${apache-kudu_1_2-lib}/target/streamsets-libs/</directory>
       <outputDirectory>/streamsets-libs/</outputDirectory>
     </fileSet>
 
@@ -377,6 +389,10 @@
       <directory>${basedir}/../${cdh_kafka_2_0-lib}/target/streamsets-libs/</directory>
       <outputDirectory>/streamsets-libs/</outputDirectory>
     </fileSet>
+    <fileSet>
+      <directory>${basedir}/../${cdh_kafka_2_1-lib}/target/streamsets-libs/</directory>
+      <outputDirectory>/streamsets-libs/</outputDirectory>
+    </fileSet>
 
     <!-- Jython libs -->
     <fileSet>
@@ -392,43 +408,7 @@
 
     <!-- Elasticsearch libs -->
     <fileSet>
-      <directory>${basedir}/../${elasticsearch_1_4-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_1_5-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_1_6-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_1_7-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_2_0-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_2_1-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_2_2-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_2_3-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_2_4-lib}/target/streamsets-libs/</directory>
-      <outputDirectory>/streamsets-libs/</outputDirectory>
-    </fileSet>
-    <fileSet>
-      <directory>${basedir}/../${elasticsearch_5_0-lib}/target/streamsets-libs/</directory>
+      <directory>${basedir}/../${elasticsearch_5-lib}/target/streamsets-libs/</directory>
       <outputDirectory>/streamsets-libs/</outputDirectory>
     </fileSet>
 
@@ -480,6 +460,7 @@
       <scope>compile</scope>
       <includes>
         <include>com.streamsets:streamsets-datacollector-api</include>
+        <include>org.slf4j:jul-to-slf4j</include>
       </includes>
     </dependencySet>
 

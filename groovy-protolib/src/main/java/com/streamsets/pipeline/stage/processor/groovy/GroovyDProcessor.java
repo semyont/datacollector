@@ -30,6 +30,8 @@ import com.streamsets.pipeline.stage.processor.scripting.ProcessingMode;
 import com.streamsets.pipeline.stage.processor.scripting.ProcessingModeChooserValues;
 
 import static com.streamsets.pipeline.api.ConfigDef.Evaluation.EXPLICIT;
+import static com.streamsets.pipeline.stage.processor.groovy.GroovyProcessor.GROOVY_ENGINE;
+import static com.streamsets.pipeline.stage.processor.groovy.GroovyProcessor.GROOVY_INDY_ENGINE;
 
 @StageDef(
     version = 1,
@@ -76,7 +78,7 @@ public class GroovyDProcessor extends DProcessor {
           " *                             loglevel is any log4j level: e.g. info, warn, error, trace.\n" +
           " *   output.write(Record): Writes a record to the processor output.\n" +
           " *\n" +
-          " *   error.write(Record): Writes a record to the error pipeline.\n" +
+          " *   error.write(Record, message): Writes a record to the error pipeline.\n" +
           " *\n" +
           " *   sdcFunctions.getFieldNull(Record, 'field path'): Receive a constant defined above \n" +
           " *                          to check if the field is typed field with value null\n" +
@@ -157,21 +159,89 @@ public class GroovyDProcessor extends DProcessor {
           "  }\n" +
           "}";
 
+  private static final String DEFAULT_INIT_SCRIPT =
+      "/*\n" +
+          " * Available objects:\n" +
+          " *   state: A Map<String, Object> that is preserved between invocations of this script.\n" +
+          " *          Useful for caching bits of data, e.g. counters.\n" +
+          " *\n" +
+          " *   log.<level>(msg, obj...): Use instead of println to send log messages to the log4j log\n" +
+          " *                             instead of stdout.\n" +
+          " *                             loglevel is any log4j level: e.g. info, warn, error, trace.\n" +
+          " *\n" +
+          " */\n" +
+          "\n" +
+          "// state['connection'] = new Connection().open();\n" +
+          "\n";
+
+  private static final String DEFAULT_DESTROY_SCRIPT =
+      "/*\n" +
+          " * Available objects:\n" +
+          " *   state: A Map<String, Object> that is preserved between invocations of this script.\n" +
+          " *          Useful for caching bits of data, e.g. counters.\n" +
+          " *\n" +
+          " *   log.<level>(msg, obj...): Use instead of println to send log messages to the log4j log\n" +
+          " *                             instead of stdout.\n" +
+          " *                             loglevel is any log4j level: e.g. info, warn, error, trace.\n" +
+          " *\n" +
+          " */\n" +
+          "\n" +
+          "// state?.connection.close()\n" +
+          "\n";
+
+  @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.TEXT,
+      label = "Init Script",
+      defaultValue = DEFAULT_INIT_SCRIPT,
+      description = "Place initialization code here. Called on pipeline validate/start.",
+      displayPosition = 20,
+      group = "GROOVY",
+      mode = ConfigDef.Mode.GROOVY,
+      evaluation = EXPLICIT // Do not evaluate the script as an EL.
+  )
+  public String initScript = "";
+
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.TEXT,
       defaultValue = DEFAULT_SCRIPT,
       label = "Script",
-      displayPosition = 20,
+      displayPosition = 30,
       group = "GROOVY",
       mode = ConfigDef.Mode.GROOVY,
       evaluation = EXPLICIT // Do not evaluate the script as an EL.
   )
   public String script;
 
+  @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.TEXT,
+      defaultValue = DEFAULT_DESTROY_SCRIPT,
+      label = "Destroy Script",
+      description = "Place cleanup code here. Called on pipeline stop.",
+      displayPosition = 40,
+      group = "GROOVY",
+      mode = ConfigDef.Mode.GROOVY,
+      evaluation = EXPLICIT // Do not evaluate the script as an EL.
+  )
+  public String destroyScript = "";
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      defaultValue = "false",
+      label = "Enable invokedynamic Compiler Option",
+      description = "May improve or worsen script performance depending on use case",
+      displayPosition = 50,
+      group = "GROOVY"
+  )
+  public boolean invokeDynamic = false;
+
   @Override
   protected Processor createProcessor() {
-    return new GroovyProcessor(processingMode, script);
+    final String engineName = invokeDynamic ? GROOVY_INDY_ENGINE : GROOVY_ENGINE;
+    return new GroovyProcessor(processingMode, script, initScript, destroyScript, engineName);
   }
 
 }

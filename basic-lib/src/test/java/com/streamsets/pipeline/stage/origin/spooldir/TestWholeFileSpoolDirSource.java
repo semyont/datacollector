@@ -29,6 +29,7 @@ import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.config.Compression;
 import com.streamsets.pipeline.config.DataFormat;
 import com.streamsets.pipeline.config.PostProcessingOptions;
+import com.streamsets.pipeline.lib.dirspooler.PathMatcherMode;
 import com.streamsets.pipeline.lib.io.fileref.FileRefUtil;
 import com.streamsets.pipeline.sdk.SourceRunner;
 import com.streamsets.pipeline.sdk.StageRunner;
@@ -70,6 +71,7 @@ public class TestWholeFileSpoolDirSource {
     conf.overrunLimit = 100;
     conf.poolingTimeoutSecs = 1;
     conf.filePattern = "*";
+    conf.pathMatcherMode = PathMatcherMode.GLOB;
     conf.maxSpoolFiles = 10;
     conf.initialFileToProcess = null;
     conf.dataFormatConfig.compression = Compression.NONE;
@@ -138,17 +140,11 @@ public class TestWholeFileSpoolDirSource {
 
   private void initMetrics(Stage.Context context) {
     context.createMeter(FileRefUtil.TRANSFER_THROUGHPUT_METER);
-    final Map<String, Object> gaugeStatistics = new LinkedHashMap<>();
+    final Map<String, Object> gaugeStatistics = context.createGauge(FileRefUtil.GAUGE_NAME).getValue();
     gaugeStatistics.put(FileRefUtil.TRANSFER_THROUGHPUT, 0L);
     gaugeStatistics.put(FileRefUtil.SENT_BYTES, 0L);
     gaugeStatistics.put(FileRefUtil.REMAINING_BYTES, 0L);
     gaugeStatistics.put(FileRefUtil.COMPLETED_FILE_COUNT, 0L);
-    context.createGauge(FileRefUtil.GAUGE_NAME, new Gauge<Map<String, Object>>() {
-      @Override
-      public Map<String, Object> getValue() {
-        return gaugeStatistics;
-      }
-    });
   }
 
 

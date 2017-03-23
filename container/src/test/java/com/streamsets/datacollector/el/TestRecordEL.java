@@ -19,6 +19,9 @@
  */
 package com.streamsets.datacollector.el;
 
+import com.streamsets.datacollector.record.EventRecordImpl;
+import com.streamsets.datacollector.record.RecordImpl;
+import com.streamsets.pipeline.api.EventRecord;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.lib.el.RecordEL;
@@ -31,6 +34,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TestRecordEL {
 
@@ -169,4 +175,82 @@ public class TestRecordEL {
 
   }
 
+  @Test
+  public void testFieldAttributeFunctions() throws Exception {
+    ELEvaluator eval = new ELEvaluator("testFieldAttributeFunctions", RecordEL.class);
+
+    ELVariables vars = new ELVariables();
+
+    Map<String, Field> fieldAMap = new HashMap<>();
+    Field aFirstField = Field.create("1");
+    aFirstField.setAttribute("attr1", "attrVal1");
+    aFirstField.setAttribute("attr2", "attrVal2");
+    fieldAMap.put("first", aFirstField);
+
+    Field aSecondField = Field.create("2");
+    aSecondField.setAttribute("attr3", "attrVal3");
+    fieldAMap.put("second", aSecondField);
+
+    Map<String, Field> rootFields = new HashMap<>();
+    Field aField = Field.create(fieldAMap);
+    aField.setAttribute("attr10", "attrVal10");
+    rootFields.put("A", aField);
+
+    Field bField = Field.create("b_value");
+    bField.setAttribute("attr20", "attrVal20");
+    bField.setAttribute("attr21", "attrVal21");
+    rootFields.put("B", bField);
+
+    Record record = Mockito.mock(Record.class);
+    Mockito.when(record.get()).thenReturn(Field.create(rootFields));
+    Mockito.when(record.get("/A")).thenReturn(aField);
+    Mockito.when(record.get("/A/first")).thenReturn(aFirstField);
+    Mockito.when(record.get("/A/second")).thenReturn(aSecondField);
+    Mockito.when(record.get("/B")).thenReturn(bField);
+
+    RecordEL.setRecordInContext(vars, record);
+
+    assertEquals("attrVal1", eval.eval(vars, "${record:fieldAttribute('/A/first', 'attr1')}", String.class));
+    assertEquals("attrVal2", eval.eval(vars, "${record:fieldAttribute('/A/first', 'attr2')}", String.class));
+    assertEquals("", eval.eval(vars, "${record:fieldAttribute('/A/first', 'attr3')}", String.class));
+    assertEquals(
+        "default",
+        eval.eval(vars, "${record:fieldAttributeOrDefault('/A/first', 'attr3', 'default')}",
+        String.class)
+    );
+    assertEquals(
+        "attrVal3",
+        eval.eval(vars, "${record:fieldAttributeOrDefault('/A/second', 'attr3', 'default')}",
+        String.class)
+    );
+    assertEquals("attrVal10", eval.eval(vars, "${record:fieldAttribute('/A', 'attr10')}", String.class));
+    assertEquals("attrVal20", eval.eval(vars, "${record:fieldAttribute('/B', 'attr20')}", String.class));
+    assertEquals("attrVal21", eval.eval(vars, "${record:fieldAttribute('/B', 'attr21')}", String.class));
+    assertEquals(
+        "default2",
+        eval.eval(vars, "${record:fieldAttributeOrDefault('/XYZ', 'attr21', 'default2')}",
+        String.class)
+    );
+  }
+
+  @Test
+  public void testEventMethods() throws Exception {
+    ELEvaluator eval = new ELEvaluator("testEventMethods", RecordEL.class);
+    ELVariables vars = new ELVariables();
+
+    EventRecord event = new EventRecordImpl("custom-type", 1, "stage", "id", null, null);
+    RecordEL.setRecordInContext(vars, event);
+
+    assertEquals("custom-type", eval.eval(vars, "${record:eventType()}", String.class));
+    assertEquals("1", eval.eval(vars, "${record:eventVersion()}", String.class));
+    assertTrue(eval.eval(vars, "${record:eventType() == 'custom-type'}", Boolean.class));
+    assertTrue(eval.eval(vars, "${record:eventVersion() == '1'}", Boolean.class));
+
+    Record record = new RecordImpl("stage", "id", null, null);
+    RecordEL.setRecordInContext(vars, record);
+    assertEquals("", eval.eval(vars, "${record:eventType()}", String.class));
+    assertEquals("", eval.eval(vars, "${record:eventVersion()}", String.class));
+    assertTrue(eval.eval(vars, "${record:eventType() == NULL}", Boolean.class));
+    assertTrue(eval.eval(vars, "${record:eventVersion() == NULL}", Boolean.class));
+  }
 }

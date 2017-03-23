@@ -43,9 +43,9 @@
             <step id="CreatePipeline2">
                 <cmd>In the <wintitle>New Pipeline</wintitle> window, enter a pipeline name and
                     optional description, and click <uicontrol>Save</uicontrol>.</cmd>
-                <stepresult>The pipeline canvas displays the pipeline name and an error icon. The error
-                    icon indicates that you need to configure error handling for the pipeline. The
-                    Properties panel displays the pipeline properties. </stepresult>
+                <stepresult>The pipeline canvas displays the pipeline name and an error icon. The
+                    error icon indicates that you need to configure error handling for the pipeline.
+                    The Properties panel displays the pipeline properties. </stepresult>
             </step>
             <step>
                 <cmd>
@@ -108,9 +108,10 @@
                                             to destination or executor stages.</p></entry>
                                 </row>
                                 <row>
-                                    <entry>Show Record Header</entry>
-                                    <entry>Displays record metadata in List view. Headers do not
-                                        display in Table view.</entry>
+                                    <entry>Show Record/Field Header</entry>
+                                    <entry>Displays record header attributes and field attributes
+                                        when in List view. Attributes do not display in Table
+                                        view.</entry>
                                 </row>
                                 <row>
                                     <entry>Show Field Type</entry>
@@ -418,7 +419,7 @@
                 <cmd>
                     <draft-comment author="Loretta"><uicontrol>O-AVRO-Mess</uicontrol> - The
                         following step is used by origins that read Avro data from messages and have
-                        compression. Kinesis Consumer.  Origins without compression uses rows - JMS,
+                        compression. Kinesis Consumer. Origins without compression uses rows - JMS,
                         Kafka.</draft-comment>
                 </cmd>
             </step>
@@ -579,10 +580,10 @@
                                         Registry.</entry>
                                 </row>
                                 <row>
-                                    <entry>Key Deserializer <xref href="../Origins/KConsumer-DataFormats.dita">
+                                    <entry>Key Deserializer <xref
+                                            href="../Origins/KConsumer-DataFormats.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
-                                                placement="inline"
-                                        /></xref></entry>
+                                                placement="inline"/></xref></entry>
                                     <entry>Method used to deserialize the Kafka message key.<p>Set
                                             to Confluent when the Avro schema ID is embedded in each
                                             Kafka message. </p></entry>
@@ -601,7 +602,7 @@
             <step>
                 <cmd>
                     <draft-comment author="Loretta"><uicontrol>O-Binary </uicontrol>. Used by
-                        message reading origins that have compression -  Kinesis Consumer, Redis
+                        message reading origins that have compression - Kinesis Consumer, Redis
                         Consumer. Non-compressed origins use rows - JMS, Kafka </draft-comment>
                 </cmd>
             </step>
@@ -629,7 +630,7 @@
                                     <entry/>
                                 </row>
                                 <row id="O-row-Bin-MaxDataSize">
-                                    <entry>Max Data Size</entry>
+                                    <entry>Max Data Size (bytes)</entry>
                                     <entry>Maximum number of bytes in the message. Larger messages
                                         cannot be processed or written to error. </entry>
                                 </row>
@@ -1061,7 +1062,7 @@
                                                 href="../Pipeline_Design/Protobuf-Prerequisites.dita"
                                             />. For more information about environment variables,
                                             see <xref
-                                                href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr"
+                                                href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr"
                                             />.</p></entry>
                                 </row>
                                 <row id="Mess-MessType">
@@ -1121,7 +1122,7 @@
                                         /> resources directory, <codeph>$SDC_RESOURCES</codeph>.
                                             <p>For more information about environment variables, see
                                                 <xref
-                                                href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr"
+                                                href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr"
                                             />. For information about generating the descriptor
                                             file, see <xref
                                                 href="../Pipeline_Design/Protobuf-Prerequisites.dita"
@@ -1180,10 +1181,12 @@
                 </info>
             </step>
             <step>
-                <cmd>                    <draft-comment author="alisontaylor"><uicontrol>TEXT_Hadoop data</uicontrol> -
+                <cmd>
+                    <draft-comment author="alisontaylor"><uicontrol>TEXT_Hadoop data</uicontrol> -
                         Hadoop FS and MapR FS origins (Include Custom Delimiter is not applicable) –
-                        should this go in Local FS too? </draft-comment></cmd>
-            </step>        
+                        should this go in Local FS too? </draft-comment>
+                </cmd>
+            </step>
             <step id="Text_Hadoop">
                 <cmd>For text data, on the <wintitle>Data Format</wintitle> tab, configure the
                     following properties:</cmd>
@@ -1232,13 +1235,14 @@
                     </table>
                 </info>
             </step>
-            <step > <cmd>
+            <step>
+                <cmd>
                     <draft-comment author="Loretta"><uicontrol>TEXT data</uicontrol> - Amazon S3,
-                        Directory, Kafka Consumer, Kinesis Consumer, JMS Consumer. HTTP Client.  Non
-                        compression origins  using rows - JMS</draft-comment>
+                        Directory, Kafka Consumer, Kinesis Consumer, JMS Consumer. HTTP Client. Non
+                        compression origins using rows - JMS</draft-comment>
                 </cmd>
-            </step>        
-                <step id="Text">
+            </step>
+            <step id="Text">
                 <cmd>For text data, on the <wintitle>Data Format</wintitle> tab, configure the
                     following properties:</cmd>
                 <info>
@@ -1320,9 +1324,20 @@
                             </thead>
                             <tbody>
                                 <row>
-                                    <entry>Max Buffer Size (bytes)</entry>
-                                    <entry>Maximum buffer size to use when transferring
-                                        data.</entry>
+                                    <entry>Buffer Size (bytes)</entry>
+                                    <entry>Size of the buffer to use to transfer data.</entry>
+                                </row>
+                                <row>
+                                    <entry>Rate per Second <xref
+                                            href="../Pipeline_Design/WholeFile-TransferRate.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                placement="inline"/></xref></entry>
+                                    <entry>Transfer rate to use. <p>Enter a number to specify a rate
+                                            in bytes per second. Use an expression to specify a rate
+                                            that uses a different unit of measure per second, e.g.
+                                            ${5 * MB}. Use -1 to opt out of this property. </p><p>By
+                                            default, the origin does not use a transfer rate.
+                                        </p></entry>
                                 </row>
                             </tbody>
                         </tgroup>
@@ -1351,9 +1366,21 @@
                             </thead>
                             <tbody>
                                 <row>
-                                    <entry>Max Buffer Size (bytes)</entry>
-                                    <entry>Maximum buffer size to use when transferring
-                                        data.</entry>
+                                    <entry>Buffer Size (bytes)</entry>
+                                    <entry>Size of the buffer to use to transfer data.</entry>
+                                </row>
+                                <row>
+                                    <entry>Rate per Second <xref
+                                            href="../Pipeline_Design/WholeFile-TransferRate.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                placement="inline" id="image_ljp_wy2_py"
+                                        /></xref></entry>
+                                    <entry>Transfer rate to use. <p>Enter a number to specify a rate
+                                            in bytes per second. Use an expression to specify a rate
+                                            that uses a different unit of measure per second, e.g.
+                                            ${5 * MB}. Use -1 to opt out of this property. </p><p>By
+                                            default, the origin does not use a transfer rate.
+                                        </p></entry>
                                 </row>
                                 <row>
                                     <entry>Verify Checksum</entry>
@@ -1364,18 +1391,17 @@
                     </table>
                 </info>
             </step>
-            
-            
-            <step><cmd>
-                <draft-comment author="Loretta"><uicontrol>XML data </uicontrol>- step used by
+            <step>
+                <cmd>
+                    <draft-comment author="Loretta"><uicontrol>XML data </uicontrol>- step used by
                         message and file based origins: Kafka Consumer, Hadoop FS, Kinesis Consumer,
                         Directory, S3, HTTP Client, maybe more. Origins without compression uses
                         rows - JMS Consumer</draft-comment>
-                    </cmd></step>
-            
+                </cmd>
+            </step>
             <step id="XMLprops">
-                <cmd>For XML data, on the <wintitle>Data Format</wintitle> tab, configure the
-                    following properties:</cmd>
+                <cmd>For XML data, on the <wintitle>XML</wintitle> tab, configure the following
+                    properties:</cmd>
                 <info>
                     <table frame="all" rowsep="1" colsep="1" id="table_pmz_mcj_45">
                         <tgroup cols="2">
@@ -1392,19 +1418,44 @@
                                     conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/Origin-FileCompression">
                                     <entry/>
                                 </row>
-                                <row
-                                    conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/Origin-FilePatternCompressed">
-                                    <entry/>
-                                </row>
                                 <row id="O-row-XMLDelimElement">
-                                    <entry>Delimiter Element</entry>
+                                    <entry>Delimiter Element <xref
+                                            href="../Pipeline_Design/XMLDF-XPath-Syntax.dita#concept_tmc_4bc_dy">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                placement="inline" id="image_xwx_xrm_js"
+                                        /></xref></entry>
                                     <entry>
-                                        <p>XML element that acts as a delimiter. Omit a delimiter to
-                                            treat the entire XML document as one record.</p>
-                                        <p>Use the XML element name without surrounding angle
-                                            brackets ( &lt; > ) . For example, msg instead of
-                                            &lt;msg>. </p>
+                                        <p>Delimiter to use to generate records. Omit a delimiter to
+                                            treat the entire XML document as one record. Use one of
+                                            the following:<ul id="XML-ul-delimiterelements">
+                                                <li>An XML element directly under the root element.
+                                                  <p>Use the XML element name without surrounding
+                                                  angle brackets ( &lt; > ) . For example, msg
+                                                  instead of &lt;msg>. </p></li>
+                                                <li>A simplified XPath expression that specifies the
+                                                  data to use.<p>Use a simplified XPath expression
+                                                  to access data deeper in the XML document or data
+                                                  that requires a more complex access
+                                                  method.</p><p>For more information about valid
+                                                  syntax, see <xref
+                                                  href="../Pipeline_Design/XMLDF-XPath-Syntax.dita#concept_tmc_4bc_dy"
+                                                  />.</p></li>
+                                            </ul></p>
                                     </entry>
+                                </row>
+                                <row id="O-row-XMLNamespaces">
+                                    <entry>Namespaces </entry>
+                                    <entry>Namespace prefix and URI to use when parsing the XML
+                                        document. Define namespaces when the XML element being used
+                                        includes a namespace prefix or when the XPath expression
+                                        includes namespaces.<p>For information about using
+                                            namespaces with an XML element, see <xref
+                                                href="../Pipeline_Design/XMLDF-XMLelem-Namespace.dita#concept_ilc_r3g_2y"
+                                            />.</p><p>For information about using namespaces with
+                                            XPath expressions, see <xref
+                                                href="../Pipeline_Design/XMLDF-XPath-Namespaces.dita#concept_mkk_3zj_dy"
+                                            />.</p><p>Use the <uicontrol>Add</uicontrol> icon to add
+                                            additional namespaces.</p></entry>
                                 </row>
                                 <row id="O-row-XML-MaxRecLength">
                                     <entry>Max Record Length (chars)</entry>
@@ -1427,9 +1478,7 @@
                     </table>
                 </info>
             </step>
-                
-                
-           <step>     
+            <step>
                 <cmd>
                     <draft-comment author="Loretta"><uicontrol>ORIGIN-MIXED REUSE - </uicontrol>The
                         following handful of steps are for origin/origin, origin/processor or
@@ -1456,8 +1505,7 @@
                             <tbody>
                                 <row>
                                     <entry>Username</entry>
-                                    <entry>User name for basic, digest, or universal authentication.
-                                            </entry>
+                                    <entry>User name for basic, digest, or universal authentication. </entry>
                                 </row>
                                 <row>
                                     <entry>Password</entry>
@@ -1468,19 +1516,19 @@
                                 </row>
                                 <row>
                                     <entry>Consumer Key</entry>
-                                    <entry>Consumer key for OAuth authentication.</entry>
+                                    <entry>Consumer key for OAuth 1.0 authentication.</entry>
                                 </row>
                                 <row>
                                     <entry>Consumer Secret</entry>
-                                    <entry>Consumer secret for OAuth authentication.</entry>
+                                    <entry>Consumer secret for OAuth 1.0 authentication.</entry>
                                 </row>
                                 <row>
                                     <entry>Token</entry>
-                                    <entry>Consumer token for OAuth authentication.</entry>
+                                    <entry>Consumer token for OAuth 1.0 authentication.</entry>
                                 </row>
                                 <row>
                                     <entry>Token Secret</entry>
-                                    <entry>Token secret for OAuth authentication.</entry>
+                                    <entry>Token secret for OAuth 1.0 authentication.</entry>
                                 </row>
                             </tbody>
                         </tgroup>
@@ -1489,7 +1537,7 @@
             </step>
             <step>
                 <cmd>
-                    <draft-comment author="Loretta"><uicontrol>HTTPClient-Proxy</uicontrol> -  - The
+                    <draft-comment author="Loretta"><uicontrol>HTTPClient-Proxy</uicontrol> - - The
                         following steps are used in HTTP Client origin and processor Configuring
                         topics:</draft-comment>
                 </cmd>
@@ -1610,7 +1658,6 @@
                     </table>
                 </info>
             </step>
-            
             <step id="JDBC-Legacy">
                 <cmd>When using JDBC versions older than 4.0, on the <uicontrol>Legacy
                         Drivers</uicontrol> tab, optionally configure the following
@@ -1622,7 +1669,8 @@
                             <colspec colname="c2" colnum="2" colwidth="3.5*"/>
                             <thead>
                                 <row>
-                                    <entry>Legacy Driver Property</entry>                                                               <entry>Description</entry>
+                                    <entry>Legacy Driver Property</entry>
+                                    <entry>Description</entry>
                                 </row>
                             </thead>
                             <tbody>
@@ -1636,7 +1684,6 @@
                                     <entry>Optional query to test the health of a connection.
                                         Recommended only when the JDBC version is older than 4.0.
                                     </entry>
-                                    
                                 </row>
                             </tbody>
                         </tgroup>
@@ -1665,7 +1712,7 @@
                                     <entry>Connection string for the Kafka broker. Use the following
                                         format: <codeph>&lt;host>:&lt;port></codeph>. <p>To ensure a
                                             connection, enter a comma-separated list of additional
-                                            broker URI.</p></entry>
+                                            broker URIs.</p></entry>
                                 </row>
                                 <row id="O-KafkaTopic">
                                     <entry>Topic</entry>
@@ -1696,7 +1743,110 @@
                 </info>
             </step>
             <step>
-                <cmd/>
+                <cmd>
+                    <draft-comment author="Loretta">The following
+                            <uicontrol>O-MongodBconfigs</uicontrol> step is used in the MongoDB
+                        origin and rows/entries used by MongoDB Oplog. MongoDB destination might use
+                        some too, when I get to it.</draft-comment>
+                </cmd>
+            </step>
+            <step id="O-MongoDBconfigs">
+                <cmd>On the <wintitle>MongoDB</wintitle> tab, configure the following
+                    properties:</cmd>
+                <info>
+                    <table frame="all" rowsep="1" colsep="1" id="table_mh4_bxs_ns">
+                        <tgroup cols="2">
+                            <colspec colname="c1" colnum="1" colwidth="1.5*"/>
+                            <colspec colname="c2" colnum="2" colwidth="3*"/>
+                            <thead>
+                                <row>
+                                    <entry>MongoDB Property</entry>
+                                    <entry>Description</entry>
+                                </row>
+                            </thead>
+                            <tbody>
+                                <row id="row-MongoConnectString">
+                                    <entry>Connection String</entry>
+                                    <entry>Connection string for the MongoDB instance. Use the
+                                        following
+                                        format:<codeblock>mongodb://host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database][?options]]</codeblock>When
+                                        connecting to a cluster, enter additional node information
+                                        to ensure a connection.</entry>
+                                </row>
+                                <row id="row-MongoSingleMode">
+                                    <entry>Enable Single Mode</entry>
+                                    <entry>Select to connect to a single MongoDB server or node. If
+                                        multiple nodes are defined in the connection string, the
+                                        origin connects only to the first node. <p>Use this option
+                                            with care. If the origin cannot connect or the
+                                            connection fails, the pipeline stops. </p></entry>
+                                </row>
+                                <row>
+                                    <entry>Database</entry>
+                                    <entry>Name of the MongoDB database.</entry>
+                                </row>
+                                <row>
+                                    <entry>Collection</entry>
+                                    <entry>Name of the MongoDB collection to use.</entry>
+                                </row>
+                                <row>
+                                    <entry>Capped Collection</entry>
+                                    <entry>The collection is capped. Clear this option to read an
+                                        uncapped collection.</entry>
+                                </row>
+                                <row>
+                                    <entry>Initial Offset</entry>
+                                    <entry>Initial offset to use to begin reading. When using an
+                                        Object ID field as the offset field, enter a timestamp with
+                                        the following format: <codeph>YYYY-MM-DD hh:mm:ss</codeph>.
+                                        When using a string field, enter the string to
+                                            use.<p>Default is: 2015-01-01 00:00:00</p></entry>
+                                </row>
+                                <row>
+                                    <entry>Offset Field Type</entry>
+                                    <entry>Data type of the offset field. Use Object ID for Object
+                                        ID fields. Use String for string offset fields. <p>Default
+                                            is Object ID.</p></entry>
+                                </row>
+                                <row>
+                                    <entry>Offset Field <xref
+                                            href="../Origins/MongoDB-OffsetField.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                id="image_k2w_rsd_3t"/></xref>
+                                    </entry>
+                                    <entry>Field to use to track reads. Default is the _id field.
+                                            <p>You can use a nested offset field, such as o._id, or
+                                            any Object ID field or any string field. Results are not
+                                            guaranteed for anything but the _id field.</p></entry>
+                                </row>
+                                <row id="row-Mongo-BatchSize">
+                                    <entry>Batch Size (records)</entry>
+                                    <entry>Maximum number of records allowed in a batch.</entry>
+                                </row>
+                                <row>
+                                    <entry>Max Batch Wait Time <xref
+                                            href="../Origins/BatchSizeWaitTime.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                            /></xref>
+                                    </entry>
+                                    <entry id="entry-Mongo-BatchWaitTime">Amount of time the origin
+                                        will wait to fill a batch before sending an empty batch.
+                                    </entry>
+                                </row>
+                                <row>
+                                    <entry>Read Preference <xref
+                                            href="../Origins/MongoDB-ReadPreference.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                id="image_o23_1rd_ww"/></xref>
+                                    </entry>
+                                    <entry id="entry-Mongo-ReadPref">Determines how the origin reads
+                                        data from different members of the MongoDB replica
+                                        set.</entry>
+                                </row>
+                            </tbody>
+                        </tgroup>
+                    </table>
+                </info>
             </step>
             <step>
                 <cmd>
@@ -1716,9 +1866,10 @@
                                 <row>
                                     <entry>RabbitMQ Property</entry>
                                     <entry>Description</entry>
-                                </row></thead>
+                                </row>
+                            </thead>
                             <tbody>
-                              <row id="Rabbit-URI">
+                                <row id="Rabbit-URI">
                                     <entry>URI</entry>
                                     <entry>RabbitMQ URI. <p>Typically uses the following format:
                                                 <codeph>amqp:&lt;host>:&lt;port>/&lt;virtualhost></codeph>.</p></entry>
@@ -1929,8 +2080,8 @@
             </step>
             <step>
                 <cmd>
-                    <draft-comment author="Loretta">The following is used for SDC RPC origins
-                    </draft-comment>
+                    <draft-comment author="Loretta">The following is used for SDC RPC origins. Last
+                        two rows used by HTTP to Kafka origin</draft-comment>
                 </cmd>
                 <info>
                     <table frame="all" rowsep="1" colsep="1" id="table_uq4_2rr_pw">
@@ -1961,18 +2112,18 @@
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                                 placement="inline" id="image_b2n_wrr_pw"
                                         /></xref></entry>
-                                    <entry>Enables the secure transfer of data using TLS. <p>To use
-                                            encryption, both the origin and SDC RPC destination must
-                                            be enabled for TLS.</p></entry>
+                                    <entry>Enables the secure transfer of data using TLS (SSL).
+                                            <p>To use encryption, both the origin and SDC RPC
+                                            destination must be enabled for TLS.</p></entry>
                                 </row>
                                 <row id="O-RPC-KeystoreFile">
                                     <entry>Keystore File</entry>
-                                    <entry>Keystore file for SSL. <p>Must be stored in the <ph
+                                    <entry>Keystore file for SSL/TLS. <p>Must be stored in the <ph
                                                 conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
                                             /> resources directory,
                                                 <filepath>$SDC_RESOURCES</filepath>. For more
                                             information about environment variables, see <xref
-                                                href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr"
+                                                href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr"
                                             />.</p></entry>
                                 </row>
                                 <row id="O-RPC-KeystorePass">
@@ -2240,36 +2391,36 @@
                                 </row>
                                 <row>
                                     <entry>Required Fields <xref
-                                        href="../Pipeline_Design/RequiredFields.dita#concept_dnj_bkm_vq">
-                                        <image href="../Graphics/icon_moreInfo.png" scale="10"
-                                            id="image_h2p_p1v_yq"/></xref></entry>
+                                            href="../Pipeline_Design/RequiredFields.dita#concept_dnj_bkm_vq">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                id="image_h2p_p1v_yq"/></xref></entry>
                                     <entry>Fields that must include data to be passed into the
                                         stage. <note outputclass="" type="tip">You might include
                                             fields that the stage uses.</note></entry>
                                 </row>
                                 <row>
                                     <entry>Preconditions <xref
-                                        href="../Pipeline_Design/Preconditions.dita">
-                                        <image href="../Graphics/icon_moreInfo.png" scale="10"
-                                            id="image_f6b_kjp_fs"/></xref></entry>
+                                            href="../Pipeline_Design/Preconditions.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                id="image_f6b_kjp_fs"/></xref></entry>
                                     <entry>Conditions that must evaluate to TRUE to allow a record
                                         to enter the stage for processing. Click
-                                        <uicontrol>Add</uicontrol> to create additional
+                                            <uicontrol>Add</uicontrol> to create additional
                                         preconditions. </entry>
                                 </row>
                                 <row>
                                     <entry>On Record Error <xref
-                                        href="../Pipeline_Design/ErrorHandling-Stage.dita">
-                                        <image href="../Graphics/icon_moreInfo.png" scale="10"
-                                            id="image_w32_8yn_lw"/></xref></entry>
+                                            href="../Pipeline_Design/ErrorHandling-Stage.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                id="image_w32_8yn_lw"/></xref></entry>
                                     <entry>Error record handling for the stage: <ul
-                                        id="ul_swr_ofh_hr">
-                                        <li>Discard - Discards the record.</li>
-                                        <li>Send to Error - Sends the record to the pipeline for
-                                            error handling.</li>
-                                        <li>Stop Pipeline - Stops the pipeline. Not valid for
-                                            cluster pipelines.</li>
-                                    </ul></entry>
+                                            id="ul_swr_ofh_hr">
+                                            <li>Discard - Discards the record.</li>
+                                            <li>Send to Error - Sends the record to the pipeline for
+                                                error handling.</li>
+                                            <li>Stop Pipeline - Stops the pipeline. Not valid for
+                                                cluster pipelines.</li>
+                                        </ul></entry>
                                 </row>
                             </tbody>
                         </tgroup>
@@ -2664,7 +2815,7 @@
                                                 record header attribute. Use only when the
                                                 avroSchema attribute is defined for all records.
                                                   <xref
-                                                  href="../Destinations/RecordHeaderAttributes.dita">
+                                                  href="../Pipeline_Design/RecordBasedWrites-overview.dita">
                                                   <image href="../Graphics/icon_moreInfo.png"
                                                   scale="10" id="image_alj_pws_nx"/></xref></li>
                                             <li>Confluent Schema Registry - Retrieve the schema from
@@ -2765,7 +2916,7 @@
                                                 record header attribute. Use only when the
                                                 avroSchema attribute is defined for all records.
                                                   <xref
-                                                  href="../Destinations/RecordHeaderAttributes.dita">
+                                                  href="../Pipeline_Design/RecordBasedWrites-overview.dita">
                                                   <image href="../Graphics/icon_moreInfo.png"
                                                   scale="10" id="image_yjw_4ws_nx"/></xref></li>
                                             <li>Confluent Schema Registry - Retrieve the schema from
@@ -2861,7 +3012,7 @@
                                                 record header attribute. Use only when the
                                                 avroSchema attribute is defined for all records.
                                                   <xref
-                                                  href="../Destinations/RecordHeaderAttributes.dita">
+                                                  href="../Pipeline_Design/RecordBasedWrites-overview.dita">
                                                   <image href="../Graphics/icon_moreInfo.png"
                                                   scale="10" id="image_dsv_nws_nx"/></xref></li>
                                             <li>Confluent Schema Registry - Retrieve the schema from
@@ -2962,7 +3113,7 @@
                                                 record header attribute. Use only when the
                                                 avroSchema attribute is defined for all records.
                                                   <xref
-                                                  href="../Destinations/RecordHeaderAttributes.dita">
+                                                  href="../Pipeline_Design/RecordBasedWrites-overview.dita">
                                                   <image href="../Graphics/icon_moreInfo.png"
                                                   scale="10" id="image_fvd_sis_nw"/></xref></li>
                                             <li>Confluent Schema Registry - Retrieve the schema from
@@ -3215,7 +3366,7 @@
                                         /> resources directory, <codeph>$SDC_RESOURCES</codeph>.
                                             <p>For more information about environment variables, see
                                                 <xref
-                                                href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr"
+                                                href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr"
                                             />. For information about generating the descriptor
                                             file, see <xref
                                                 href="../Pipeline_Design/Protobuf-Prerequisites.dita"
@@ -3319,7 +3470,8 @@
                 <cmd/>
                 <info>
                     <draft-comment author="Loretta"><b>D-WHOLEFile-props</b> - Whole table used by
-                        Hadoop FS, Local FS, and MapR FS. Rows used by S3.</draft-comment>
+                        Hadoop FS, Local FS, and MapR FS. Rows used by S3 and Azure Data Lake
+                        Store</draft-comment>
                 </info>
             </step>
             <step id="D-WholeFile_props">
@@ -3338,24 +3490,21 @@
                             </thead>
                             <tbody>
                                 <row id="row-FileNameExp">
-                                    <entry>File Name Expression <xref
-                                            href="../Pipeline_Design/WholeFile-Writing.dita">
-                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
-                                                id="image_ns2_ytl_zw"/></xref></entry>
+                                    <entry>File Name Expression</entry>
                                     <entry>
-                                        <p>Expression to use for the file name. </p>
-                                        <p>Default is
-                                                <codeph>${record:value('/fileInfo/filename')}</codeph>,
-                                            which uses the original source file name as the target
-                                            file name. </p>
+                                        <p>Expression to use for the file names. </p>
+                                        <p>For tips on how to name files based on input file names,
+                                            see <xref
+                                                href="../Pipeline_Design/WholeFile-Writing.dita#concept_a2s_4jw_1x"
+                                            />.</p>
                                     </entry>
                                 </row>
-                                <row>
+                                <row id="row-PermExp">
                                     <entry>Permissions Expression <xref
                                             href="../Pipeline_Design/WholeFile-AccessPermissions.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_zwb_ccw_1x"/></xref></entry>
-                                    <entry>Expression that defines the access permissions for target
+                                    <entry>Expression that defines the access permissions for output
                                         files. Expressions should evaluate to a symbolic or
                                         numeric/octal representation of the permissions you want to
                                         use. <p>By default, with no specified expression, files use
@@ -3367,7 +3516,7 @@
                                 <row id="row-FileExists">
                                     <entry>File Exists</entry>
                                     <entry>Action to take when a file of the same name already
-                                        exists in the target directory. Use one of the following
+                                        exists in the output directory. Use one of the following
                                             options:<ul id="ul_a4s_l5l_zw">
                                             <li>Send to Error - Handles the record based on stage
                                                 error record handling. </li>
@@ -3473,7 +3622,7 @@
                                             /> ID is stored in the following file:
                                                 <filepath>$SDC_DATA/sdc.id</filepath>. For more
                                             information about environment variables, see <xref
-                                                href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr"
+                                                href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr"
                                             />.</p></entry>
                                 </row>
                                 <row id="row-FileSuffix">
@@ -3488,7 +3637,7 @@
                                 </row>
                                 <row id="row-DirectoryinHeader">
                                     <entry>Directory in Header <xref
-                                            href="../Destinations/RecordHeaderAttributes.dita">
+                                            href="../Pipeline_Design/RecordBasedWrites-overview.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_ydt_vvg_1w"/></xref>
                                     </entry>
@@ -3501,10 +3650,11 @@
                                             href="../Destinations/HadoopFS-DirectoryTemplates.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_c1q_dd1_s5"/></xref></entry>
-                                    <entry id="entry-DirectoryTemplate">Template for creating output directories. You can use
-                                        constants, field values, and datetime variables. <p>Output
-                                            directories are created based on the smallest datetime
-                                            variable in the template.</p></entry>
+                                    <entry id="entry-DirectoryTemplate">Template for creating output
+                                        directories. You can use constants, field values, and
+                                        datetime variables. <p>Output directories are created based
+                                            on the smallest datetime variable in the
+                                        template.</p></entry>
                                 </row>
                                 <row id="row-DataTimeZone">
                                     <entry>Data Time Zone</entry>
@@ -3517,9 +3667,9 @@
                                             href="../Destinations/HadoopFS-TimeBasis.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_f1q_dd1_s5"/></xref></entry>
-                                    <entry id="entry-TimeBasis">Time basis to use for creating output directories and
-                                        writing records to the directories. Use one of the following
-                                            expressions:<ul id="ul_h1q_dd1_s5">
+                                    <entry id="entry-TimeBasis">Time basis to use for creating
+                                        output directories and writing records to the directories.
+                                        Use one of the following expressions:<ul id="ul_h1q_dd1_s5">
                                             <li>${time:now()} - Uses the processing time as the time
                                                 basis. </li>
                                             <li>${record:value(&lt;date field path>)} - Uses the
@@ -3575,7 +3725,7 @@
                                 </row>
                                 <row id="row-RollAttri">
                                     <entry>Use Roll Attribute <xref
-                                            href="../Destinations/RecordHeaderAttributes.dita">
+                                            href="../Pipeline_Design/RecordBasedWrites-overview.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                             /></xref>
                                     </entry>
@@ -3591,12 +3741,18 @@
                                 </row>
                                 <row id="row-ValidateHDFSPerms">
                                     <entry>Validate HDFS Permissions</entry>
-                                    <entry>When you start the pipeline, the destination tries
-                                        writing to the configured directory template to validate
-                                        permissions. The pipeline does not start if validation
-                                            fails.<note>Do not use this option when the directory
-                                            template uses expressions to represent the entire
-                                            directory.</note></entry>
+                                    <entry id="D-entry-ValidatePermissions">When you start the
+                                        pipeline, the destination tries writing to the configured
+                                        directory template to validate permissions. The pipeline
+                                        does not start if validation fails.<note>Do not use this
+                                            option when the directory template uses expressions to
+                                            represent the entire directory.</note></entry>
+                                </row>
+                                <row>
+                                    <entry>Skip File Recovery</entry>
+                                    <entry id="entry-SkipRecovery">Determines whether the
+                                        destination performs file recovery after an unexpected stop
+                                        of the pipeline. </entry>
                                 </row>
                             </tbody>
                         </tgroup>
@@ -3605,8 +3761,11 @@
             </step>
             <step>
                 <cmd>
-                    <draft-comment author="Loretta">Elasticsearch properties - used by Elasticsearch
-                        destination and Configuring a Pipeline > Error handling.</draft-comment>
+                    <draft-comment author="Loretta">Elasticsearch properties - all used by
+                        Elasticsearch destination. All but Default Operation and Unsupported
+                        Operation Handling used by Configuring a Pipeline > Error handling. Default
+                        Operation and Unsupported Operation Handling descriptions used by Kudu, JDBC
+                        Producer and JDBC Tee</draft-comment>
                 </cmd>
             </step>
             <step id="ELASTICprops-Step">
@@ -3624,19 +3783,7 @@
                                 </row>
                             </thead>
                             <tbody>
-                                <row>
-                                    <entry>Cluster Name</entry>
-                                    <entry>Elasticsearch cluster name.</entry>
-                                </row>
-                                <row>
-                                    <entry>Cluster URIs</entry>
-                                    <entry>URI of one or more nodes in the cluster. Use the
-                                        following format:
-                                            <codeblock>&lt;host>:&lt;port></codeblock><p>To ensure a
-                                            connection, enter a comma-separated list of
-                                        URIs.</p></entry>
-                                </row>
-                                <row>
+                                <row id="row_ElasticCluster">
                                     <entry>Cluster HTTP URI</entry>
                                     <entry>Use when the cluster uses a custom HTTP URI. Use the
                                         following format:
@@ -3645,39 +3792,32 @@
                                             verify that the cluster version is compatible with the
                                             destination libraries.</p></entry>
                                 </row>
-                                <row>
-                                    <entry>Use Shield</entry>
-                                    <entry>Enables access to a Shield-protected cluster.</entry>
-                                </row>
-                                <row>
-                                    <entry>Elastic Cloud Cluster</entry>
-                                    <entry>Enables access to an Elastic Cloud cluster. <p>Selecting
-                                            this property is the equivalent to setting the
-                                            action.bulk.compress Elasticsearch property to false,
-                                            and the request.headers.X-Found-Cluster to the cluster
-                                            name. </p><p>Elastic Cloud requires Shield. When
-                                            enabling Elastic Cloud, enable Shield and configure the
-                                            additional Shield properties. </p></entry>
+                                <row id="row_ElasticHTTP">
+                                    <entry>Additional HTTP Params</entry>
+                                    <entry>Additional HTTP parameters that you want to send as
+                                        querystring parameters to Elasticsearch. Enter the exact
+                                        parameter name and value expected by Elasticsearch.</entry>
                                 </row>
                                 <row>
                                     <entry>Detect Additional Nodes in Cluster</entry>
-                                    <entry><p>Detects additional nodes in the cluster based on the
-                                            configured Cluster URI. </p>Selecting this property is
-                                        the equivalent to setting the client.transport.sniff
-                                        Elasticsearch property to true.<p>Use only when the <ph
-                                                conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
-                                            /> shares the same network as the Elasticsearch cluster.
-                                            Do not use for Elastic Cloud or Docker
-                                        clusters.</p></entry>
+                                    <entry>
+                                        <p>Detects additional nodes in the cluster based on the
+                                            configured Cluster URI. </p>
+                                        <p>Selecting this property is the equivalent to setting the
+                                            client.transport.sniff Elasticsearch property to true. </p>
+                                        <p>Use only when the Data Collector shares the same network
+                                            as the Elasticsearch cluster. Do not use for Elastic
+                                            Cloud or Docker clusters. </p>
+                                    </entry>
                                 </row>
-                                <row>
-                                    <entry>Additional Configuration</entry>
-                                    <entry>Additional Elasticsearch properties that you want to use.
-                                        Enter the exact property name and value expected by
-                                        Elasticsearch.</entry>
+                                <row id="row_ElasticSecurity">
+                                    <entry>Use Security</entry>
+                                    <entry>Specifies whether security is enabled on the
+                                        Elasticsearch cluster. </entry>
                                 </row>
-                                <row>
-                                    <entry>Time Basis <xref href="../Destinations/Elastic-TimeBasis.dita">
+                                <row id="row_ElasticTime">
+                                    <entry>Time Basis <xref
+                                            href="../Destinations/Elastic-TimeBasis.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_w4w_q3p_ht"/>
                                         </xref></entry>
@@ -3700,12 +3840,12 @@
                                         <p>Default is <codeph>${time:now()}</codeph>.</p>
                                     </entry>
                                 </row>
-                                <row>
+                                <row id="row_ElasticZone">
                                     <entry>Data Time Zone</entry>
                                     <entry>Time zone for the destination system. Used to resolve
                                         datetimes in time-based indexes. </entry>
                                 </row>
-                                <row>
+                                <row id="row_ElasticIndex">
                                     <entry>Index</entry>
                                     <entry>Index information for the generated documents. You can
                                         use a constant, datetime variables, a field that includes
@@ -3716,33 +3856,51 @@
                                                 href="../Expression_Language/DateTimeVariables.dita#concept_gh4_qd2_sv"
                                             />.</p></entry>
                                 </row>
-                                <row>
+                                <row id="row_ElasticMapping">
                                     <entry>Mapping</entry>
                                     <entry>Mapping information for the generated documents. You can
                                         use a constant or a field that includes the mapping
                                         information. </entry>
                                 </row>
-                                <row>
-                                    <entry>Document ID</entry>
+                                <row id="row_ElasticDocID">
+                                    <entry>Document ID <xref
+                                            href="../Destinations/Elastic-DocID.dita">
+                                            <image href="../Graphics/icon_moreInfo.png" scale="10"
+                                                id="image_r1f_gfg_z3"/>
+                                        </xref></entry>
                                     <entry>ID for the record. Use to specify the ID for the
                                         generated documents. When you do not specify an ID,
                                         Elasticsearch creates an ID for each document.<p>By default,
                                             the destination allows Elasticsearch to create the
                                             ID.</p></entry>
                                 </row>
-                                <row>
+                                <row id="row_ElasticCharset">
                                     <entry>Data Charset</entry>
                                     <entry>
                                         <p>Character encoding of the data to be processed. </p>
                                     </entry>
                                 </row>
                                 <row>
-                                    <entry>Enable Upsert <xref href="../Destinations/Elastic-DocIDandUpserts.dita">
+                                    <entry>Default Operation <xref
+                                            href="../Destinations/Elastic-DefineOperation.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_r1f_ggg_z5"/>
                                         </xref></entry>
-                                    <entry>Enables upserts to the cluster. When enabled, configure
-                                        the Document ID property.</entry>
+                                    <entry id="entry_DefaultOperation">Default CRUD operation to
+                                        perform if the sdc.operation.type record header attribute is
+                                        not set. </entry>
+                                </row>
+                                <row>
+                                    <entry>Unsupported Operation Handling</entry>
+                                    <entry id="entry_UnsupportedOperation">Action to take when the
+                                        CRUD operation type defined in the sdc.operation.type record
+                                        header attribute is not supported:<ul id="ul_sgk_pg3_1y">
+                                            <li>Discard - Discards the record.</li>
+                                            <li>Send to Error - Sends the record to the pipeline for
+                                                error handling.</li>
+                                            <li>Use Default Operation - Writes the record to the
+                                                destination system using the default operation.</li>
+                                        </ul></entry>
                                 </row>
                             </tbody>
                         </tgroup>
@@ -3750,66 +3908,47 @@
                 </info>
             </step>
             <step id="ElasticSHIELD-step">
-                <cmd>When writing to a Shield-protected cluster, on the <wintitle>Shield</wintitle>
-                    tab, configure the following properties:</cmd>
+                <cmd>If you enabled security, on the <wintitle>Security</wintitle> tab, configure
+                    the following property:</cmd>
                 <info id="ElasticSHIELD-Info">
-                    <note conref="ReusablePhrases.dita#concept_vhs_5tz_xp/Tip_Usernames"/>
                     <table frame="all" rowsep="1" colsep="1" id="table_jsk_fhg_z5">
                         <tgroup cols="2">
                             <colspec colname="c1" colnum="1" colwidth="1.5*"/>
                             <colspec colname="c2" colnum="2" colwidth="3.5*"/>
                             <thead>
                                 <row>
-                                    <entry>Shield Property</entry>
+                                    <entry>Security Property</entry>
                                     <entry>Description</entry>
                                 </row>
                             </thead>
                             <tbody>
                                 <row>
-                                    <entry>Shield Username/Password</entry>
-                                    <entry>Shield username and password. <p>Configuring this
-                                            property is the equivalent to configuring the
-                                            shield.user Elasticsearch property.</p></entry>
-                                </row>
-                                <row>
-                                    <entry>Enable SSL</entry>
-                                    <entry>Enables SSL between the <ph
-                                            conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
-                                        /> and the Elasticsearch cluster.<p>Selecting this property
-                                            is the equivalent to setting the shield.transport.ssl
-                                            Elasticsearch property to true.</p></entry>
-                                </row>
-                                <row>
-                                    <entry>SSL Keystore Path</entry>
-                                    <entry>Location of the keystore file. <p>Configuring this
-                                            property is the equivalent to configuring the
-                                            shield.ssl.keystore.path Elasticsearch
-                                            property.</p><p>Not necessary for Elastic Cloud
-                                            clusters. </p></entry>
-                                </row>
-                                <row>
-                                    <entry>SSL Keystore Password</entry>
-                                    <entry>Password for the keystore file.<p>Configuring this
-                                            property is the equivalent to configuring the
-                                            shield.ssl.keystore.password Elasticsearch
-                                            property.</p><p>Not necessary for Elastic Cloud
-                                            clusters.</p></entry>
+                                    <entry>Security Username/Password</entry>
+                                    <entry>Elasticsearch username and password. <p>Enter the
+                                            username and password using the following
+                                            syntax:<codeblock>&lt;username>:&lt;password></codeblock></p><note
+                                            conref="ReusablePhrases.dita#concept_vhs_5tz_xp/Tip_Usernames"
+                                        /></entry>
                                 </row>
                                 <row>
                                     <entry>SSL Truststore Path</entry>
-                                    <entry>Location of the truststore file. <p>Configuring this
-                                            property is the equivalent to configuring the
-                                            shield.ssl.truststore.path Elasticsearch
-                                            property.</p><p>Not necessary for Elastic Cloud
-                                            clusters. </p></entry>
+                                    <entry>
+                                        <p>Location of the truststore file. </p>
+                                        <p>Configuring this property is the equivalent to
+                                            configuring the shield.ssl.truststore.path Elasticsearch
+                                            property. </p>
+                                        <p>Not necessary for Elastic Cloud clusters. </p>
+                                    </entry>
                                 </row>
                                 <row>
                                     <entry>SSL Truststore Password</entry>
-                                    <entry>Password for the truststore file.<p>Configuring this
-                                            property is the equivalent to configuring the
-                                            shield.ssl.truststore.password Elasticsearch
-                                            property.</p><p>Not necessary for Elastic Cloud
-                                            clusters.</p></entry>
+                                    <entry>
+                                        <p>Password for the truststore file. </p>
+                                        <p>Configuring this property is the equivalent to
+                                            configuring the shield.ssl.truststore.password
+                                            Elasticsearch property. </p>
+                                        <p>Not necessary for Elastic Cloud clusters. </p>
+                                    </entry>
                                 </row>
                             </tbody>
                         </tgroup>
@@ -3886,7 +4025,6 @@
                         Aggregated Statistics > Configuring a Pipeline to Aggregate Statistics. --
                         Message per Batch also used by RabbitMQ Producer. Some rows also used by
                         MapR Streams Producer.</draft-comment>
-                   
                 </cmd>
             </step>
             <step id="KafkaConfig">
@@ -3919,8 +4057,9 @@
                                                   ><image href="../Graphics/icon_moreInfo.png"
                                                   scale="10" id="image_ekt_x5g_cs"/>
                                             </xref></entry>
-                                        <entry id="KPRuntimeTopicEntry">Evaluates an expression at runtime to determine the
-                                            topic to use for each record.</entry>
+                                        <entry id="KPRuntimeTopicEntry">Evaluates an expression at
+                                            runtime to determine the topic to use for each
+                                            record.</entry>
                                     </row>
                                     <row id="KPTopic">
                                         <entry>Topic</entry>
@@ -3985,11 +4124,10 @@
                                                 />.</p></entry>
                                     </row>
                                     <row>
-                                        <entry>Key Serializer
-                                            <xref
+                                        <entry>Key Serializer <xref
                                                 href="../Destinations/KProducer-DataFormat.dita">
                                                 <image href="../Graphics/icon_moreInfo.png"
-                                                    scale="10" id="image_as8_sc7_ft"/></xref></entry>
+                                                  scale="10" id="image_as8_sc7_ft"/></xref></entry>
                                         <entry>Method used to serialize the Kafka message key when
                                             the configured data format is Avro. <p>Set to Confluent
                                                 to embed the Avro schema ID in each message that
@@ -4134,7 +4272,7 @@
                                             /> resources directory,
                                                 <filepath>$SDC_RESOURCES</filepath>. For more
                                             information about environment variables, see <xref
-                                                href="../Install_Config/DCEnvironmentConfig.dita#concept_rng_qym_qr"
+                                                href="../Configuration/DCEnvironmentConfig.dita#concept_rng_qym_qr"
                                             />.</p></entry>
                                 </row>
                                 <row id="row-TSpass">
@@ -4145,7 +4283,7 @@
                                 </row>
                                 <row id="row-verifyHost">
                                     <entry>Verify Host in Server Certificate</entry>
-                                    <entry>Verifies the host in the SDC RPC origin keystore
+                                    <entry id="entry-verifyHost">Verifies the host in the SDC RPC origin keystore
                                         file.</entry>
                                 </row>
                             </tbody>
@@ -4177,21 +4315,21 @@
                                 <row id="row-RetriesBatch">
                                     <entry>Retries Per Batch</entry>
                                     <entry>Number of times the destination tries to write a batch to
-                                        the SDC RPC origin. <p>When the destination cannot write the
+                                        the SDC RPC origin. <p id="p-RetriesBatch">When the destination cannot write the
                                             batch within the configured number of retries, it fails
-                                            the batch.</p><p>Default is 3.</p></entry>
+                                            the batch.</p><p id="p-RetriesBatchDefault">Default is 3.</p></entry>
                                 </row>
                                 <row id="row-BackOffPeriod">
                                     <entry>Back Off Period</entry>
                                     <entry>Milliseconds to wait before retrying writing a batch to
-                                        the SDC RPC origin.<p>The value that you enter increases
+                                        the SDC RPC origin.<p id="p-BackOffExample">The value that you enter increases
                                             exponentially after each retry. For example, if you set
                                             the back off period to 10, the destination attempts the
                                             first retry after waiting 10 milliseconds, attempts the
                                             second retry after waiting 100 milliseconds, and
                                             attempts the third retry after waiting 1,000
                                             milliseconds. Set to 0 to retry
-                                            immediately.</p><p>Default is 0.</p></entry>
+                                            immediately.</p><p id="p-BackOffDefault">Default is 0.</p></entry>
                                 </row>
                                 <row id="row-ConTimeout">
                                     <entry>Connection Timeout (ms)</entry>
@@ -4203,16 +4341,15 @@
                                 <row id="row-ReadTimeout">
                                     <entry>Read Timeout (ms)</entry>
                                     <entry>Milliseconds to wait for the SDC RPC origin to read data
-                                        from a batch. <p>The destination retries the write based on
-                                            the Retries Per Batch property.</p><p>Default is 2000
+                                        from a batch. <p id="p-ReadTimeout">The destination retries the write based on
+                                            the Retries Per Batch property.</p><p id="p-ReadTimeoutDefault">Default is 2000
                                             milliseconds.</p></entry>
                                 </row>
                                 <row id="row-UseCompression">
-                                    <entry>Use Compression  <xref
+                                    <entry>Use Compression <xref
                                             href="../Destinations/RPC-Compression.dita">
                                             <image href="../Graphics/icon_moreInfo.png" scale="10"
-                                                placement="inline"
-                                        /></xref></entry>
+                                                placement="inline"/></xref></entry>
                                     <entry>Enables the destination to use compression to pass data
                                         to the SDC RPC origin. Enabled by default. </entry>
                                 </row>
@@ -4272,7 +4409,8 @@ chmod 644 /opt/cloudera/csd/STREAMSETS*.jar</codeblock></info>
                         Manually Install the Parcel and Checksum Files (Optional)" used in the
                         Installation and Upgrade chapters.</draft-comment>
                 </cmd>
-            </step><step id="ParcelDownload">
+            </step>
+            <step id="ParcelDownload">
                 <cmd>Download the StreamSets parcel and related checksum file for the Cloudera
                     Manager Server operating system from the following location:</cmd>
                 <info><xref href="https://archives.streamsets.com/index.html" format="html"
@@ -4293,7 +4431,9 @@ chmod 644 /opt/cloudera/csd/STREAMSETS*.jar</codeblock></info>
             <step>
                 <cmd>
                     <draft-comment author="alisontaylor">The following steps are used for the
-                        Enabling SSL topics for the MongoDB origin and destination</draft-comment>
+                        Enabling SSL topics for the MongoDB origin and destination, and for the
+                        Configuring Secure Connections to LDAP topic in Configuration
+                        chapter</draft-comment>
                 </cmd>
             </step>
             <step id="MongoDBEnableSSL_step1">
@@ -4302,8 +4442,7 @@ chmod 644 /opt/cloudera/csd/STREAMSETS*.jar</codeblock></info>
             </step>
             <step id="MongoDBEnableSSL_step2">
                 <cmd>Define the following options in the SDC_JAVA_OPTS environment variable in the
-                    Data Collector environment configuration file, <codeph>sdc-env.sh</codeph> or
-                        <codeph>sdcd-env.sh</codeph>:</cmd>
+                    Data Collector environment configuration file:</cmd>
                 <choices id="choices_vwy_pg2_ww">
                     <choice><codeph>javax.net.ssl.trustStore</codeph> - path to truststore
                         file</choice>
@@ -4311,9 +4450,14 @@ chmod 644 /opt/cloudera/csd/STREAMSETS*.jar</codeblock></info>
                         password</choice>
                 </choices>
                 <info>
+                    <p conref="ReusablePhrases.dita#concept_vhs_5tz_xp/EnvFileLocation"/>
                     <p>For example, define the options as
                         follows:<codeblock>export SDC_JAVA_OPTS="<b class="+ topic/ph hi-d/b ">-Djavax.net.ssl.trustStore=&lt;path to truststore file> -Djavax.net.ssl.trustStorePassword=&lt;password></b> 
 -Xmx1024m  -Xms1024m -server ${SDC_JAVA_OPTS}"                   </codeblock></p>
+                    <p>Or to secure the password, save the password in a text file and then define
+                        the truststore password option as follows:
+                            <codeph>-Djavax.net.ssl.trustStorePassword=$(cat
+                            passwordfile.txt)</codeph></p>
                 </info>
             </step>
             <step id="MongoDBEnableSSL_step3">
@@ -4328,7 +4472,7 @@ chmod 644 /opt/cloudera/csd/STREAMSETS*.jar</codeblock></info>
                 </cmd>
             </step>
             <step id="MongoDB_Credentials_step">
-                <cmd>To use credentials, click the <uicontrol>Credentials</uicontrol> tab and
+                <cmd>To enter credentials, click the <uicontrol>Credentials</uicontrol> tab and
                     configure the following properties:</cmd>
                 <info>
                     <table frame="all" rowsep="1" colsep="1" id="table_bdl_csd_3t">
@@ -4364,58 +4508,6 @@ chmod 644 /opt/cloudera/csd/STREAMSETS*.jar</codeblock></info>
             </step>
             <step>
                 <cmd>
-                    <draft-comment author="alisontaylor">The following three steps are conref'd in
-                        Installing Additional Drivers in the Install chapter, in the Spark
-                        Evaluator, and in the Google Bigtable destination.</draft-comment>
-                </cmd>
-            </step>
-            <step id="InstallDrivers_EnvConfig_step">
-                <cmd>In the <ph
-                        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
-                    /> environment configuration file, <codeph>sdc-env.sh</codeph> or
-                        <codeph>sdcd-env.sh</codeph> located in the
-                        <codeph>$SDC_DIST/libexec</codeph> directory, add the
-                    STREAMSETS_LIBRARIES_EXTRA_DIR environment variable and point it to the external
-                    directory, as follows:</cmd>
-                <info>
-                    <codeblock>export STREAMSETS_LIBRARIES_EXTRA_DIR="&lt;external directory>"</codeblock>
-                    <p>For example: </p>
-                    <codeblock>export STREAMSETS_LIBRARIES_EXTRA_DIR="/opt/sdc-extras/"</codeblock>
-                </info>
-            </step>
-            <step id="InstallDrivers_Security_step">
-                <cmd>When using the Java Security Manager, which is enabled by default, update the
-                        <ph
-                        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
-                    /> security policy to include the external directory as follows:</cmd>
-                <substeps id="substeps_vpt_nlr_cy">
-                    <substep>
-                        <cmd>In the <ph
-                                conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
-                            /> configuration directory, open the security policy file,
-                                <codeph>$SDC_CONF/sdc-security.policy</codeph>.</cmd>
-                    </substep>
-                    <substep>
-                        <cmd>Add the following lines to the file:</cmd>
-                        <info><codeblock>// user-defined external directory
-grant codebase "file://&lt;external directory>-" {
-  permission java.security.AllPermission;
-};</codeblock>For
-                            example:
-                            <codeblock>// user-defined external directory
-grant codebase "file:///opt/sdc-extras/-" {
-  permission java.security.AllPermission;
-};</codeblock></info>
-                    </substep>
-                </substeps>
-            </step>
-            <step id="InstallDrivers_Restart_step">
-                <cmd>Restart  <ph
-                        conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
-                    /> to enable the changes.</cmd>
-            </step>
-            <step>
-                <cmd>
                     <draft-comment author="alisontaylor">The following two steps are reused in the
                         Tarball and RPM upgrade section - Update the Configuration
                         Files</draft-comment>
@@ -4441,6 +4533,9 @@ grant codebase "file:///opt/sdc-extras/-" {
                         <li>Vault properties file</li>
                     </ul>
                 </info>
+            </step>
+            <step>
+                <cmd> </cmd>
             </step>
         </steps>
     </taskbody>

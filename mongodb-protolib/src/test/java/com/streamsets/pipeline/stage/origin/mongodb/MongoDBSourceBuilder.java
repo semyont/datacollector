@@ -20,41 +20,18 @@
 
 package com.streamsets.pipeline.stage.origin.mongodb;
 
-import com.streamsets.pipeline.stage.common.mongodb.AuthenticationType;
-import com.streamsets.pipeline.stage.common.mongodb.MongoDBConfig;
-
-public class MongoDBSourceBuilder {
-  private MongoSourceConfigBean config;
+public class MongoDBSourceBuilder extends AbstractMongoDBSourceBuilder<MongoDBSource, MongoDBSourceBuilder>{
 
   public MongoDBSourceBuilder() {
-    config = new MongoSourceConfigBean();
-    config.mongoConfig = new MongoDBConfig();
-    config.mongoConfig.connectionString = "mongodb://";
-    config.mongoConfig.database = "database";
-    config.mongoConfig.collection = "collection";
-    config.mongoConfig.authenticationType = AuthenticationType.NONE;
-    config.mongoConfig.username = null;
-    config.mongoConfig.password = null;
-    config.isCapped = true;
+    super();
     config.offsetField = "_id";
     config.initialOffset = "0";
-    config.batchSize = 100;
-    config.maxBatchWaitTime = 1;
-    config.readPreference = ReadPreferenceLabel.NEAREST;
-  }
-
-  public MongoDBSourceBuilder connectionString(String connectionString) {
-    config.mongoConfig.connectionString = connectionString;
-    return this;
+    config.mongoConfig.database = "database";
+    config.offsetType = OffsetFieldType.OBJECTID;
   }
 
   public MongoDBSourceBuilder database(String database) {
     config.mongoConfig.database = database;
-    return this;
-  }
-
-  public MongoDBSourceBuilder collection(String collection) {
-    config.mongoConfig.collection = collection;
     return this;
   }
 
@@ -63,16 +40,22 @@ public class MongoDBSourceBuilder {
     return this;
   }
 
+  public MongoDBSourceBuilder offsetField(String offset) {
+    config.offsetField = offset;
+    return this;
+  }
+
   public MongoDBSourceBuilder initialOffset(String initialOffset) {
     config.initialOffset = initialOffset;
     return this;
   }
 
-  public MongoDBSourceBuilder maxBatchWaitTime(long maxBatchWaitTime) {
-    config.maxBatchWaitTime = maxBatchWaitTime;
+  public MongoDBSourceBuilder setOffsetType(OffsetFieldType type) {
+    config.offsetType = type;
     return this;
   }
 
+  @Override
   public MongoDBSource build() {
     return new MongoDBSource(config);
   }

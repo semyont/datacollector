@@ -19,7 +19,6 @@
  */
 package com.streamsets.datacollector.creation;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.streamsets.datacollector.config.ConfigDefinition;
 import com.streamsets.datacollector.config.ModelType;
@@ -39,8 +38,6 @@ import com.streamsets.pipeline.api.Config;
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.ConfigDefBean;
 import com.streamsets.pipeline.api.ExecutionMode;
-import com.streamsets.pipeline.api.ProtoSource;
-import com.streamsets.pipeline.api.PushSource;
 import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.impl.Utils;
@@ -85,32 +82,66 @@ public abstract class PipelineBeanCreator {
     return (errors.size() == priorErrors) ? pipelineConfigBean : null;
   }
 
-  public PipelineBean create(boolean forExecution, StageLibraryTask library, PipelineConfiguration pipelineConf,
-      List<Issue> errors) {
+  public PipelineBean create(
+      boolean forExecution,
+      StageLibraryTask library,
+      PipelineConfiguration pipelineConf,
+      List<Issue> errors
+  ) {
+    return create(forExecution, library, pipelineConf, errors, null);
+  }
+
+  /**
+   * Create PipelineBean which means instantiating all stages for the pipeline.
+   *
+   * For multi-threaded pipelines this method will *NOT* create all required instances since the number of required
+   * instances is not known at the time of creation - for that the origin has to be initialized which is not at this
+   * point. Hence this method will create only one instance of the whole pipeline and it's up to the caller to call
+   * createPipelineStageBeans to instantiate remaining source-less pipelines later in the execution.
+   */
+  public PipelineBean create(
+      boolean forExecution,
+      StageLibraryTask library,
+      PipelineConfiguration pipelineConf,
+      List<Issue> errors,
+      Map<String, Object> runtimeConstants
+  ) {
     int priorErrors = errors.size();
     PipelineConfigBean pipelineConfigBean = create(pipelineConf, errors);
     StageBean errorStageBean = null;
     StageBean statsStageBean = null;
     StageBean origin = null;
-    int copies = 1;
-    List<PipelineStageBeans> stages = new ArrayList<>();
+    PipelineStageBeans stages = null;
     if (pipelineConfigBean != null && pipelineConfigBean.constants != null) {
+
+      // Merge constant and runtime Constants
+      Map<String, Object> resolvedConstants = pipelineConfigBean.constants;
+      if (runtimeConstants != null) {
+        for (String key: runtimeConstants.keySet()) {
+          if (resolvedConstants.containsKey(key)) {
+            resolvedConstants.put(key, runtimeConstants.get(key));
+          }
+        }
+      }
+
       // Instantiate usual stages
       if(!pipelineConf.getStages().isEmpty()) {
-        origin = createStageBean(forExecution, library, pipelineConf.getStages().get(0), false, pipelineConfigBean.constants, errors);
-        if (origin != null && origin.getStage() instanceof PushSource) {
-          // TODO: 	SDC-4728: Add ability to cap the number of threads in the pipeline config
-          copies = ((PushSource) origin.getStage()).getNumberOfThreads();
-        }
+        origin = createStageBean(
+            forExecution,
+            library,
+            pipelineConf.getStages().get(0),
+            false,
+            resolvedConstants,
+            errors
+        );
 
-        for (int i = 0; i < copies; i++) {
-          stages.add(createPipelineStageBeans(
+        stages = createPipelineStageBeans(
             forExecution,
             library,
             pipelineConf.getStages().subList(1, pipelineConf.getStages().size()),
-            pipelineConfigBean.constants, errors
-          ));
-        }
+            resolvedConstants,
+            errors
+        );
       }
 
       // It is not mandatory to have a stats aggregating target configured
@@ -121,7 +152,7 @@ public abstract class PipelineBeanCreator {
             library,
             statsStageConf,
             false,
-            pipelineConfigBean.constants,
+            resolvedConstants,
             errors
         );
       }
@@ -129,8 +160,14 @@ public abstract class PipelineBeanCreator {
       // Error stage is mandatory
       StageConfiguration errorStageConf = pipelineConf.getErrorStage();
       if (errorStageConf != null) {
-        errorStageBean = createStageBean(forExecution, library, errorStageConf, true, pipelineConfigBean.constants,
-                                         errors);
+        errorStageBean = createStageBean(
+            forExecution,
+            library,
+            errorStageConf,
+            true,
+            resolvedConstants,
+            errors
+        );
       } else {
         errors.add(IssueCreator.getPipeline().create(PipelineGroups.BAD_RECORDS.name(), "badRecordsHandling",
                                                      CreationError.CREATION_009));
@@ -156,6 +193,34 @@ public abstract class PipelineBeanCreator {
 
     for (StageConfiguration stageConf : stageConfigurations) {
       StageBean stageBean = createStageBean(forExecution, library, stageConf, false, constants, errors);
+
+      if (stageBean != null) {
+        stageBeans.add(stageBean);
+      }
+    }
+
+    return new PipelineStageBeans(stageBeans);
+  }
+
+  /**
+   * Creates additional PipelineStageBeans for additional runners. Stages will share stage definition and thus
+   * class loader with the first given runner. That includes stages with private class loader as well.
+   *
+   * @param pipelineStageBeans First runner that should be duplicated.
+   * @param constants Pipeline constants
+   * @param errors Any generated errors will be stored in this list
+   *
+   * @return PipelineStageBeans with new instances of the given stages
+   */
+  public PipelineStageBeans duplicatePipelineStageBeans(
+    PipelineStageBeans pipelineStageBeans,
+    Map<String, Object> constants,
+    List<Issue> errors
+  ) {
+    List<StageBean> stageBeans = new ArrayList<>(pipelineStageBeans.size());
+
+    for(StageBean original: pipelineStageBeans.getStages()) {
+      StageBean stageBean = createStage(original.getDefinition(), ClassLoaderReleaser.NOOP_RELEASER, original.getConfiguration(), constants, errors);
 
       if (stageBean != null) {
         stageBeans.add(stageBean);

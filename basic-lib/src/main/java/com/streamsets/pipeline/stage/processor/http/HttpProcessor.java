@@ -19,7 +19,7 @@
  */
 package com.streamsets.pipeline.stage.processor.http;
 
-import com.streamsets.pipeline.lib.el.VaultEL;
+import com.google.common.util.concurrent.RateLimiter;
 import com.streamsets.pipeline.api.Batch;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
@@ -27,40 +27,33 @@ import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.base.SingleLaneProcessor;
 import com.streamsets.pipeline.api.el.ELEval;
-import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.el.ELVars;
 import com.streamsets.pipeline.config.DataFormat;
 import com.streamsets.pipeline.lib.el.RecordEL;
-import com.streamsets.pipeline.lib.http.AuthenticationType;
+import com.streamsets.pipeline.lib.http.HttpClientCommon;
+import com.streamsets.pipeline.lib.http.Errors;
 import com.streamsets.pipeline.lib.http.Groups;
 import com.streamsets.pipeline.lib.http.HttpMethod;
-import com.streamsets.pipeline.lib.http.JerseyClientUtil;
 import com.streamsets.pipeline.lib.parser.DataParser;
 import com.streamsets.pipeline.lib.parser.DataParserException;
 import com.streamsets.pipeline.lib.parser.DataParserFactory;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
-import com.streamsets.pipeline.stage.origin.http.Errors;
-import org.glassfish.jersey.client.ClientConfig;
-import org.glassfish.jersey.client.ClientProperties;
-import org.glassfish.jersey.client.oauth1.AccessToken;
+import com.streamsets.pipeline.stage.util.http.HttpStageUtil;
 import org.glassfish.jersey.client.oauth1.OAuth1ClientSupport;
-import org.glassfish.jersey.grizzly.connector.GrizzlyConnectorProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.client.AsyncInvoker;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -73,30 +66,42 @@ import java.util.concurrent.TimeoutException;
  * Useful for enriching records based on their content by making requests to external systems.
  */
 public class HttpProcessor extends SingleLaneProcessor {
+
   private static final Logger LOG = LoggerFactory.getLogger(HttpProcessor.class);
-  private static final String RESOURCE_CONFIG_NAME = "resourceUrl";
   private static final String REQUEST_BODY_CONFIG_NAME = "requestBody";
-  private static final String HTTP_METHOD_CONFIG_NAME = "httpMethod";
-  private static final String HEADER_CONFIG_NAME = "headers";
-  private static final String DATA_FORMAT_CONFIG_PREFIX = "conf.dataFormatConfig.";
-  private static final String SSL_CONFIG_PREFIX = "conf.sslConfig.";
-  private static final String VAULT_EL_PREFIX = VaultEL.PREFIX + ":read";
 
   private HttpProcessorConfig conf;
-  private AccessToken authToken;
-  private Client client = null;
-
-  private ELVars resourceVars;
-  private ELVars bodyVars;
-  private ELVars methodVars;
-  private ELVars headerVars;
-  private ELEval resourceEval;
-  private ELEval bodyEval;
-  private ELEval methodEval;
-  private ELEval headerEval;
-
+  private final HttpClientCommon httpClientCommon;
   private DataParserFactory parserFactory;
   private ErrorRecordHandler errorRecordHandler;
+  private RateLimiter rateLimiter;
+
+  private ELVars bodyVars;
+  private ELEval bodyEval;
+
+  private class HeadersAndBody {
+    final MultivaluedMap<String, Object> resolvedHeaders;
+    final String requestBody;
+    final String contentType;
+    final HttpMethod method;
+    final WebTarget target;
+
+    HeadersAndBody(
+        MultivaluedMap<String, Object> headers,
+        String requestBody,
+        String contentType,
+        HttpMethod method,
+        WebTarget target
+    ) {
+      this.resolvedHeaders = headers;
+      this.requestBody = requestBody;
+      this.contentType = contentType;
+      this.method = method;
+      this.target = target;
+    }
+  }
+
+  private final Map<Record, HeadersAndBody> resolvedRecords = new LinkedHashMap<>();
 
   /**
    * Creates a new HttpProcessor configured using the provided config instance.
@@ -105,64 +110,32 @@ public class HttpProcessor extends SingleLaneProcessor {
    */
   public HttpProcessor(HttpProcessorConfig conf) {
     this.conf = conf;
+    this.httpClientCommon = new HttpClientCommon(conf.client);
   }
 
   /** {@inheritDoc} */
   @Override
   protected List<ConfigIssue> init() {
     List<ConfigIssue> issues = super.init();
-    errorRecordHandler = new DefaultErrorRecordHandler(getContext());
+    errorRecordHandler = new DefaultErrorRecordHandler(getContext()); // NOSONAR
+
+    int rateLimit = conf.rateLimit > 0 ? conf.rateLimit : Integer.MAX_VALUE;
+    rateLimiter = RateLimiter.create(rateLimit);
+
+    httpClientCommon.init(issues, getContext());
 
     conf.dataFormatConfig.init(
         getContext(),
         conf.dataFormat,
         Groups.HTTP.name(),
-        DATA_FORMAT_CONFIG_PREFIX,
+        HttpClientCommon.DATA_FORMAT_CONFIG_PREFIX,
         issues
     );
-
-    conf.client.sslConfig.init(
-        getContext(),
-        Groups.SSL.name(),
-        SSL_CONFIG_PREFIX,
-        issues
-    );
-
-    resourceVars = getContext().createELVars();
-    resourceEval = getContext().createELEval(RESOURCE_CONFIG_NAME);
 
     bodyVars = getContext().createELVars();
     bodyEval = getContext().createELEval(REQUEST_BODY_CONFIG_NAME);
 
-    methodVars = getContext().createELVars();
-    methodEval = getContext().createELEval(HTTP_METHOD_CONFIG_NAME);
-
-    headerVars = getContext().createELVars();
-    headerEval = getContext().createELEval(HEADER_CONFIG_NAME);
-
-    conf.client.init(getContext(), Groups.PROXY.name(), "conf.client.", issues);
-
-    // Validation succeeded so configure the client.
     if (issues.isEmpty()) {
-      ClientConfig clientConfig = new ClientConfig()
-          .property(ClientProperties.CONNECT_TIMEOUT, conf.client.connectTimeoutMillis)
-          .property(ClientProperties.READ_TIMEOUT, conf.client.readTimeoutMillis)
-          .property(ClientProperties.ASYNC_THREADPOOL_SIZE, conf.client.numThreads)
-          .property(ClientProperties.REQUEST_ENTITY_PROCESSING, conf.client.transferEncoding)
-          .connectorProvider(new GrizzlyConnectorProvider());
-
-      ClientBuilder clientBuilder = ClientBuilder.newBuilder().withConfig(clientConfig);
-
-      configureAuth(clientBuilder);
-
-      if (conf.client.useProxy) {
-        JerseyClientUtil.configureProxy(conf.client.proxy, clientBuilder);
-      }
-
-      JerseyClientUtil.configureSslContext(conf.client.sslConfig, clientBuilder);
-
-      client = clientBuilder.build();
-
       parserFactory = conf.dataFormatConfig.getParserFactory();
     }
 
@@ -172,9 +145,7 @@ public class HttpProcessor extends SingleLaneProcessor {
   /** {@inheritDoc} */
   @Override
   public void destroy() {
-    if (client != null) {
-      client.close();
-    }
+    httpClientCommon.destroy();
     super.destroy();
   }
 
@@ -182,31 +153,41 @@ public class HttpProcessor extends SingleLaneProcessor {
   @Override
   public void process(Batch batch, SingleLaneBatchMaker batchMaker) throws StageException {
     List<Future<Response>> responses = new ArrayList<>();
+    resolvedRecords.clear();
 
     Iterator<Record> records = batch.getRecords();
     while (records.hasNext()) {
+
       Record record = records.next();
-      RecordEL.setRecordInContext(resourceVars, record);
-      String resolvedUrl = resourceEval.eval(resourceVars, conf.resourceUrl, String.class);
-      WebTarget target = client.target(resolvedUrl);
+      String resolvedUrl = httpClientCommon.getResolvedUrl(conf.resourceUrl, record);
+      WebTarget target = httpClientCommon.getClient().target(resolvedUrl);
 
       // If the request (headers or body) contain a known sensitive EL and we're not using https then fail the request.
-      if (requestContainsSensitiveInfo() && !target.getUri().getScheme().toLowerCase().startsWith("https")) {
+      if (httpClientCommon.requestContainsSensitiveInfo(conf.headers, conf.requestBody) &&
+          !target.getUri().getScheme().toLowerCase().startsWith("https")) {
         throw new StageException(Errors.HTTP_07);
       }
 
       // from HttpStreamConsumer
+      final MultivaluedMap<String, Object> resolvedHeaders = httpClientCommon.resolveHeaders(conf.headers, record);
+
+      String contentType = HttpStageUtil.getContentTypeWithDefault(resolvedHeaders, conf.defaultRequestContentType);
+
       final AsyncInvoker asyncInvoker = target.request()
-          .property(OAuth1ClientSupport.OAUTH_PROPERTY_ACCESS_TOKEN, authToken)
-          .headers(resolveHeaders(record))
+          .property(OAuth1ClientSupport.OAUTH_PROPERTY_ACCESS_TOKEN, httpClientCommon.getAuthToken())
+          .headers(resolvedHeaders)
           .async();
 
-      HttpMethod method = getHttpMethod(record);
+      HttpMethod method = httpClientCommon.getHttpMethod(conf.httpMethod, conf.methodExpression, record);
+
+      rateLimiter.acquire();
       if (conf.requestBody != null && !conf.requestBody.isEmpty() && method != HttpMethod.GET) {
         RecordEL.setRecordInContext(bodyVars, record);
         final String requestBody = bodyEval.eval(bodyVars, conf.requestBody, String.class);
-        responses.add(asyncInvoker.method(method.getLabel(), Entity.json(requestBody)));
+        resolvedRecords.put(record, new HeadersAndBody(resolvedHeaders, requestBody, contentType, method, target));
+        responses.add(asyncInvoker.method(method.getLabel(), Entity.entity(requestBody, contentType)));
       } else {
+        resolvedRecords.put(record, new HeadersAndBody(resolvedHeaders, null, null, method, target));
         responses.add(asyncInvoker.method(method.getLabel()));
       }
     }
@@ -215,36 +196,43 @@ public class HttpProcessor extends SingleLaneProcessor {
     int recordNum = 0;
     while (records.hasNext()) {
       try {
-        Record record = processResponse(records.next(), responses.get(recordNum), conf.maxRequestCompletionSecs);
-        batchMaker.addRecord(record);
+        Record record = processResponse(records.next(), responses.get(recordNum), conf.maxRequestCompletionSecs, false);
+        if (record != null) {
+          batchMaker.addRecord(record);
+        }
       } catch (OnRecordErrorException e) {
         errorRecordHandler.onError(e);
       } finally {
         ++recordNum;
       }
     }
-  }
-
-  /**
-   * Evaluates any EL expressions in the headers section of the stage configuration.
-   *
-   * @param record current record in context for EL evaluation
-   * @return Map of headers that can be added to the Jersey Client request
-   * @throws StageException if an expression could not be evaluated
-   */
-  private MultivaluedMap<String, Object> resolveHeaders(Record record) throws StageException {
-    RecordEL.setRecordInContext(headerVars, record);
-
-    MultivaluedMap<String, Object> requestHeaders = new MultivaluedHashMap<>();
-    for (Map.Entry<String, String> entry : conf.headers.entrySet()) {
-      List<Object> header = new ArrayList<>(1);
-      Object resolvedValue = headerEval.eval(headerVars, entry.getValue(), String.class);
-      header.add(resolvedValue);
-      requestHeaders.put(entry.getKey(), header);
+    if (!resolvedRecords.isEmpty()) {
+      reprocessIfRequired(batchMaker);
     }
-
-    return requestHeaders;
   }
+
+  private void reprocessIfRequired(SingleLaneBatchMaker batchMaker) throws StageException {
+    Map<Record, Future<Response>> responses = new HashMap<>(resolvedRecords.size());
+    for(Map.Entry<Record, HeadersAndBody> entry : resolvedRecords.entrySet()) {
+      HeadersAndBody hb = entry.getValue();
+      Future<Response> responseFuture;
+      final AsyncInvoker asyncInvoker = hb.target.request()
+          .headers(hb.resolvedHeaders).async();
+      if (hb.requestBody != null) {
+        responseFuture = asyncInvoker.method(hb.method.getLabel(), Entity.entity(hb.requestBody, hb.contentType));
+      } else {
+        responseFuture = asyncInvoker.method(hb.method.getLabel());
+      }
+      responses.put(entry.getKey(), responseFuture);
+    }
+    for (Map.Entry<Record, Future<Response>> entry : responses.entrySet()) {
+      Record output = processResponse(entry.getKey(), entry.getValue(), conf.maxRequestCompletionSecs, true);
+      if (output != null) {
+        batchMaker.addRecord(output);
+      }
+    }
+  }
+
 
   /**
    * Waits for the Jersey client to complete an asynchronous request, checks the response code
@@ -256,8 +244,12 @@ public class HttpProcessor extends SingleLaneProcessor {
    * @return parsed record from the request
    * @throws StageException if the request fails, times out, or cannot be parsed
    */
-  private Record processResponse(Record record, Future<Response> responseFuture, long maxRequestCompletionSecs) throws
-      StageException {
+  private Record processResponse(
+      Record record,
+      Future<Response> responseFuture,
+      long maxRequestCompletionSecs,
+      boolean failOn403
+  ) throws StageException {
 
     Response response;
     try {
@@ -267,7 +259,10 @@ public class HttpProcessor extends SingleLaneProcessor {
         responseBody = response.readEntity(String.class);
       }
       response.close();
-      if (response.getStatus() < 200 || response.getStatus() >= 300) {
+      if (conf.client.useOAuth2 && response.getStatus() == 403 && !failOn403) {
+        HttpStageUtil.getNewOAuth2Token(conf.client.oauth2, httpClientCommon.getClient());
+        return null;
+      } else if (response.getStatus() < 200 || response.getStatus() >= 300) {
         throw new OnRecordErrorException(
             record,
             Errors.HTTP_01,
@@ -275,7 +270,7 @@ public class HttpProcessor extends SingleLaneProcessor {
             response.getStatusInfo().getReasonPhrase() + " " + responseBody
         );
       }
-
+      resolvedRecords.remove(record);
       Record parsedResponse = parseResponse(responseBody);
       if (parsedResponse != null) {
         record.set(conf.outputField, parsedResponse.get());
@@ -290,6 +285,7 @@ public class HttpProcessor extends SingleLaneProcessor {
       throw new OnRecordErrorException(record, Errors.HTTP_03, e.toString());
     }
   }
+
 
   /**
    * Parses the HTTP response text from a request into SDC Records
@@ -311,55 +307,6 @@ public class HttpProcessor extends SingleLaneProcessor {
       errorRecordHandler.onError(Errors.HTTP_00, e.toString(), e);
     }
     return record;
-  }
-
-  /**
-   * Configures the Jersey client with the appropriate authentication mechanism
-   *
-   * @param clientBuilder Jersey client builder to configure
-   */
-  private void configureAuth(ClientBuilder clientBuilder) {
-    if (conf.client.authType == AuthenticationType.OAUTH) {
-      authToken = JerseyClientUtil.configureOAuth1(conf.client.oauth, clientBuilder);
-    } else if (conf.client.authType != AuthenticationType.NONE) {
-      JerseyClientUtil.configurePasswordAuth(conf.client.authType, conf.client.basicAuth, clientBuilder);
-    }
-  }
-
-  /**
-   * Determines the HTTP method to use for the next request. It may include an EL expression to evaluate.
-   *
-   * @param record Current record to set in context.
-   * @return the {@link HttpMethod} to use for the request
-   * @throws ELEvalException if an expression is supplied that cannot be evaluated
-   */
-  private HttpMethod getHttpMethod(Record record) throws ELEvalException {
-    if (conf.httpMethod != HttpMethod.EXPRESSION) {
-      return conf.httpMethod;
-    }
-    RecordEL.setRecordInContext(methodVars, record);
-    return HttpMethod.valueOf(methodEval.eval(methodVars, conf.methodExpression, String.class));
-  }
-
-  /**
-   * Returns true if the request contains potentially sensitive information such as a vault:read EL.
-   *
-   * @return whether or not the request had sensitive information detected.
-   */
-  private boolean requestContainsSensitiveInfo() {
-    boolean sensitive = false;
-    for (Map.Entry<String, String> header : conf.headers.entrySet()) {
-      if (header.getKey().contains(VAULT_EL_PREFIX) || header.getValue().contains(VAULT_EL_PREFIX)) {
-        sensitive = true;
-        break;
-      }
-    }
-
-    if (conf.requestBody != null && conf.requestBody.contains(VAULT_EL_PREFIX)) {
-      sensitive = true;
-    }
-
-    return sensitive;
   }
 
   /**

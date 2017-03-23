@@ -22,17 +22,21 @@ package com.streamsets.datacollector.runner.production;
 import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.runner.SourceOffsetTracker;
 
+import com.streamsets.pipeline.api.Source;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Named;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ProductionSourceOffsetTracker implements SourceOffsetTracker {
 
   private static final Logger LOG = LoggerFactory.getLogger(ProductionSourceOffsetTracker.class);
-  private String currentOffset;
-  private String newOffset;
+  private Map<String, String> offsets;
+  private volatile long lastBatchTime;
   private boolean finished;
   private final String pipelineName;
   private final String rev;
@@ -43,7 +47,7 @@ public class ProductionSourceOffsetTracker implements SourceOffsetTracker {
     this.pipelineName = pipelineName;
     this.rev = rev;
     this.runtimeInfo = runtimeInfo;
-    this.currentOffset = getSourceOffset(pipelineName, rev);
+    this.offsets = new HashMap<>(getSourceOffset(pipelineName, rev));
   }
 
   @Override
@@ -52,42 +56,53 @@ public class ProductionSourceOffsetTracker implements SourceOffsetTracker {
   }
 
   @Override
-  public String getOffset() {
-    return currentOffset;
+  public void commitOffset(String entity, String newOffset) {
+    // Update last batch time
+    lastBatchTime = System.currentTimeMillis();
+
+    // Short cut when origin is committing "null" entity then they are in fact not changing anything, so we don't need
+    // to synchronize on single file to write it down.
+    if(entity == null) {
+      return;
+    }
+
+    // Backward compatibility calculation
+    if(Source.POLL_SOURCE_OFFSET_KEY.equals(entity)) {
+      finished = newOffset == null;
+    }
+
+    // This object can be called from multiple threads, so we have to synchronize access to the offset map
+    synchronized (offsets) {
+      if (newOffset == null) {
+        offsets.remove(entity);
+      } else {
+        offsets.put(entity, newOffset);
+      }
+
+      // Finally write new variant of the offset file
+      saveOffset(pipelineName, rev, offsets);
+    }
   }
 
   @Override
-  public void setOffset(String offset) {
-    this.newOffset = offset;
+  public Map<String, String> getOffsets() {
+    return Collections.unmodifiableMap(offsets);
   }
 
-  @Override
-  public void commitOffset() {
-    commitOffset(pipelineName, rev);
-  }
-
-  public void commitOffset(String pipelineName, String rev) {
-    currentOffset = newOffset;
-    finished = (currentOffset == null);
-    newOffset = null;
-    saveOffset(pipelineName, rev, currentOffset);
-  }
-
-  public String getSourceOffset(String pipelineName, String rev) {
+  public Map<String, String> getSourceOffset(String pipelineName, String rev) {
     return OffsetFileUtil.saveIfEmpty(runtimeInfo, pipelineName, rev);
   }
 
   public void resetOffset(String pipelineName, String rev) {
-    OffsetFileUtil.resetOffset(runtimeInfo, pipelineName, rev);
+    OffsetFileUtil.resetOffsets(runtimeInfo, pipelineName, rev);
   }
 
-  private void saveOffset(String pipelineName, String rev, String offset) {
-    LOG.debug("Saving offset {} for pipeline {}", offset, pipelineName);
-    OffsetFileUtil.saveOffset(runtimeInfo, pipelineName, rev, offset);
+  private void saveOffset(String pipelineName, String rev, Map<String, String> offset) {
+    OffsetFileUtil.saveOffsets(runtimeInfo, pipelineName, rev, offset);
   }
 
   @Override
   public long getLastBatchTime() {
-    return OffsetFileUtil.getPipelineOffsetFile(runtimeInfo, pipelineName, rev).lastModified();
+    return lastBatchTime;
   }
 }

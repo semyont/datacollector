@@ -23,9 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.sdk.PushSourceRunner;
 import com.streamsets.pipeline.sdk.RecordCreator;
-import com.streamsets.pipeline.sdk.SourceRunner;
-import com.streamsets.pipeline.sdk.StageRunner;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -36,18 +35,22 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
 public class CompositeKeysIT extends BaseTableJdbcSourceIT {
-  private static final Logger LOGGER = LoggerFactory.getLogger(CompositeKeysIT.class);
+  private static final Logger LOG = LoggerFactory.getLogger(CompositeKeysIT.class);
   private static final List<Record> MULTIPLE_INT_COMPOSITE_RECORDS = new ArrayList<>();
   private static final Random RANDOM = new Random();
   private static final String LOG_TEMPLATE =
-      "Batches Read Till Now : {}, Record Read Till Now: {}, Remaining Records : {}, Current Batch Size: {}, Output Record Size : {}";
-  private static final String MULTIPLE_INT_COMPOSITE_INSERT_TEMPLATE = "INSERT into TEST.%s values (%s, %s, %s, '%s');";
+      "Batches Read Till Now : {}," +
+          " Record Read Till Now: {}," +
+          " Remaining Records : {}, Current Batch Size: {}, Output Record Size : {}";
+  private static final String MULTIPLE_INT_COMPOSITE_INSERT_TEMPLATE = "INSERT into TEST.%s values (%s, %s, %s, '%s')";
 
   private static Record createMultipleIntCompositePrimaryKeyRecord(int id_1, int id_2, int id_3, String stringCol) {
     Record record = RecordCreator.create();
@@ -65,16 +68,15 @@ public class CompositeKeysIT extends BaseTableJdbcSourceIT {
   @BeforeClass
   public static void setupTables() throws SQLException {
     try (Statement statement = connection.createStatement()) {
-      statement.addBatch("CREATE SCHEMA IF NOT EXISTS TEST;");
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.MULTIPLE_INT_PRIMARY" +
+          "CREATE TABLE TEST.MULTIPLE_INT_PRIMARY" +
               "(" +
-              " id_1 INT," +
-              " id_2 INT," +
-              " id_3 INT," +
+              " id_1 INT NOT NULL," +
+              " id_2 INT NOT NULL," +
+              " id_3 INT NOT NULL," +
               " stringcol varchar(500)," +
               " PRIMARY KEY (id_1, id_2, id_3)" +
-              ");"
+              ")"
       );
       //Totally create 5 * 5 * 5 = 125 records
       for (int i = 1; i <= 5; i++) {
@@ -107,48 +109,53 @@ public class CompositeKeysIT extends BaseTableJdbcSourceIT {
   @AfterClass
   public static void dropTables() throws SQLException {
     try (Statement statement = connection.createStatement()) {
-      statement.execute("DROP TABLE IF EXISTS TEST.MULTIPLE_INT_PRIMARY;");
+      statement.execute(String.format(DROP_STATEMENT_TEMPLATE, database, "MULTIPLE_INT_PRIMARY"));
     }
   }
 
   @Test
   public void testCompositePrimaryKeys() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "%";
-    tableConfigBean.schema = database;
+    int recordsRead = 0, noOfBatches = 0, totalNoOfRecords = MULTIPLE_INT_COMPOSITE_RECORDS.size();
+    Map<String, String> offsets = Collections.emptyMap();
+    while (recordsRead < totalNoOfRecords) {
+      TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+          .tablePattern("%")
+          .schema(database)
+          .build();
 
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
+      TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+          .tableConfigBeans(ImmutableList.of(tableConfigBean))
+          .build();
 
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
-    runner.runInit();
-    try {
-      int recordsRead = 0, noOfBatches = 0, totalNoOfRecords = MULTIPLE_INT_COMPOSITE_RECORDS.size();
-      String offset = "";
-      while (recordsRead < totalNoOfRecords) {
+      PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+          .addOutputLane("a").build();
+      runner.runInit();
+
+      try {
         //Random batch size (Making sure at least batch size is 1)
         int bound = totalNoOfRecords - recordsRead - 1;
         int batchSize = (bound == 0)? 1: RANDOM.nextInt(bound) + 1;
 
-        StageRunner.Output op = runner.runProduce(offset, batchSize);
-        List<Record> actualRecords = op.getRecords().get("a");
+        JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 1);
+
+        runner.runProduce(offsets, batchSize, callback);
+
+        List<List<Record>> batchRecords = callback.waitForAllBatchesAndReset();
+
+        List<Record> actualRecords = batchRecords.get(0);
 
         List<Record> expectedRecords = MULTIPLE_INT_COMPOSITE_RECORDS.subList(recordsRead, recordsRead + batchSize);
         checkRecords(expectedRecords, actualRecords);
-        offset = op.getNewOffset();
 
         recordsRead = recordsRead + batchSize;
         noOfBatches++;
 
-        LOGGER.info(LOG_TEMPLATE, noOfBatches, recordsRead, (totalNoOfRecords - recordsRead), batchSize, actualRecords.size());
+        offsets = new HashMap<>(runner.getOffsets());
+
+        LOG.info(LOG_TEMPLATE, noOfBatches, recordsRead, (totalNoOfRecords - recordsRead), batchSize, actualRecords.size());
+      } finally {
+        runner.runDestroy();
       }
-    } finally {
-      runner.runDestroy();
     }
   }
-
 }

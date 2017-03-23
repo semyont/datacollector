@@ -23,9 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.sdk.PushSourceRunner;
 import com.streamsets.pipeline.sdk.RecordCreator;
-import com.streamsets.pipeline.sdk.SourceRunner;
-import com.streamsets.pipeline.sdk.StageRunner;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -40,6 +39,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,10 +48,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @RunWith(Parameterized.class)
 public class AllTypesIT extends BaseTableJdbcSourceIT {
-  private static final String CHAR_AND_BINARY_TEMPLATE  = "INSERT INTO TEST.CHAR_AND_BINARY VALUES (%s, '%s', '%s', '%s', X'%s', X'%s');";
-  private static final String DATE_AND_TIME_TEMPLATE  = "INSERT INTO TEST.DATE_AND_TIME VALUES (%s, '%s', '%s', '%s', '%s');";
-  private static final String DIFFERENT_INTS_TEMPLATE = "INSERT INTO TEST.DIFFERENT_INTS VALUES (%s, %s, %s, %s, %s, %s, %s);";
-  private static final String FLOATING_PT_INTS_TEMPLATE  = "INSERT INTO TEST.FLOATING_PT_INTS VALUES (%s, %s, %s, %s, %s, %s);";
+  private static final String CHAR_AND_BINARY_TEMPLATE  = "INSERT INTO TEST.CHAR_AND_BINARY VALUES (%s, '%s', '%s', '%s', X'%s', X'%s')";
+  private static final String DATE_AND_TIME_TEMPLATE  = "INSERT INTO TEST.DATE_AND_TIME VALUES (%s, '%s', '%s', '%s', '%s')";
+  private static final String DIFFERENT_INTS_TEMPLATE = "INSERT INTO TEST.DIFFERENT_INTS VALUES (%s, %s, %s, %s, %s, %s, %s)";
+  private static final String FLOATING_PT_INTS_TEMPLATE  = "INSERT INTO TEST.FLOATING_PT_INTS VALUES (%s, %s, %s, %s, %s, %s)";
   private static final String OTHER_TYPES_TEMPLATE  = "INSERT INTO TEST.OTHER_TYPES VALUES (%s, %s);";
   private static final Map<String, Pair<String, ArrayList<Record>>> TABLE_TO_TEMPLATE_AND_RECORDS_MAP =
       new ImmutableMap.Builder<String, Pair<String, ArrayList<Record>>>()
@@ -190,10 +190,9 @@ public class AllTypesIT extends BaseTableJdbcSourceIT {
   public static void setupTables() throws SQLException {
     populateRecords();
     try (Statement statement = connection.createStatement())  {
-      statement.addBatch("CREATE SCHEMA IF NOT EXISTS TEST;");
       //CHAR_AND_BINARY
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.CHAR_AND_BINARY " +
+          "CREATE TABLE TEST.CHAR_AND_BINARY " +
               "(" +
               " p_id INT NOT NULL PRIMARY KEY," +
               " char1 char(10)," +
@@ -201,24 +200,24 @@ public class AllTypesIT extends BaseTableJdbcSourceIT {
               " clob1 CLOB(500)," +
               " varbinary1 VARBINARY(500)," +
               " blob1 BLOB(500)" +
-              ");"
+              ")"
       );
 
       //DATE_AND_TIME
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.DATE_AND_TIME " +
+          "CREATE TABLE TEST.DATE_AND_TIME " +
               "(" +
               " p_id INT NOT NULL PRIMARY KEY," +
               " date1 DATE," +
               " timestamp1 TIMESTAMP," +
               " datetime1 DATETIME," +
               " time1 TIME" +
-              ");"
+              ")"
       );
 
       //DIFFERENT_INTS
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.DIFFERENT_INTS " +
+          "CREATE TABLE TEST.DIFFERENT_INTS " +
               "(" +
               " p_id INT NOT NULL PRIMARY KEY," +
               " int1 INT," +
@@ -227,12 +226,12 @@ public class AllTypesIT extends BaseTableJdbcSourceIT {
               " tinyint1 TINYINT," +
               " smallint1 SMALLINT," +
               " bigint1 BIGINT" +
-              ");"
+              ")"
       );
 
       //FLOATING_PT_INTS
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.FLOATING_PT_INTS " +
+          "CREATE TABLE TEST.FLOATING_PT_INTS " +
               "(" +
               " p_id INT NOT NULL PRIMARY KEY," +
               " decimal1 DECIMAL(5, 3)," +
@@ -241,16 +240,16 @@ public class AllTypesIT extends BaseTableJdbcSourceIT {
               " real1 REAL," +
               //H2 returns float as double.
               " floatdouble1 FLOAT" +
-              ");"
+              ")"
       );
 
       //OTHER_TYPES
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.OTHER_TYPES " +
+          "CREATE TABLE TEST.OTHER_TYPES " +
               "(" +
               " p_id INT NOT NULL PRIMARY KEY," +
               " boolean1 BOOLEAN" +
-              ");"
+              ")"
       );
       statement.executeBatch();
     }
@@ -260,7 +259,7 @@ public class AllTypesIT extends BaseTableJdbcSourceIT {
   public static void deleteTables() throws SQLException {
     try (Statement statement = connection.createStatement()) {
       for (String table  : TABLE_TO_TEMPLATE_AND_RECORDS_MAP.keySet()) {
-        statement.addBatch("DROP TABLE TEST." + table + ";");
+        statement.addBatch(String.format(DROP_STATEMENT_TEMPLATE, database, table));
       }
       statement.executeBatch();
     }
@@ -275,27 +274,28 @@ public class AllTypesIT extends BaseTableJdbcSourceIT {
 
   @Test
   public void testDataTypes() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = table;
-    tableConfigBean.schema = database;
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern(table)
+        .schema(database)
+        .build();
 
-    TableJdbcSource partitionableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, partitionableJdbcSource)
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
+
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
         .addOutputLane("a").build();
     runner.runInit();
+    JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 1);
     try {
-      StageRunner.Output output = runner.runProduce("", 1000);
+      runner.runProduce(Collections.emptyMap(), 1000, callback);
+      List<List<Record>> batchRecords = callback.waitForAllBatchesAndReset();
+
       List<Record> expectedRecords = TABLE_TO_TEMPLATE_AND_RECORDS_MAP.get(table).getRight();
-      List<Record> actualRecords =  output.getRecords().get("a");
+      List<Record> actualRecords = batchRecords.get(0);
       checkRecords(expectedRecords, actualRecords);
-      Assert.assertEquals(0, runner.runProduce(output.getNewOffset(), 1000).getRecords().get("a").size());
     } finally {
       runner.runDestroy();
     }
   }
-
 }

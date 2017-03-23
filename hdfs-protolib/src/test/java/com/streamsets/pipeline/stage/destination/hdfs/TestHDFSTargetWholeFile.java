@@ -19,11 +19,13 @@
  */
 package com.streamsets.pipeline.stage.destination.hdfs;
 
+import com.google.common.collect.ImmutableList;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.FileRef;
 import com.streamsets.pipeline.api.OnRecordError;
 import com.streamsets.pipeline.api.Record;
-import com.streamsets.pipeline.api.StageException;
+import com.streamsets.pipeline.api.Stage;
+import com.streamsets.pipeline.api.impl.ErrorMessage;
 import com.streamsets.pipeline.config.DataFormat;
 import com.streamsets.pipeline.config.WholeFileExistsAction;
 import com.streamsets.pipeline.lib.io.fileref.FileRefUtil;
@@ -33,6 +35,7 @@ import com.streamsets.pipeline.sdk.TargetRunner;
 import com.streamsets.pipeline.stage.destination.hdfs.util.HdfsTargetUtil;
 import com.streamsets.pipeline.stage.destination.hdfs.writer.RecordWriter;
 import com.streamsets.pipeline.stage.destination.hdfs.writer.RecordWriterManager;
+import com.streamsets.pipeline.stage.destination.lib.DataGeneratorFormatConfig;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -40,6 +43,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.api.support.membermodification.MemberMatcher;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
@@ -60,6 +64,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -87,7 +92,7 @@ public class TestHDFSTargetWholeFile {
     return testDir;
   }
 
-  @Test(expected = StageException.class)
+  @Test
   public void testInvalidFileTypeOnWholeFileFormat() throws Exception {
     HdfsTarget hdfsTarget = HdfsTargetUtil.newBuilder()
         .dirPathTemplate(getTestDir() + "/hdfs/${record:attribute('key')}/a/b/c}")
@@ -103,10 +108,44 @@ public class TestHDFSTargetWholeFile {
         .build();
 
     TargetRunner runner = new TargetRunner.Builder(HdfsDTarget.class, hdfsTarget)
-        .setOnRecordError(OnRecordError.STOP_PIPELINE)
+        .setOnRecordError(OnRecordError.TO_ERROR)
         .build();
-    runner.runInit();
+    List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
+    Assert.assertEquals(1, issues.size());
+    Assert.assertEquals(
+        Errors.HADOOPFS_53.name(),
+        ((ErrorMessage)Whitebox.getInternalState(issues.get(0), "message")).getErrorCode()
+    );
   }
+
+  @Test
+  public void testWholeFileTypeOnNonWholeFileDataFormat() throws Exception {
+    DataGeneratorFormatConfig dataGeneratorFormatConfig = new DataGeneratorFormatConfig();
+    dataGeneratorFormatConfig.textFieldPath = "/text";
+    HdfsTarget hdfsTarget = HdfsTargetUtil.newBuilder()
+        .dirPathTemplate(getTestDir() + "/hdfs/${record:attribute('key')}/a/b/c}")
+        .timeDriver("${time:now()}")
+        .dataForamt(DataFormat.TEXT)
+        .maxFileSize(0)
+        .maxRecordsPerFile(1)
+        .idleTimeout("-1")
+        .fileType(HdfsFileType.WHOLE_FILE)
+        .hdfsUri(uri.toString())
+        .lateRecordsAction(LateRecordsAction.SEND_TO_LATE_RECORDS_FILE)
+        .dataGeneratorFormatConfig(dataGeneratorFormatConfig)
+        .build();
+
+    TargetRunner runner = new TargetRunner.Builder(HdfsDTarget.class, hdfsTarget)
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
+    List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
+    Assert.assertEquals(1, issues.size());
+    Assert.assertEquals(
+        Errors.HADOOPFS_60.name(),
+        ((ErrorMessage)Whitebox.getInternalState(issues.get(0), "message")).getErrorCode()
+    );
+  }
+
 
   @Test
   public void testWholeFileCopyMultipleFiles() throws Exception {
@@ -232,12 +271,9 @@ public class TestHDFSTargetWholeFile {
 
   @Test
   public void testWholeFilePermission() throws Exception {
-
     java.nio.file.Path filePath1 = Paths.get(getTestDir() + "/source_testWholeFilePermissionFiles1.txt");
     java.nio.file.Path filePath2 = Paths.get(getTestDir() + "/source_testWholeFilePermissionFiles2.txt");
     java.nio.file.Path filePath3 = Paths.get(getTestDir() + "/source_testWholeFilePermissionFiles3.txt");
-
-
 
     Files.write(filePath1, "This is a sample file 1 with some text".getBytes());
     Files.write(filePath2, "This is a sample file 2 with some text".getBytes());
@@ -440,6 +476,47 @@ public class TestHDFSTargetWholeFile {
 
         Assert.assertEquals(getTestDir()+ "/sdc-"+ filePath.getFileName(), eventRecord.get(FileRefUtil.WHOLE_FILE_TARGET_FILE_INFO_PATH + "/path").getValueAsString());
       }
+
+    } finally {
+      runner.runDestroy();
+    }
+  }
+
+  @Test
+  public void testWholeFileInvalidRecord() throws Exception {
+    java.nio.file.Path filePath = Paths.get(getTestDir() + "/source_testWholeFileEventRecords.txt");
+    Files.write(filePath, "This is a sample file 1 with some text".getBytes());
+
+    HdfsTarget hdfsTarget = HdfsTargetUtil.newBuilder()
+        .hdfsUri(uri.toString())
+        .dirPathTemplate(getTestDir())
+        .timeDriver("${time:now()}")
+        .dataForamt(DataFormat.WHOLE_FILE)
+        .fileType(HdfsFileType.WHOLE_FILE)
+        .fileNameEL("${record:value('"+ FileRefUtil.FILE_INFO_FIELD_PATH +"/filename')}")
+        .maxRecordsPerFile(1)
+        .maxFileSize(0)
+        .uniquePrefix("sdc-")
+        .idleTimeout("-1")
+        .wholeFileExistsAction(WholeFileExistsAction.TO_ERROR)
+        .lateRecordsAction(LateRecordsAction.SEND_TO_LATE_RECORDS_FILE)
+        .build();
+
+    TargetRunner runner = new TargetRunner.Builder(HdfsDTarget.class, hdfsTarget)
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
+
+    runner.runInit();
+
+    try {
+      Record record1 = getFileRefRecordForFile(filePath);
+      record1.delete("/fileRef");
+
+      Record record2 = getFileRefRecordForFile(filePath);
+      record2.delete("/fileInfo");
+
+      runner.runWrite(ImmutableList.of(record1, record2));
+      Assert.assertEquals(2, runner.getErrorRecords().size());
 
     } finally {
       runner.runDestroy();

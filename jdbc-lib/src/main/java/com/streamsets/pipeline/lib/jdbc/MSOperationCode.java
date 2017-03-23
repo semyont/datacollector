@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.lib.operation.OperationType;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.api.impl.Utils;
+
 
 import java.util.Map;
 
@@ -40,12 +42,12 @@ public class MSOperationCode {
   static final ImmutableMap<Integer, Integer> CRUD_MAP = ImmutableMap.<Integer, Integer> builder()
       .put(DELETE, OperationType.DELETE_CODE)
       .put(INSERT, OperationType.INSERT_CODE)
-      .put(BEFORE_UPDATE, OperationType.BEFORE_UPDATE_CODE)
-      .put(AFTER_UPDATE, OperationType.AFTER_UPDATE_CODE)
+      .put(BEFORE_UPDATE, OperationType.UNSUPPORTED_CODE)
+      .put(AFTER_UPDATE, OperationType.UPDATE_CODE)
       .build();
 
   static String getOpField(){
-    return String.format("/%s", OP_FIELD);
+    return "/" + OP_FIELD;
   }
 
   public static void addOperationCodeToRecordHeader(Record record) {
@@ -57,5 +59,19 @@ public class MSOperationCode {
           String.valueOf(op)
       );
     }
+  }
+
+  /**
+   * Take an numeric operation code and check if the number is
+   * valid operation code.
+   * The operation code must be numeric: 1(insert), 2(update), 3(delete), etc,
+   * @param op Numeric operation code in String
+   * @return Operation code in int, -1 if invalid number
+   */
+  static int convertToJDBCCode(int op)  {
+    if (CRUD_MAP.containsKey(op)){
+      return CRUD_MAP.get(op);
+    }
+    throw new UnsupportedOperationException(Utils.format("Operation code {} is not supported", op));
   }
 }

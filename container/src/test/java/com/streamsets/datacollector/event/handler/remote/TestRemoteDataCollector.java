@@ -46,6 +46,7 @@ import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.runner.PipelineRuntimeException;
 import com.streamsets.datacollector.runner.StageOutput;
 import com.streamsets.datacollector.runner.production.OffsetFileUtil;
+import com.streamsets.datacollector.store.AclStoreTask;
 import com.streamsets.datacollector.store.PipelineInfo;
 import com.streamsets.datacollector.store.PipelineRevInfo;
 import com.streamsets.datacollector.store.PipelineStoreException;
@@ -53,11 +54,15 @@ import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.datacollector.validation.Issues;
+import com.streamsets.lib.security.acl.dto.Acl;
 import com.streamsets.pipeline.api.Config;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.impl.ErrorMessage;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -68,6 +73,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -269,6 +275,12 @@ public class TestRemoteDataCollector {
     }
 
     @Override
+    public Map<String, String> getCommittedOffsets() throws PipelineException {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
     public PipelineState getState() throws PipelineStoreException {
       // TODO Auto-generated method stub
       return null;
@@ -318,7 +330,25 @@ public class TestRemoteDataCollector {
     public void start() throws PipelineRunnerException, PipelineStoreException, PipelineRuntimeException,
         StageException {
       // TODO Auto-generated method stub
+    }
 
+    @Override
+    public void start(
+        Map<String, Object> runtimeConstants
+    ) throws PipelineRunnerException, PipelineStoreException, PipelineRuntimeException,
+        StageException {
+      // TODO Auto-generated method stub
+    }
+
+    @Override
+    public void startAndCaptureSnapshot(
+        Map<String, Object> runtimeConstants,
+        String snapshotName,
+        String snapshotLabel,
+        int batches,
+        int batchSize
+    ) throws PipelineException, StageException {
+      // TODO Auto-generated method stub
     }
 
     @Override
@@ -683,13 +713,23 @@ public class TestRemoteDataCollector {
     public PipelineConfiguration create(
         String user,
         String name,
+        String label,
         String description,
         boolean isRemote
     ) throws PipelineStoreException {
       // TODO Auto-generated method stub
-      return new PipelineConfiguration(1, 1, UUID.randomUUID(), "", Arrays.asList(new Config("", "")), null, null,
+      return new PipelineConfiguration(
+          1,
+          1,
+          UUID.randomUUID(),
+          "label",
+          "",
+          Arrays.asList(new Config("", "")),
           null,
-          null);
+          null,
+          null,
+          null
+      );
     }
 
     @Override
@@ -705,8 +745,7 @@ public class TestRemoteDataCollector {
 
     @Override
     public PipelineInfo getInfo(String name) throws PipelineStoreException {
-      // TODO Auto-generated method stub
-      return null;
+      return new PipelineInfo(name, "title", null, null, null, null, null, null, null, false, null);
     }
 
     @Override
@@ -786,11 +825,14 @@ public class TestRemoteDataCollector {
   @Test
   public void testValidateConfigs() throws Exception {
     try {
+      AclStoreTask aclStoreTask = Mockito.mock(AclStoreTask.class);
       RemoteDataCollector dataCollector = new RemoteDataCollector(new MockManager(),
           new MockPipelineStoreTask(),
           new MockPipelineStateStore(),
+          aclStoreTask,
           new RemoteStateEventListener(new Configuration()),
-          null
+          null,
+          Mockito.mock(AclCacheHelper.class)
       );
       dataCollector.validateConfigs("user", "ns:name", "rev");
       dataCollector.validateConfigs("user1", "ns:name1", "rev1");
@@ -805,11 +847,14 @@ public class TestRemoteDataCollector {
   @Test
   public void testStopAndDelete() throws Exception {
     try {
+      AclStoreTask aclStoreTask = Mockito.mock(AclStoreTask.class);
       RemoteDataCollector dataCollector = new RemoteDataCollector(new MockManager(),
           new MockPipelineStoreTask(),
           new MockPipelineStateStore(),
+          aclStoreTask,
           new RemoteStateEventListener(new Configuration()),
-          null
+          null,
+          Mockito.mock(AclCacheHelper.class)
       );
       dataCollector.stopAndDelete("user", "ns:name", "rev");
       dataCollector.stopAndDelete("user", "ns:name", "rev");
@@ -829,17 +874,20 @@ public class TestRemoteDataCollector {
   public void testGetPipelineStatus() throws Exception {
     try {
       RuntimeInfo runtimeInfo = Mockito.mock(RuntimeInfo.class);
+      AclStoreTask aclStoreTask = Mockito.mock(AclStoreTask.class);
       File testFolder = tempFolder.newFolder();
       Mockito.when(runtimeInfo.getDataDir()).thenReturn(testFolder.getAbsolutePath());
-      OffsetFileUtil.saveOffset(runtimeInfo, "ns:name", "rev", "offset:100");
-      OffsetFileUtil.saveOffset(runtimeInfo, "ns:name1", "rev1", "offset:101");
-      OffsetFileUtil.saveOffset(runtimeInfo, "ns:name2", "rev1", "offset:102");
+      OffsetFileUtil.saveOffsets(runtimeInfo, "ns:name", "rev", Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "offset:100"));
+      OffsetFileUtil.saveOffsets(runtimeInfo, "ns:name1", "rev1", Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "offset:101"));
+      OffsetFileUtil.saveOffsets(runtimeInfo, "ns:name2", "rev1", Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "offset:102"));
 
       RemoteDataCollector dataCollector = new RemoteDataCollector(new MockManager(),
           new MockPipelineStoreTask(),
           new MockPipelineStateStore(),
+          aclStoreTask,
           new RemoteStateEventListener(new Configuration()),
-          runtimeInfo
+          runtimeInfo,
+          Mockito.mock(AclCacheHelper.class)
       );
       dataCollector.init();
       dataCollector.validateConfigs("user", "ns:name", "rev");
@@ -851,6 +899,7 @@ public class TestRemoteDataCollector {
             validationStatus.getName().equals(
             "ns:name2") || validationStatus.getName().equals("local"));
         if (validationStatus.getName().equals("ns:name")) {
+          assertEquals("title", validationStatus.getTitle());
           assertEquals("rev", validationStatus.getRev());
           assertEquals(PipelineStatus.EDITED, validationStatus.getPipelineStatus());
           assertEquals(ValidationStatus.VALID, validationStatus.getValidationStatus());
@@ -880,31 +929,81 @@ public class TestRemoteDataCollector {
   }
 
   @Test
-  public void testSavePipelineOffset() throws Exception {
+  public void testAclOnSavePipeline() throws Exception {
     RuntimeInfo runtimeInfo = Mockito.mock(RuntimeInfo.class);
+    AclStoreTask aclStoreTask = Mockito.mock(AclStoreTask.class);
     RemoteDataCollector dataCollector = new RemoteDataCollector(new MockManager(),
         new MockPipelineStoreTask(),
         new MockPipelineStateStore(),
+        aclStoreTask,
         new RemoteStateEventListener(new Configuration()),
-        runtimeInfo
+        runtimeInfo,
+        Mockito.mock(AclCacheHelper.class)
     );
     File testFolder = tempFolder.newFolder();
     Mockito.when(runtimeInfo.getDataDir()).thenReturn(testFolder.getAbsolutePath());
-    dataCollector.savePipeline("user", "foo", "0", "", "offset:1000", Mockito.mock(PipelineConfiguration.class), null);
+    Acl acl = new Acl();
+    dataCollector.savePipeline("user", "foo", "0", "", "offset:1000", Mockito.mock(PipelineConfiguration.class), null,
+        acl);
+    Mockito.verify(aclStoreTask, Mockito.times(1)).saveAcl(Mockito.eq("foo"), Mockito.eq(acl));
+  }
+
+  @Test
+  public void testSyncAcl() throws Exception {
+    RuntimeInfo runtimeInfo = Mockito.mock(RuntimeInfo.class);
+    AclStoreTask aclStoreTask = Mockito.mock(AclStoreTask.class);
+    PipelineStoreTask pipelineStoreTask = Mockito.mock(MockPipelineStoreTask.class);
+    RemoteDataCollector dataCollector = new RemoteDataCollector(new MockManager(),
+        pipelineStoreTask,
+        new MockPipelineStateStore(),
+        aclStoreTask,
+        new RemoteStateEventListener(new Configuration()),
+        runtimeInfo,
+        Mockito.mock(AclCacheHelper.class)
+    );
+    File testFolder = tempFolder.newFolder();
+    Mockito.when(runtimeInfo.getDataDir()).thenReturn(testFolder.getAbsolutePath());
+    Mockito.when(pipelineStoreTask.hasPipeline(Mockito.anyString())).thenReturn(true);
+    Acl acl = new Acl();
+    String name = "remote:pipeline";
+    acl.setResourceId(name);
+    dataCollector.syncAcl(acl);
+    Mockito.verify(aclStoreTask, Mockito.times(1)).saveAcl(Mockito.eq(name), Mockito.eq(acl));
+  }
+
+  @Test
+  public void testSavePipelineOffset() throws Exception {
+    RuntimeInfo runtimeInfo = Mockito.mock(RuntimeInfo.class);
+    AclStoreTask aclStoreTask = Mockito.mock(AclStoreTask.class);
+    RemoteDataCollector dataCollector = new RemoteDataCollector(new MockManager(),
+        new MockPipelineStoreTask(),
+        new MockPipelineStateStore(),
+        aclStoreTask,
+        new RemoteStateEventListener(new Configuration()),
+        runtimeInfo,
+        Mockito.mock(AclCacheHelper.class)
+    );
+    File testFolder = tempFolder.newFolder();
+    Mockito.when(runtimeInfo.getDataDir()).thenReturn(testFolder.getAbsolutePath());
+    dataCollector.savePipeline("user", "foo", "0", "", "offset:1000", Mockito.mock(PipelineConfiguration.class), null,
+        new Acl());
     assertTrue("Offset File doesn't exist", OffsetFileUtil.getPipelineOffsetFile(runtimeInfo, "foo", "0").exists());
-    assertEquals("offset:1000", OffsetFileUtil.getOffset(runtimeInfo, "foo", "0"));
+    assertEquals("offset:1000", OffsetFileUtil.getOffsets(runtimeInfo, "foo", "0").get(Source.POLL_SOURCE_OFFSET_KEY));
   }
 
   @Test
   public void testRemotePipelines() throws Exception {
     RuntimeInfo runtimeInfo = Mockito.mock(RuntimeInfo.class);
+    AclStoreTask aclStoreTask = Mockito.mock(AclStoreTask.class);
     RemoteStateEventListener remoteStateEventListener = Mockito.mock(RemoteStateEventListener.class);
     PipelineStoreTask pipelineStoreTask = Mockito.mock(MockPipelineStoreTask.class);
     RemoteDataCollector dataCollector = new RemoteDataCollector(new MockManager(),
         pipelineStoreTask,
         new MockPipelineStateStore(),
+        aclStoreTask,
         remoteStateEventListener,
-        runtimeInfo
+        runtimeInfo,
+        Mockito.mock(AclCacheHelper.class)
     );
     List<PipelineState> pipelineStates = new ArrayList<>();
     pipelineStates.add(new PipelineStateImpl("user",
@@ -921,20 +1020,22 @@ public class TestRemoteDataCollector {
     ));
     File testFolder = tempFolder.newFolder();
     Mockito.when(runtimeInfo.getDataDir()).thenReturn(testFolder.getAbsolutePath());
-    OffsetFileUtil.saveOffset(runtimeInfo, "name", "rev", "offset:100");
     Mockito.when(pipelineStoreTask.hasPipeline(Mockito.anyString())).thenReturn(false);
-    Mockito.when(remoteStateEventListener.getPipelineStateEvents()).thenReturn(pipelineStates);
+    Mockito.when(remoteStateEventListener.getPipelineStateEvents()).thenReturn(Arrays.<Pair<PipelineState,
+        Map<String, String>>>asList(
+        new ImmutablePair<>(pipelineStates.get(0), Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "offset:1000"))));
     List<PipelineAndValidationStatus> pipelineAndValidationStatuses = dataCollector.getRemotePipelinesWithChanges();
     assertEquals(1, pipelineAndValidationStatuses.size());
     PipelineAndValidationStatus pipelineAndValidationStatus = pipelineAndValidationStatuses.get(0);
     assertEquals("name", pipelineAndValidationStatus.getName());
+    assertNull(pipelineAndValidationStatus.getTitle());
     assertEquals("rev", pipelineAndValidationStatus.getRev());
     assertEquals(PipelineStatus.RUNNING, pipelineAndValidationStatus.getPipelineStatus());
     assertEquals(false, pipelineAndValidationStatus.isClusterMode());
     assertTrue(pipelineAndValidationStatus.getWorkerInfos().isEmpty());
     assertTrue(pipelineAndValidationStatus.isRemote());
     assertEquals("message", pipelineAndValidationStatus.getMessage());
-    assertEquals("offset:100", pipelineAndValidationStatus.getOffset());
+    assertEquals("offset:1000", pipelineAndValidationStatus.getOffset());
     assertNull(pipelineAndValidationStatus.getValidationStatus());
   }
 }

@@ -253,11 +253,37 @@ public class HdfsMetadataExecutorIT {
       .put("owner", Field.create(Field.Type.STRING, "darth_vader"))
       .put("group", Field.create(Field.Type.STRING, "empire"))
       .put("perms_octal", Field.create(Field.Type.STRING, "777"))
+      .put("perms_unix", Field.create(Field.Type.STRING, "rwxrwx---"))
       .put("perms_string", Field.create(Field.Type.STRING, "a-rwx"))
       .put("acls", Field.create(Field.Type.STRING, "user::rwx,group::r--,other::---,user:sith:rw-"))
       .build()
     ));
     return record;
+  }
+
+  @Test
+  public void testCreateFile() throws Exception {
+    Path outputPath = new Path(outputDir, INPUT_FILE);
+
+    HdfsConnectionConfig conn = new HdfsConnectionConfig();
+    conn.hdfsConfDir = confDir;
+
+    HdfsActionsConfig actions = new HdfsActionsConfig();
+    actions.filePath = "${record:value('/new_dir')}/" + INPUT_FILE;
+    actions.createFile = true;
+
+    HdfsMetadataExecutor executor = new HdfsMetadataExecutor(conn, actions);
+
+    ExecutorRunner runner = new ExecutorRunner.Builder(HdfsMetadataDExecutor.class, executor)
+      .setOnRecordError(OnRecordError.STOP_PIPELINE)
+      .build();
+    runner.runInit();
+
+    runner.runWrite(ImmutableList.of(getTestRecord()));
+    assertEvent(runner.getEventRecords(), outputPath);
+    runner.runDestroy();
+
+    assertFile(outputPath, "");
   }
 
   @Test
@@ -389,6 +415,31 @@ public class HdfsMetadataExecutorIT {
 
     assertFile(inputPath, CONTENT);
     assertPermissions(inputPath, "777");
+  }
+
+  @Test
+  public void testSetPermissionsUnix() throws Exception {
+    HdfsConnectionConfig conn = new HdfsConnectionConfig();
+    conn.hdfsConfDir = confDir;
+
+    HdfsActionsConfig actions = new HdfsActionsConfig();
+    actions.filePath = "${record:value('/path')}";
+    actions.shouldSetPermissions = true;
+    actions.newPermissions = "${record:value('/perms_unix')}";
+
+    HdfsMetadataExecutor executor = new HdfsMetadataExecutor(conn, actions);
+
+    ExecutorRunner runner = new ExecutorRunner.Builder(HdfsMetadataDExecutor.class, executor)
+      .setOnRecordError(OnRecordError.STOP_PIPELINE)
+      .build();
+    runner.runInit();
+
+    runner.runWrite(ImmutableList.of(getTestRecord()));
+    assertEvent(runner.getEventRecords(), inputPath);
+    runner.runDestroy();
+
+    assertFile(inputPath, CONTENT);
+    assertPermissions(inputPath, "770");
   }
 
   @Test

@@ -18,9 +18,9 @@
  <topicref href="../Origins/Origins_title.dita">
   <topicref href="../Origins/Origins_overview.dita" chunk="to-content">
     <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Origins/Origins-HTTPComparison.dita"/>
    <topicref href="../Origins/BatchSizeWaitTime.dita"/>
    <topicref href="../Origins/FileCompressionFormats.dita"/>
-   <topicref href="../Origins/FilePath_Offset.dita"/>
   <topicref href="../Origins/PreviewingRawSourceData.dita"/></topicref>
   <topicref href="../Origins/AmazonS3.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
@@ -35,12 +35,14 @@
   </topicref>
   <topicref href="../Origins/Directory.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Origins/Directory-FileNamePattern-Mode.dita"/>
    <topicref href="../Origins/Directory-ReadOrder.dita"/>
    <topicref href="../Origins/Directory-Subdirectories.dita">
     <topicref href="../Origins/Directory-SubdirArchiving.dita"/>
    </topicref>
    <topicref href="../Origins/Directory-FirstFile.dita"/>
    <topicref href="../Origins/Directory-LateDir.dita"/>
+   <topicref href="../Origins/Directory-RecordHeaderAtts.dita"/>
    <topicref href="../Origins/Directory-EventGeneration.dita">
     <topicref href="../Origins/Directory-EventRecords.dita"/>
    </topicref>
@@ -56,7 +58,9 @@
    <topicref href="../Origins/FileTail-MultipleDirectories.dita"/>
    <topicref href="../Origins/FileTail-LateDirectories.dita"/>
    <topicref href="../Origins/FileTail-Patterns.dita"/>
-   <topicref href="../Origins/FileTail-TagAttribute.dita"/>
+   <topicref href="../Origins/FileTail-RecordHeaderAtts.dita">
+    <topicref href="../Origins/FileTail-TagAttribute.dita"/>
+   </topicref>
    <topicref href="../Origins/FileTail-MultipleLines.dita"/>
    <topicref href="../Origins/FileTail-Output.dita"/>
    <topicref href="../Origins/FileTail-EventGeneration.dita">
@@ -82,9 +86,49 @@
     <topicref href="../Origins/HTTPClient-ResultFieldPath.dita"/>
    </topicref>
    <topicref href="../Origins/HTTPClient-Method.dita"/>
+   <topicref href="../Origins/HTTPClient-OAuth2.dita">
+    <topicref href="../Origins/HTTPClient-OAuth2Twitter.dita"/>
+    <topicref href="../Origins/HTTPClient-OAuth2AD.dita"/>
+    <topicref href="../Origins/HTTPClient-OAuth2Google.dita"/>
+   </topicref>
    <topicref href="../Origins/HTTPClient-DataFormats.dita"/>
    <topicref href="../Origins/HTTPClient-ResponseHeaderFields.dita"/>
    <topicref href="../Origins/HTTPClient-Configuring.dita"/>
+  </topicref>
+  <topicref href="../Origins/HTTPServer.dita" chunk="to-content">
+   <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Origins/HTTPServer-Prerequisites.dita"/>
+   <topicref href="../Origins/HTTPServer-MultithreadProcessing.dita"/>
+   <topicref href="../Origins/HTTPServer-DataFormat.dita"/>
+   <topicref href="../Origins/HTTPServer-Configuring.dita"/>
+  </topicref>
+  <topicref href="../Origins/HTTPtoKafka.dita" chunk="to-content">
+   <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Origins/HTTPtoKafka-Prerequisites.dita"/>
+   <topicref href="../Origins/HTTPtoKafka-PipeConfig.dita"/>
+   <topicref href="../Origins/HTTPtoKafka-MaxMessageSize.dita"/>
+   <topicref href="../Origins/HTTPtoKafka-EnablingKSecurity.dita">
+    <topicref href="../Origins/HTTPtoKafka-EnableSSL.dita"/>
+    <topicref href="../Origins/HTTPtoKafka-EnablingKerberos.dita"/>
+    <topicref href="../Origins/HTTPtoKafka-SSLKerb.dita"/>
+   </topicref>
+   <topicref href="../Origins/HTTPtoKafka-Configuring.dita"/>
+  </topicref>
+  <topicref href="../Origins/MultiTableJDBCConsumer.dita" chunk="to-content">
+   <topicmeta>
+    <shortdesc/>
+   </topicmeta>
+   <topicref href="../Origins/MultiTableJDBCConsumer-DriverInstall.dita">
+    <topicref href="../Origins/MultiTableJDBCConsumer-MySQLDriver.dita"/>
+   </topicref>
+   <topicref href="../Origins/MultiTableJDBCConsumer-BatchStrategy.dita"/>
+   <topicref href="../Origins/MultiTableJDBCConsumer-TableConfiguration.dita">
+    <topicref href="../Origins/MultiTableJDBCConsumer-TableName.dita"/>
+    <topicref href="../Origins/MultiTableJDBCConsumer-Offsets.dita"/>
+   </topicref>
+   <topicref href="../Origins/MultiTableJDBCConsumer-TableOrder.dita"/>
+   <topicref href="../Origins/MultiTableJDBCConsumer-HeaderAtts.dita"/>
+   <topicref href="../Origins/MultiTableJDBCConsumer-Configuring.dita"/>
   </topicref>
   <topicref href="../Origins/JDBCConsumer.dita" chunk="to-content"> <topicmeta><shortdesc></shortdesc></topicmeta>
    <topicref href="../Origins/JDBCConsumer-DriverInstall.dita"/>
@@ -96,9 +140,12 @@
     <topicref href="../Origins/JDBC-SQLQueryFull.dita"/>
     <topicref href="../Origins/JDBCConsumer-StoredProcedures.dita"/>
    </topicref>
-   <topicref href="../Origins/JDBCConsumer-CDC.dita"/>
    <topicref href="../Origins/JDBCConsumer-HeaderAttributes.dita">
     <topicref href="../Origins/JDBCConsumer-HeaderHDS.dita"/>
+   </topicref>
+   <topicref href="../Origins/JDBCConsumer-CDCMSSQLOverview.dita">
+    <topicref href="../Origins/JDBCConsumer-CRUDRecordHeader.dita"/>
+    <topicref href="../Origins/JDBCConsumer-CDCGroupTransactions.dita"/>
    </topicref>
    <topicref href="../Origins/JDBCConsumer-Configuring.dita"/>
   </topicref>
@@ -114,14 +161,15 @@
    <topicmeta><shortdesc></shortdesc></topicmeta>
    <topicref href="../Origins/KConsumer-Offsets.dita"/>
    <topicref href="../Origins/KConsumer-ExistingData.dita"/>
-   <topicref href="../Origins/KConsumer-DataFormats.dita">
-    <topicref href="../Origins/LogFormats.dita"/>
-   </topicref>
    <topicref href="../Origins/KConsumer_AdditionalKProp.dita"/>
+   <topicref href="../Origins/Kafka-RecordHeaderAtts.dita"/>
    <topicref href="../Origins/KConsumer-EnablingSecurity.dita">
     <topicref href="../Origins/KafkaC-EnablingSSL.dita"/>
     <topicref href="../Origins/KafkaC-EnablingKerberos.dita"/>
     <topicref href="../Origins/KafkaC-EnablingSSLKerb.dita"/>
+   </topicref>
+   <topicref href="../Origins/KConsumer-DataFormats.dita">
+    <topicref href="../Origins/LogFormats.dita"/>
    </topicref>
    <topicref href="../Origins/KConsumer-Configuring.dita"/>
   </topicref>
@@ -131,6 +179,11 @@
    <topicref href="../Origins/KinConsumer-ReadInterval.dita"/>
    <topicref href="../Origins/KinConsumer-DataFormats.dita"/>
    <topicref href="../Origins/KinConsumer-Configuring.dita"/></topicref>
+  <topicref href="../Origins/MapRDBJSON.dita" chunk="to-content">
+   <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Origins/MapRDBJSON-IDField.dita"/>
+   <topicref href="../Origins/MapRDBJSON-Configuring.dita"/>
+  </topicref>
   <topicref href="../Origins/MapRFS.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
    <topicref href="../Origins/MapRFS-Kerberos.dita"/>
@@ -152,13 +205,27 @@
    <topicmeta><shortdesc></shortdesc></topicmeta>
    <topicref href="../Origins/MongoDB-OffsetField.dita"/>
    <topicref href="../Origins/MongoDB-ReadPreference.dita"/>
+   <topicref href="../Origins/MongoDB-BSONTimestamp.dita"/>
    <topicref href="../Origins/MongoDB-EnableSSL.dita"/>
    <topicref href="../Origins/MongoDB-Configuring.dita"/>
   </topicref>
+  <topicref href="../Origins/MongoDBOplog.dita" chunk="to-content">
+   <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Origins/MongoDBOplog-TimestampOrdinal.dita"/>
+   <topicref href="../Origins/MongoDBOplog-ReadPreference.dita"/>
+   <topicref href="../Origins/MongoDBOplog-GeneratedRecords.dita">
+    <topicref href="../Origins/MongoDBOplog-CDCHeader.dita"/>
+   </topicref>
+   <topicref href="../Origins/MongoDBOplog-EnableSSL.dita"/>
+   <topicref href="../Origins/MongoDBOplog-Configuring.dita"/>
+  </topicref>
   <topicref href="../Origins/MySQLBinaryLog.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Origins/MySQLBinaryLog-DriverInstall.dita"/>
    <topicref href="../Origins/MySQLBinaryLog-Offset.dita"/>
-   <topicref href="../Origins/MySQLBinaryLog-Record.dita"/>
+   <topicref href="../Origins/MySQLBinaryLog-Record.dita">
+    <topicref href="../Origins/MySQLBinaryLog-ProcessingGR.dita"/>
+   </topicref>
    <topicref href="../Origins/MySQLBinaryLog-Tables.dita"/>
    <topicref href="../Origins/MySQLBinaryLog-Configuring.dita"/>
   </topicref>
@@ -168,11 +235,21 @@
   </topicref>
   <topicref href="../Origins/OracleCDC.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
-   <topicref href="../Origins/OracleCDC-Prerequisites.dita"/>
    <topicref href="../Origins/OracleCDC-Dictionary.dita"/>
+   <topicref href="../Origins/OracleCDC-Prerequisites.dita">
+    <topicref href="../Origins/OracleCDC-T1-LogMiner.dita"/>
+    <topicref href="../Origins/OracleCDC-T2-SuppLogg.dita"/>
+    <topicref href="../Origins/OracleCDC-T3-UserAcct.dita"/>
+    <topicref href="../Origins/OracleCDC-T4-ExtractDict.dita"/>
+    <topicref href="../Origins/OracleCDC-T5-InstallDriver.dita"/>
+   </topicref>
    <topicref href="../Origins/OracleCDC-InitialChange.dita"/>
    <topicref href="../Origins/OracleCDC-GeneratedRecords.dita">
-    <topicref href="../Origins/OracleCDC-CDCAttributes.dita"/>
+    <topicref href="../Origins/OracleCDC-CDCOpHeaderAtt.dita"/>
+    <topicref href="../Origins/OracleCDC-CDCAdditionalAtts.dita"/>
+   </topicref>
+   <topicref href="../Origins/OracleCDC-EventGeneration.dita">
+    <topicref href="../Origins/OracleCDC-EventRecords.dita"/>
    </topicref>
    <topicref href="../Origins/OracleCDC-HiveDriftSolution.dita"/>
    <topicref href="../Origins/OracleCDC-Preview.dita"/>
@@ -198,17 +275,19 @@
     <topicref href="../Origins/Salesforce-SOQLQuery.dita"/>
     <topicref href="../Origins/Salesforce-QueryExample.dita"/>
    </topicref>
+   <topicref href="../Origins/Salesforce-RepeatQuery.dita"/>
    <topicref href="../Origins/Salesforce-Subscribe.dita">
     <topicref href="../Origins/Salesforce-SubscribeRecordFormat.dita"/>
    </topicref>
    <topicref href="../Origins/Salesforce-CustomFields.dita"/>
    <topicref href="../Origins/Salesforce-HeaderAttributes.dita"/>
+   <topicref href="../Origins/Salesforce-CRUDHeaderAttribute.dita"/>
    <topicref href="../Origins/Salesforce-APIVersion.dita"/>
    <topicref href="../Origins/Salesforce-Configuring.dita"/>
   </topicref>
   <topicref href="../Origins/SDC_RPCorigin.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
-   <topicref href="../Origins/RPCorigin-Configuring.dita"/>
+   <topicref href="../Origins/SDC_RPCorigin-Configuring.dita"/>
   </topicref>
    <topicref href="../Origins/SDCRPCtoKafka.dita" chunk="to-content">
     <topicmeta><shortdesc></shortdesc></topicmeta>

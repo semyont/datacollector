@@ -121,7 +121,7 @@ public class HBaseTarget extends BaseTarget {
     );
 
     validateQuorumConfigs(issues);
-    HBaseUtil.validateSecurityConfigs(issues, getContext(), Groups.HBASE.name(), hbaseConf, conf.kerberosAuth);
+    HBaseUtil.validateSecurityConfigs(issues, getContext(), Groups.HBASE.name(), conf.hbaseUser, hbaseConf, conf.kerberosAuth);
 
     if(issues.isEmpty()) {
       HBaseUtil.setIfNotNull(hbaseConf, HConstants.ZOOKEEPER_QUORUM, conf.zookeeperQuorum);
@@ -132,18 +132,15 @@ public class HBaseTarget extends BaseTarget {
     HTableDescriptor hTableDescriptor = null;
     if (issues.isEmpty()) {
       try {
-        hTableDescriptor = HBaseUtil.getUGI(conf.hbaseUser).doAs(new PrivilegedExceptionAction<HTableDescriptor>() {
-          @Override
-          public HTableDescriptor run() throws Exception {
-            checkHBaseAvailable(hbaseConf, issues);
-            return HBaseUtil.checkConnectionAndTableExistence(
-                issues,
-                getContext(),
-                hbaseConf,
-                Groups.HBASE.name(),
-                conf.tableName
-            );
-          }
+        hTableDescriptor = HBaseUtil.getUGI().doAs((PrivilegedExceptionAction<HTableDescriptor>) () -> {
+          checkHBaseAvailable(hbaseConf, issues);
+          return HBaseUtil.checkConnectionAndTableExistence(
+              issues,
+              getContext(),
+              hbaseConf,
+              Groups.HBASE.name(),
+              conf.tableName
+          );
         });
       } catch(InterruptedException | IOException e) {
         LOG.error("Unexpected exception: {}", e.toString(), e);
@@ -348,12 +345,9 @@ public class HBaseTarget extends BaseTarget {
   public void write(final Batch batch) throws StageException {
     setBatchTime();
     try {
-      HBaseUtil.getUGI(conf.hbaseUser).doAs(new PrivilegedExceptionAction<Void>() {
-        @Override
-        public Void run() throws Exception {
+      HBaseUtil.getUGI().doAs((PrivilegedExceptionAction<Void>) () -> {
         writeBatch(batch);
         return null;
-        }
       });
     } catch (Exception e) {
       throw throwStageException(e);
@@ -385,7 +379,7 @@ public class HBaseTarget extends BaseTarget {
       hTable.flushCommits();
     } catch (RetriesExhaustedWithDetailsException rex) {
       LOG.debug("Got exception while flushing commits to HBase", rex);
-      HBaseUtil.handleNoColumnFamilyException(rex, null, rowKeyToRecord, errorRecordHandler);
+      HBaseUtil.handleHBaseException(rex, null, rowKeyToRecord, errorRecordHandler);
     } catch (OnRecordErrorException ex) {
       LOG.debug("Got exception while writing to HBase", ex);
       errorRecordHandler.onError(ex);
@@ -418,7 +412,7 @@ public class HBaseTarget extends BaseTarget {
       hTable.put(p);
     } catch (RetriesExhaustedWithDetailsException rex) {
       // There may be more than one row which failed to persist
-      HBaseUtil.handleNoColumnFamilyException(rex, record, null, errorRecordHandler);
+      HBaseUtil.handleHBaseException(rex, record, null, errorRecordHandler);
     }
   }
 

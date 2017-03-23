@@ -19,12 +19,17 @@
  */
 package com.streamsets.pipeline.stage.origin.jdbc;
 
+import com.google.common.base.Charsets;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import com.streamsets.pipeline.api.BatchMaker;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.BaseSource;
+import com.streamsets.pipeline.lib.event.EventCreator;
 import com.streamsets.pipeline.lib.jdbc.JdbcErrors;
 import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
 import com.streamsets.pipeline.lib.jdbc.JdbcUtil;
@@ -44,6 +49,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -59,12 +65,30 @@ public class JdbcSource extends BaseSource {
   private static final String HIKARI_CONFIG_PREFIX = "hikariConfigBean.";
   private static final String CONNECTION_STRING = HIKARI_CONFIG_PREFIX + "connectionString";
   private static final String QUERY = "query";
+  private static final String TIMESTAMP = "timestamp";
+  private static final String ERROR = "error";
+  private static final String ROW_COUNT = "rows";
+  private static final String SOURCE_OFFSET = "offset";
   private static final String OFFSET_COLUMN = "offsetColumn";
   private static final String INITIAL_OFFSET = "initialOffset";
   private static final String QUERY_INTERVAL_EL = "queryInterval";
   private static final String TXN_ID_COLUMN_NAME = "txnIdColumnName";
   private static final String TXN_MAX_SIZE = "txnMaxSize";
   private static final String JDBC_NS_HEADER_PREFIX = "jdbcNsHeaderPrefix";
+  private static final HashFunction HF = Hashing.sha256();
+  private static final EventCreator QUERY_SUCCESS = new EventCreator.Builder("jdbc-query-success", 1)
+      .withRequiredField(QUERY)
+      .withRequiredField(TIMESTAMP)
+      .withRequiredField(ROW_COUNT)
+      .withRequiredField(SOURCE_OFFSET)
+      .build();
+  private static final EventCreator QUERY_FAILURE = new EventCreator.Builder("jdbc-query-failure", 1)
+      .withRequiredField(QUERY)
+      .withRequiredField(TIMESTAMP)
+      .withRequiredField(ROW_COUNT)
+      .withRequiredField(SOURCE_OFFSET)
+      .withOptionalField(ERROR)
+      .build();
 
   private final boolean isIncrementalMode;
   private final String query;
@@ -78,7 +102,7 @@ public class JdbcSource extends BaseSource {
   private final HikariPoolConfigBean hikariConfigBean;
   private final boolean createJDBCNsHeaders;
   private final String jdbcNsHeaderPrefix;
-
+  private final boolean disableValidation;
 
   private ErrorRecordHandler errorRecordHandler;
   private long queryIntervalMillis = Long.MIN_VALUE;
@@ -86,12 +110,18 @@ public class JdbcSource extends BaseSource {
   private Connection connection = null;
   private ResultSet resultSet = null;
   private long lastQueryCompletedTime = 0L;
+  private String preparedQuery;
+  private String hashedQuery;
+  private int queryRowCount = 0;
+  private int numQueryErrors = 0;
+  private SQLException firstQueryException = null;
 
   public JdbcSource(
       boolean isIncrementalMode,
       String query,
       String initialOffset,
       String offsetColumn,
+      boolean disableValidation,
       String txnColumnName,
       int txnMaxSize,
       JdbcRecordType jdbcRecordType,
@@ -104,6 +134,7 @@ public class JdbcSource extends BaseSource {
     this.query = query;
     this.initialOffset = initialOffset;
     this.offsetColumn = offsetColumn;
+    this.disableValidation = disableValidation;
     this.queryIntervalMillis = 1000 * commonSourceConfigBean.queryInterval;
     driverProperties.putAll(hikariConfigBean.driverProperties);
     this.txnColumnName = txnColumnName;
@@ -117,6 +148,10 @@ public class JdbcSource extends BaseSource {
 
   @Override
   protected List<ConfigIssue> init() {
+    if (disableValidation) {
+      LOG.warn("JDBC Origin initialized with Validation Disabled.");
+    }
+
     List<ConfigIssue> issues = new ArrayList<>();
     Source.Context context = getContext();
 
@@ -131,33 +166,33 @@ public class JdbcSource extends BaseSource {
 
     // Incremental mode have special requirements for the query form
     if(isIncrementalMode) {
-      if(StringUtils.isEmpty(offsetColumn)) {
+      if (StringUtils.isEmpty(offsetColumn)) {
         issues.add(context.createConfigIssue(Groups.JDBC.name(), OFFSET_COLUMN, JdbcErrors.JDBC_51, "Can't be empty"));
       }
-      if(StringUtils.isEmpty(initialOffset)) {
+      if (StringUtils.isEmpty(initialOffset)) {
         issues.add(context.createConfigIssue(Groups.JDBC.name(), INITIAL_OFFSET, JdbcErrors.JDBC_51, "Can't be empty"));
       }
 
       final String formattedOffsetColumn = Pattern.quote(offsetColumn.toUpperCase());
-      Pattern offsetColumnInWhereAndOrderByClause = Pattern.compile(
-        String.format("(?s).*\\bWHERE\\b.*(\\b%s\\b).*\\bORDER BY\\b.*\\b%s\\b.*",
+      Pattern offsetColumnInWhereAndOrderByClause = Pattern.compile(String.format("(?s).*\\bWHERE\\b.*(\\b%s\\b).*\\bORDER BY\\b.*\\b%s\\b.*",
           formattedOffsetColumn,
           formattedOffsetColumn
-        )
-      );
+      ));
 
-      String upperCaseQuery = query.toUpperCase();
-      boolean checkOffsetColumnInWhereOrder = true;
-      if (!upperCaseQuery.contains("WHERE")) {
-        issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_38, "WHERE"));
-        checkOffsetColumnInWhereOrder = false;
-      }
-      if (!upperCaseQuery.contains("ORDER BY")) {
-        issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_38, "ORDER BY"));
-        checkOffsetColumnInWhereOrder = false;
-      }
-      if (checkOffsetColumnInWhereOrder && !offsetColumnInWhereAndOrderByClause.matcher(upperCaseQuery).matches()) {
-        issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_29, offsetColumn));
+      if (!disableValidation) {
+        String upperCaseQuery = query.toUpperCase();
+        boolean checkOffsetColumnInWhereOrder = true;
+        if (!upperCaseQuery.contains("WHERE")) {
+          issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_38, "WHERE"));
+          checkOffsetColumnInWhereOrder = false;
+        }
+        if (!upperCaseQuery.contains("ORDER BY")) {
+          issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_38, "ORDER BY"));
+          checkOffsetColumnInWhereOrder = false;
+        }
+        if (checkOffsetColumnInWhereOrder && !offsetColumnInWhereAndOrderByClause.matcher(upperCaseQuery).matches()) {
+          issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_29, offsetColumn));
+        }
       }
     }
 
@@ -165,68 +200,90 @@ public class JdbcSource extends BaseSource {
       issues.add(context.createConfigIssue(Groups.ADVANCED.name(), TXN_MAX_SIZE, JdbcErrors.JDBC_10, txnMaxSize, 0));
     }
 
-    if (issues.isEmpty()) {
-      try {
-        if (null == dataSource) {
-          dataSource = JdbcUtil.createDataSourceForRead(hikariConfigBean, driverProperties);
-        }
-        try (Connection connection = dataSource.getConnection()) {
-          DatabaseMetaData dbMetadata = connection.getMetaData();
-          // If CDC is enabled, scrollable cursors must be supported by JDBC driver.
-          if (!txnColumnName.isEmpty() && !dbMetadata.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE)) {
-            issues.add(context.createConfigIssue(Groups.CDC.name(), TXN_ID_COLUMN_NAME, JdbcErrors.JDBC_30));
-          }
-          try (Statement statement = connection.createStatement()) {
-            statement.setFetchSize(1);
-            statement.setMaxRows(1);
-            final String preparedQuery = prepareQuery(query, initialOffset);
-            try (ResultSet resultSet = statement.executeQuery(preparedQuery)) {
-              try {
-                Set<String> columnLabels = new HashSet<>();
-                ResultSetMetaData metadata = resultSet.getMetaData();
-                int columnIdx = metadata.getColumnCount() + 1;
-                while (--columnIdx > 0) {
-                  String columnLabel = metadata.getColumnLabel(columnIdx);
-                  if (columnLabels.contains(columnLabel)) {
-                    issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_31, columnLabel));
-                  } else {
-                    columnLabels.add(columnLabel);
-                  }
-                }
-                if (!StringUtils.isEmpty(offsetColumn) && offsetColumn.contains(".")) {
-                  issues.add(context.createConfigIssue(Groups.JDBC.name(), OFFSET_COLUMN, JdbcErrors.JDBC_32, offsetColumn));
-                } else {
-                  resultSet.findColumn(offsetColumn);
-                }
-              } catch (SQLException e) {
-                // Log a warning instead of an error because some implementations such as Oracle have implicit
-                // "columns" such as ROWNUM that won't appear as part of the resultset.
-                LOG.warn(JdbcErrors.JDBC_33.getMessage(), offsetColumn, query);
-                LOG.warn(JdbcUtil.formatSqlException(e));
-              }
-            } catch (SQLException e) {
-              String formattedError = JdbcUtil.formatSqlException(e);
-              LOG.error(formattedError);
-              LOG.debug(formattedError, e);
-              issues.add(
-                  context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_34, preparedQuery, formattedError)
-              );
-            }
-          }
-        } catch (SQLException e) {
-          String formattedError = JdbcUtil.formatSqlException(e);
-          LOG.error(formattedError);
-          LOG.debug(formattedError, e);
-          issues.add(context.createConfigIssue(Groups.JDBC.name(), CONNECTION_STRING, JdbcErrors.JDBC_00, formattedError));
-        }
-      } catch (StageException e) {
-        issues.add(context.createConfigIssue(Groups.JDBC.name(), CONNECTION_STRING, JdbcErrors.JDBC_00, e.toString()));
-      }
-    }
     if (createJDBCNsHeaders && !jdbcNsHeaderPrefix.endsWith(".")) {
       issues.add(context.createConfigIssue(Groups.ADVANCED.name(), JDBC_NS_HEADER_PREFIX, JdbcErrors.JDBC_15));
     }
+
+    try {
+      if (null == dataSource) {
+        dataSource = JdbcUtil.createDataSourceForRead(hikariConfigBean, driverProperties);
+      }
+    } catch (StageException e) {
+      LOG.error(JdbcErrors.JDBC_00.getMessage(), e.toString(), e);
+      issues.add(context.createConfigIssue(Groups.JDBC.name(), CONNECTION_STRING, JdbcErrors.JDBC_00, e.toString()));
+    }
+
+    // Don't proceed with validation query if there are issues or if validation is disabled
+    if (!issues.isEmpty() || disableValidation) {
+      return issues;
+    }
+
+    try (Connection validationConnection = dataSource.getConnection()) { // NOSONAR
+      DatabaseMetaData dbMetadata = validationConnection.getMetaData();
+      // If CDC is enabled, scrollable cursors must be supported by JDBC driver.
+      supportsScrollableCursor(issues, context, dbMetadata);
+      try (Statement statement = validationConnection.createStatement()) {
+        statement.setFetchSize(1);
+        statement.setMaxRows(1);
+        final String preparedQuery = prepareQuery(query, initialOffset);
+        executeValidationQuery(issues, context, statement, preparedQuery);
+      }
+    } catch (SQLException e) {
+      String formattedError = JdbcUtil.formatSqlException(e);
+      LOG.error(formattedError);
+      LOG.debug(formattedError, e);
+      issues.add(context.createConfigIssue(Groups.JDBC.name(), CONNECTION_STRING, JdbcErrors.JDBC_00, formattedError));
+    }
     return issues;
+  }
+
+  private void supportsScrollableCursor(
+      List<ConfigIssue> issues, Source.Context context, DatabaseMetaData dbMetadata
+  ) throws SQLException {
+    if (!txnColumnName.isEmpty() && !dbMetadata.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE)) {
+      issues.add(context.createConfigIssue(Groups.CDC.name(), TXN_ID_COLUMN_NAME, JdbcErrors.JDBC_30));
+    }
+  }
+
+  private void executeValidationQuery(
+      List<ConfigIssue> issues, Source.Context context, Statement statement, String preparedQuery
+  ) {
+    try (ResultSet rs = statement.executeQuery(preparedQuery)) {
+      validateResultSetMetadata(issues, context, rs);
+    } catch (SQLException e) {
+      String formattedError = JdbcUtil.formatSqlException(e);
+      LOG.error(formattedError);
+      LOG.debug(formattedError, e);
+      issues.add(
+          context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_34, preparedQuery, formattedError)
+      );
+    }
+  }
+
+  private void validateResultSetMetadata(List<ConfigIssue> issues, Source.Context context, ResultSet rs) {
+    try {
+      Set<String> columnLabels = new HashSet<>();
+      ResultSetMetaData metadata = rs.getMetaData();
+      int columnIdx = metadata.getColumnCount() + 1;
+      while (--columnIdx > 0) {
+        String columnLabel = metadata.getColumnLabel(columnIdx);
+        if (columnLabels.contains(columnLabel)) {
+          issues.add(context.createConfigIssue(Groups.JDBC.name(), QUERY, JdbcErrors.JDBC_31, columnLabel));
+        } else {
+          columnLabels.add(columnLabel);
+        }
+      }
+      if (!StringUtils.isEmpty(offsetColumn) && offsetColumn.contains(".")) {
+        issues.add(context.createConfigIssue(Groups.JDBC.name(), OFFSET_COLUMN, JdbcErrors.JDBC_32, offsetColumn));
+      } else {
+        rs.findColumn(offsetColumn);
+      }
+    } catch (SQLException e) {
+      // Log a warning instead of an error because some implementations such as Oracle have implicit
+      // "columns" such as ROWNUM that won't appear as part of the result set.
+      LOG.warn(JdbcErrors.JDBC_33.getMessage(), offsetColumn, query);
+      LOG.warn(JdbcUtil.formatSqlException(e));
+    }
   }
 
   @Override
@@ -249,7 +306,8 @@ public class JdbcSource extends BaseSource {
       LOG.debug("{}ms remaining until next fetch.", delay);
       ThreadUtil.sleep(Math.min(delay, 1000));
     } else {
-      Statement statement = null;
+      Statement statement;
+      Hasher hasher = HF.newHasher();
       try {
         if (null == resultSet || resultSet.isClosed()) {
           connection = dataSource.getConnection();
@@ -273,9 +331,14 @@ public class JdbcSource extends BaseSource {
           if (getContext().isPreview()) {
             statement.setMaxRows(batchSize);
           }
-          String preparedQuery = prepareQuery(query, lastSourceOffset);
-          LOG.debug("Executing query: " + preparedQuery);
+          preparedQuery = prepareQuery(query, lastSourceOffset);
+          LOG.trace("Executing query: " + preparedQuery);
+          hashedQuery = hasher.putString(preparedQuery, Charsets.UTF_8).hash().toString();
+          LOG.debug("Executing query: " + hashedQuery);
           resultSet = statement.executeQuery(preparedQuery);
+          queryRowCount = 0;
+          numQueryErrors = 0;
+          firstQueryException = null;
         }
         // Read Data and track last offset
         int rowCount = 0;
@@ -310,6 +373,7 @@ public class JdbcSource extends BaseSource {
             nextSourceOffset = initialOffset;
           }
           ++rowCount;
+          ++queryRowCount;
         }
         LOG.debug("Processed rows: " + rowCount);
 
@@ -318,15 +382,38 @@ public class JdbcSource extends BaseSource {
           closeQuietly(connection);
           lastQueryCompletedTime = System.currentTimeMillis();
           LOG.debug("Query completed at: {}", lastQueryCompletedTime);
+          QUERY_SUCCESS.create(getContext())
+              .with(QUERY, preparedQuery)
+              .with(TIMESTAMP, lastQueryCompletedTime)
+              .with(ROW_COUNT, queryRowCount)
+              .with(SOURCE_OFFSET, nextSourceOffset)
+              .createAndSend();
         }
       } catch (SQLException e) {
+        if (++numQueryErrors == 1) {
+          firstQueryException = e;
+        }
         String formattedError = JdbcUtil.formatSqlException(e);
-        LOG.error(formattedError);
-        LOG.debug(formattedError, e);
+        LOG.error(formattedError, e);
         closeQuietly(connection);
         lastQueryCompletedTime = System.currentTimeMillis();
-        LOG.debug("Query failed at: {}", lastQueryCompletedTime);
-        errorRecordHandler.onError(JdbcErrors.JDBC_34, prepareQuery(query, lastSourceOffset), formattedError);
+        QUERY_FAILURE.create(getContext())
+            .with(QUERY, preparedQuery)
+            .with(TIMESTAMP, lastQueryCompletedTime)
+            .with(ERROR, formattedError)
+            .with(ROW_COUNT, queryRowCount)
+            .with(SOURCE_OFFSET, nextSourceOffset)
+            .createAndSend();
+        LOG.debug("Query '{}' failed at: {}; {} errors so far", preparedQuery, lastQueryCompletedTime, numQueryErrors);
+        if (numQueryErrors > commonSourceConfigBean.numQueryErrorRetries) {
+          throw new StageException(
+              JdbcErrors.JDBC_77,
+              e.getClass().getSimpleName(),
+              preparedQuery,
+              numQueryErrors,
+              JdbcUtil.formatSqlException(firstQueryException)
+          );
+        } // else allow nextSourceOffset to be returned, to retry
       }
     }
     return nextSourceOffset;
@@ -352,7 +439,7 @@ public class JdbcSource extends BaseSource {
 
   private String prepareQuery(String query, String lastSourceOffset) {
     final String offset = null == lastSourceOffset ? initialOffset : lastSourceOffset;
-    return query.replaceAll("\\$\\{offset\\}", offset);
+    return query.replaceAll("\\$\\{offset}", offset);
   }
 
   private Record processRow(ResultSet resultSet, long rowCount) throws SQLException, StageException {
@@ -372,7 +459,7 @@ public class JdbcSource extends BaseSource {
       return null; // Don't output this record.
     }
 
-    final String recordContext = query + "::rowCount:" + rowCount + (StringUtils.isEmpty(offsetColumn) ? "" : ":" + resultSet.getString(offsetColumn));
+    final String recordContext = StringUtils.substring(query.replaceAll("[\n\r]", ""), 0, 100) + "::rowCount:" + rowCount + (StringUtils.isEmpty(offsetColumn) ? "" : ":" + resultSet.getString(offsetColumn));
     Record record = context.createRecord(recordContext);
     if (jdbcRecordType == JdbcRecordType.LIST_MAP) {
       record.set(Field.createListMap(fields));
@@ -390,7 +477,7 @@ public class JdbcSource extends BaseSource {
       record.set(Field.create(row));
     }
     if (createJDBCNsHeaders) {
-      JdbcUtil.setColumnSpecificHeaders(record, md, jdbcNsHeaderPrefix);
+      JdbcUtil.setColumnSpecificHeaders(record, Collections.<String>emptySet(), md, jdbcNsHeaderPrefix);
     }
     // We will add cdc operation type to record header even if createJDBCNsHeaders is false
     // we currently support CDC on only MS SQL.

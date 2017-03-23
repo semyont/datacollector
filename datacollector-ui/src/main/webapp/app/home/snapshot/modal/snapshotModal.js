@@ -24,8 +24,9 @@
 
 angular
   .module('dataCollectorApp.home')
-  .controller('SnapshotModalInstanceController', function ($scope, $modalInstance, pipelineConfig, isPipelineRunning,
-                                                           api, $timeout) {
+  .controller('SnapshotModalInstanceController', function (
+    $scope, $rootScope, $modalInstance, pipelineConfig, isPipelineRunning, canExecute, api, $timeout
+  ) {
     var defaultSnapshotName = 'Snapshot1',
       snapshotBatchSize = 10,
       captureSnapshotStatusTimer;
@@ -38,26 +39,41 @@ angular
       showLoading: true,
       snapshotInProgress: false,
       isPipelineRunning: isPipelineRunning,
+      canExecute: canExecute,
 
       /**
        * Capture Snapshot
        */
       captureSnapshot: function() {
-        var snapshotName = 'snapshot' + (new Date()).getTime(),
-          snapshotLabel = getNewSnapshotName();
-        api.pipelineAgent.captureSnapshot(pipelineConfig.info.name, 0, snapshotName, snapshotLabel, snapshotBatchSize).
-          then(function() {
-            $scope.snapshotsInfo.push({
-              name: pipelineConfig.info.name,
-              id: snapshotName,
-              label: snapshotLabel,
-              inProgress: true
-            });
-            $scope.snapshotInProgress = true;
-            checkForCaptureSnapshotStatus(snapshotName);
-          }, function(res) {
-            $scope.common.errors = [res.data];
+        var snapshotName = 'snapshot' + (new Date()).getTime();
+        var snapshotLabel = getNewSnapshotName();
+        api.pipelineAgent.captureSnapshot(
+          pipelineConfig.info.name,
+          0,
+          snapshotName,
+          snapshotLabel,
+          snapshotBatchSize,
+          !$scope.isPipelineRunning
+        ).then(function() {
+          if (!isPipelineRunning) {
+            $rootScope.$storage.maximizeDetailPane = false;
+            $rootScope.$storage.minimizeDetailPane = false;
+            $rootScope.$storage.readNotifications = [];
+            $rootScope.common.pipelineMetrics = {};
+            $scope.isPipelineRunning = true;
+          }
+          $scope.snapshotsInfo.push({
+            name: pipelineConfig.info.name,
+            id: snapshotName,
+            label: snapshotLabel,
+            inProgress: true
           });
+          $scope.snapshotInProgress = true;
+          checkForCaptureSnapshotStatus(snapshotName);
+        }, function(res) {
+          $scope.common.errors = [res.data];
+        });
+
       },
 
       /**

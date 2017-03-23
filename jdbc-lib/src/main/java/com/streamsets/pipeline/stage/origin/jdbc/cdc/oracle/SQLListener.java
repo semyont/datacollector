@@ -20,12 +20,14 @@
 package com.streamsets.pipeline.stage.origin.jdbc.cdc.oracle;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.antlr.v4.runtime.tree.ParseTree;
 import plsql.plsqlBaseListener;
 import plsql.plsqlParser;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Listener for use with {@linkplain org.antlr.v4.runtime.tree.ParseTreeWalker}.
@@ -71,18 +73,29 @@ public class SQLListener extends plsqlBaseListener {
 
   @Override
   public void enterEquality_expression(plsqlParser.Equality_expressionContext ctx) {
-
     if (insideStatement) {
-      String column;
-      String value;
-      String[] columnValues = ctx.getText().split("=");
-      if (columnValues.length > 1) {
-        column = columnValues[0].trim();
-        value = columnValues[1].trim();
-        String key = formatName(column);
-        if (!columns.containsKey(key)) {
-          columns.put(key, formatValue(value));
+      // This is pretty horrible, but after some experimentation, I figured that the
+      // third level of the tree contained the actual data. I am assuming it is because
+      // top level is actually empty root, 2nd level contains the actual node, and 3rd level
+      // has its individual tokens -> 0 is key, 1 is = and 2 is the value.
+      String key = null;
+      String val = null;
+      ParseTree level0 = ctx.getChild(0);
+      if (level0 != null) {
+        ParseTree level1 = level0.getChild(0);
+        if (level1 != null) {
+          ParseTree keyNode = level1.getChild(0);
+          if (keyNode != null) {
+            key = formatName(keyNode.getText());
+          }
+          ParseTree valNode = level1.getChild(2);
+          if (valNode != null) {
+            val = valNode.getText();
+          }
         }
+      }
+      if (key != null && val != null && !columns.containsKey(key)) {
+        columns.put(key, formatValue(val));
       }
     }
   }

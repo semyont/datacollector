@@ -28,6 +28,7 @@ import com.streamsets.pipeline.api.FileRef;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.StageException;
+import com.streamsets.pipeline.api.Target;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.el.ELVars;
@@ -38,6 +39,8 @@ import com.streamsets.pipeline.lib.generator.DataGenerator;
 import com.streamsets.pipeline.lib.generator.DataGeneratorFactory;
 import com.streamsets.pipeline.lib.io.fileref.FileRefStreamCloseEventHandler;
 import com.streamsets.pipeline.lib.io.fileref.FileRefUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,8 +52,9 @@ import java.util.List;
 final class WholeFileHelper extends FileHelper {
   private ELEval fileNameELEval;
   private static final String SIZE = "size";
+  private static final Logger LOGGER = LoggerFactory.getLogger(WholeFileHelper.class);
 
-  WholeFileHelper(Stage.Context context, S3TargetConfigBean s3TargetConfigBean, TransferManager transferManager, List<Stage.ConfigIssue> configIssues) {
+  WholeFileHelper(Target.Context context, S3TargetConfigBean s3TargetConfigBean, TransferManager transferManager, List<Stage.ConfigIssue> configIssues) {
     super(context, s3TargetConfigBean, transferManager);
     //init adds the config issues
     init(configIssues);
@@ -119,18 +123,30 @@ final class WholeFileHelper extends FileHelper {
     //Only one record per batch if whole file
     if (recordIterator.hasNext()) {
       Record record = recordIterator.next();
-      String fileName = getFileNameFromFileNameEL(keyPrefix, record);
       try {
+
+        try {
+          FileRefUtil.validateWholeFileRecord(record);
+        } catch (IllegalArgumentException e) {
+          LOGGER.error("Validation Failed For Record {}", e);
+          throw new OnRecordErrorException(record, Errors.S3_52, e);
+        }
+
+        String fileName = getFileNameFromFileNameEL(keyPrefix, record);
+
         checkForWholeFileExistence(fileName);
+
         FileRef fileRef = record.get(FileRefUtil.FILE_REF_FIELD_PATH).getValueAsFileRef();
 
         ObjectMetadata metadata = getObjectMetadata();
         metadata = (metadata == null) ? new ObjectMetadata() : metadata;
+
         //Mandatory field path specifying size.
         metadata.setContentLength(record.get(FileRefUtil.FILE_INFO_FIELD_PATH + "/" + SIZE).getValueAsLong());
 
         EventRecord eventRecord = createEventRecordForFileTransfer(record, fileName);
 
+        //Fyi this gets closed automatically after upload completes.
         InputStream is = FileRefUtil.getReadableStream(
             context,
             fileRef,
@@ -144,8 +160,9 @@ final class WholeFileHelper extends FileHelper {
         uploads.add(upload);
 
         //Add event to event lane.
-        context.toEvent(eventRecord);
+        cachedEventRecords.add(eventRecord);
       } catch (OnRecordErrorException e) {
+        LOGGER.error("Error on record: {}", e);
         errorRecordHandler.onError(
             new OnRecordErrorException(
                 record,

@@ -16,6 +16,13 @@
           <i class="fa fa-ellipsis-h fa-14x"></i>
         </span>
         <ul class="dropdown-menu pull-right" role="menu">
+          <li role="presentation"
+              ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && canExecute && !(isPipelineRunning || previewMode || snapshotMode)"
+              ng-class="{'disabled': !pipelineConfig.valid || activeConfigStatus.executionMode != pipelineConstant.STANDALONE}">
+            <a href="#" dropdown-toggle ng-click="(!pipelineConfig.valid || activeConfigStatus.executionMode != pipelineConstant.STANDALONE) || startPipelineWithParameters()">
+              <i class="glyphicon glyphicon-play"></i> {{'home.header.startWithParametersTitle' | translate}}
+            </a>
+          </li>
 
           <li role="presentation"
               ng-if="!isPipelineRunning && isAuthorized([userRoles.admin, userRoles.manager])"
@@ -81,7 +88,7 @@
             </a>
           </li>
 
-          <li role="presentation" ng-if="isAuthorized([userRoles.admin, userRoles.creator]) && pipelineConfig.previewable && activeConfigStatus.executionMode != pipelineConstant.SLAVE && !(isPipelineRunning || previewMode || snapshotMode)">
+          <li role="presentation" ng-if="isAuthorized([userRoles.admin, userRoles.creator]) && canExecute && pipelineConfig.previewable && activeConfigStatus.executionMode != pipelineConstant.SLAVE && !(isPipelineRunning || previewMode || snapshotMode)">
             <a href="#" dropdown-toggle ng-click="!pipelineConfig.previewable || previewPipeline(true)">
               <i class="glyphicon glyphicon-eye-open"></i> {{'home.header.previewConfig' | translate}}
             </a>
@@ -153,6 +160,16 @@
 
       <a class="btn btn-link icon-button"
          tooltip-placement="bottom"
+         tooltip="{{'global.form.viewLogs' | translate}}"
+         tooltip-popup-delay="500"
+         ng-hide="previewMode || snapshotMode"
+         ng-if="isAuthorized([userRoles.admin, userRoles.creator, userRoles.manager])"
+         ng-href="/collector/logs/{{pipelineConfig.info.title + '/' + pipelineConfig.info.name}}">
+        <span class="fa fa-file-text fa-14x"></span>
+      </a>
+
+      <a class="btn btn-link icon-button"
+         tooltip-placement="bottom"
          tooltip="{{'global.form.undo' | translate}}"
          tooltip-popup-delay="500"
          ng-hide="isPipelineRunning || previewMode || snapshotMode"
@@ -210,7 +227,7 @@
           tooltip-placement="bottom" tooltip="{{'home.header.snapshots' | translate}}"
           tooltip-trigger="{{iconOnly ? 'mouseenter' : 'notooltip'}}"
           tooltip-popup-delay="500"
-          ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && activeConfigStatus.executionMode != pipelineConstant.CLUSTER && isPipelineRunning && !snapshotMode && activeConfigStatus.status != 'CONNECT_ERROR' && activeConfigStatus.status != 'RETRY'"
+          ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && activeConfigStatus.executionMode != pipelineConstant.CLUSTER  && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_BATCH && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_YARN_STREAMING && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_MESOS_STREAMING && isPipelineRunning && !snapshotMode && activeConfigStatus.status != 'CONNECT_ERROR' && activeConfigStatus.status != 'RETRY'"
           ng-click="viewSnapshots()">
         <span class="glyphicon glyphicon-camera fa-14x"></span>
       </a>
@@ -259,7 +276,7 @@
           tooltip-placement="bottom" tooltip="{{'home.header.start' | translate}}"
           tooltip-trigger="{{iconOnly ? 'mouseenter' : 'notooltip'}}"
           tooltip-popup-delay="500"
-          ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && !(isPipelineRunning || previewMode || snapshotMode)"
+          ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && canExecute && !(isPipelineRunning || previewMode || snapshotMode)"
           ng-disabled="!pipelineConfig.valid"
           ng-click="!pipelineConfig.valid || startPipeline(); ">
         <span class="glyphicon glyphicon-play fa-14x"></span>
@@ -269,10 +286,20 @@
           tooltip-placement="bottom" tooltip="{{'home.header.stop' | translate}}"
           tooltip-trigger="{{iconOnly ? 'mouseenter' : 'notooltip'}}"
           tooltip-popup-delay="500"
-          ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && activeConfigStatus.executionMode != pipelineConstant.SLAVE"
+          ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && canExecute && activeConfigStatus.executionMode != pipelineConstant.SLAVE"
           ng-click="stopPipeline(false)"
           ng-show="isPipelineRunning && !snapshotMode && activeConfigStatus.status != 'STARTING'">
         <span class="glyphicon glyphicon-stop fa-14x"></span>
+      </a>
+
+      <a class="btn btn-link icon-button"
+         tooltip-placement="bottom" tooltip="{{'global.form.share' | translate}}"
+         tooltip-trigger="{{iconOnly ? 'mouseenter' : 'notooltip'}}"
+         tooltip-popup-delay="500"
+         ng-if="(common.authenticationType !== 'none' || common.isDPMEnabled) && !common.isSlaveNode"
+         ng-click="sharePipelineConfig(activeConfigInfo, $event)"
+         ng-show="!previewMode && !snapshotMode && activeConfigStatus.status != 'STARTING'">
+        <span class="fa fa-share-alt fa-14x"></span>
       </a>
 
       <a class="btn btn-link icon-button"
@@ -285,13 +312,11 @@
          ng-click="$storage.hideStageLibraryPanel = !$storage.hideStageLibraryPanel">
         <span class="fa fa-th fa-14x"></span>
       </a>
-
     </div>
-
 
     <div class="pull-right" ng-if="pipelineConfig && activeConfigStatus.status === 'STOPPING'">
       <a class="btn btn-link icon-button-danger"
-         ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && activeConfigStatus.executionMode != pipelineConstant.SLAVE && activeConfigStatus.executionMode != pipelineConstant.CLUSTER  && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_BATCH && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_YARN_STREAMING && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_MESOS_STREAMING""
+         ng-if="isAuthorized([userRoles.admin, userRoles.manager]) && canExecute && activeConfigStatus.executionMode != pipelineConstant.SLAVE && activeConfigStatus.executionMode != pipelineConstant.CLUSTER  && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_BATCH && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_YARN_STREAMING && activeConfigStatus.executionMode !== pipelineConstant.CLUSTER_MESOS_STREAMING""
          ng-click="stopPipeline(true)">{{'home.header.forceStop' | translate}}</a>
     </div>
 
@@ -316,7 +341,7 @@
           <a ng-href="{{common.baseHref}}">Pipelines</a>
         </h3>
         <h3 class="pull-left all-pipelines-link"> / </h3>
-        <h3 class="pull-left">{{pipelineConfig.info.name | limitTo: 40}}: </h3>
+        <h3 class="pull-left">{{pipelineConfig.info.title | limitTo: 40}}: </h3>
         <h3 class="pull-left" translate="home.header.uptime">Uptime</h3>
 
         <h3 class="pull-left"
@@ -373,7 +398,9 @@
           <a ng-href="{{common.baseHref}}">Pipelines</a>
         </h3>
         <h3 class="pull-left all-pipelines-link"> / </h3>
-        <h3 class="pull-left">{{pipelineConfig.info.name | limitTo: 40}}</h3>
+        <h3 class="pull-left" contenteditable="true"
+            title="Click to edit"
+            ng-model="pipelineConfig.title">{{pipelineConfig.title | limitTo: 40}}</h3>
         <h3 class="pull-left version-text"
             ng-if="pipelineConfig.metadata && pipelineConfig.metadata['dpm.pipeline.version']"> (v{{pipelineConfig.metadata['dpm.pipeline.version']}})</h3>
       </div>
@@ -393,8 +420,6 @@
            translate="global.messages.info.savingConfiguration">
       </div>
     </div>
-
-
 
   </div>
 

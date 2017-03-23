@@ -112,7 +112,7 @@ angular.module('dataCollectorApp.common')
        * @returns {*}
        */
       getJMX : function() {
-        var url = 'jmx';
+        var url = apiBase + '/system/jmx';
         return $http({
           method: 'GET',
           url: url
@@ -226,6 +226,20 @@ angular.module('dataCollectorApp.common')
       },
 
       /**
+       * Create DPM Groups & Users
+       * @param dpmInfo
+       * @returns {*}
+       */
+      createDPMGroupsAndUsers: function(dpmInfo) {
+        var url = apiBase + '/system/createDPMUsers';
+        return $http({
+          method: 'POST',
+          url: url,
+          data: dpmInfo
+        });
+      },
+
+      /**
        * logout
        */
       logout: function(authenticationType, isDPMEnabled) {
@@ -262,6 +276,18 @@ angular.module('dataCollectorApp.common')
        */
       getServerTime: function() {
         var url = apiBase + '/system/info/serverTime';
+        return $http({
+          method: 'GET',
+          url: url
+        });
+      },
+
+      /**
+       * Returns Groups
+       * @returns {*}
+       */
+      getGroups: function() {
+        var url = apiBase + '/system/groups';
         return $http({
           method: 'GET',
           url: url
@@ -373,6 +399,52 @@ angular.module('dataCollectorApp.common')
       },
 
       /**
+       * Fetches all installed additional drivers
+       *
+       * @returns {*}
+       */
+      getStageLibrariesExtras: function() {
+        var url = apiBase + '/stageLibraries/extras/list';
+        return $http({
+          method: 'GET',
+          url: url
+        });
+      },
+
+      /**
+       * Update Stage Libraries extras
+       *
+       * @param libraryId
+       * @param file
+       * @returns {*}
+       */
+      installExtras: function (libraryId, file) {
+        var url = apiBase + '/stageLibraries/extras/' + libraryId + '/upload';
+        var formData = new FormData();
+        formData.append('file', file);
+        return $http.post(url, formData, {
+          transformRequest: angular.identity,
+          headers: {'Content-Type': undefined}
+        });
+      },
+
+
+      /**
+       * Delete Stage Libraries extras
+       *
+       * @param extrasList
+       * @returns {*}
+       */
+      deleteExtras: function (extrasList) {
+        var url = apiBase + '/stageLibraries/extras/delete';
+        return $http({
+          method: 'POST',
+          url: url,
+          data: extrasList
+        });
+      },
+
+      /**
        * Return total pipelines count.
        *
        * @returns {*}
@@ -460,13 +532,7 @@ angular.module('dataCollectorApp.common')
        * @returns {*}
        */
       getPipelineConfig: function(name) {
-        var url;
-
-        if (!name) {
-          name = 'xyz';
-        }
-
-        url = apiBase + '/pipeline/' + name;
+        var url = apiBase + '/pipeline/' + name;
         return $http({
           method: 'GET',
           url: url
@@ -480,13 +546,7 @@ angular.module('dataCollectorApp.common')
        * @returns {*}
        */
       getPipelineConfigInfo: function(name) {
-        var url;
-
-        if (!name) {
-          name = 'xyz';
-        }
-
-        url = apiBase + '/pipeline/' + name + '?get=info';
+        var url = apiBase + '/pipeline/' + name + '?get=info';
         return $http({
           method: 'GET',
           url: url
@@ -522,7 +582,7 @@ angular.module('dataCollectorApp.common')
        * @param description
        */
       createNewPipelineConfig: function(name, description) {
-        var url = apiBase + '/pipeline/' + name + '?description=' + description;
+        var url = apiBase + '/pipeline/' + encodeURIComponent(name) + '?autoGenerateName=true&description=' + description;
 
         return $http({
           method: 'PUT',
@@ -563,20 +623,21 @@ angular.module('dataCollectorApp.common')
       /**
        * Duplicate Pipeline Configuration
        *
-       * @param name
+       * @param label
        * @param description
        * @param pipelineObject
        * @param pipelineRulesObject
        * @returns {*|promise}
        */
-      duplicatePipelineConfig: function(name, description, pipelineObject, pipelineRulesObject) {
+      duplicatePipelineConfig: function(label, description, pipelineObject, pipelineRulesObject) {
         var deferred = $q.defer();
         var duplicatePipelineObject;
         var duplicatePipelineRulesObject;
+        var name;
 
         // Create new config object
         // then copy the configuration from pipelineInfo to new Object.
-        api.pipelineAgent.createNewPipelineConfig(name, description)
+        api.pipelineAgent.createNewPipelineConfig(label, description)
           .then(function(res) {
             duplicatePipelineObject = res.data;
             duplicatePipelineObject.configuration = pipelineObject.configuration;
@@ -589,6 +650,7 @@ angular.module('dataCollectorApp.common')
                 labels: pipelineObject.metadata.labels
               };
             }
+            name = duplicatePipelineObject.info.name;
             return api.pipelineAgent.savePipelineConfig(name, duplicatePipelineObject);
           })
           .then(function(res) {
@@ -650,9 +712,9 @@ angular.module('dataCollectorApp.common')
        * @param overwrite
        */
       importPipelineConfig: function(pipelineName, pipelineEnvelope, overwrite) {
-        var url = apiBase + '/pipeline/' + pipelineName + '/import';
+        var url = apiBase + '/pipeline/' + pipelineName + '/import?autoGenerateName=true';
         if (overwrite) {
-          url += '?overwrite=' + overwrite;
+          url += '&overwrite=' + overwrite;
         }
 
         return $http({
@@ -770,6 +832,7 @@ angular.module('dataCollectorApp.common')
         });
       },
 
+
       /**
        * Validate the Pipeline
        *
@@ -789,13 +852,15 @@ angular.module('dataCollectorApp.common')
        *
        * @param pipelineName
        * @param rev
+       * @param runtimeConstants
        * @returns {*}
        */
-      startPipeline: function(pipelineName, rev) {
+      startPipeline: function(pipelineName, rev, runtimeConstants) {
         var url = apiBase + '/pipeline/' + pipelineName + '/start?rev=' + rev ;
         return $http({
           method: 'POST',
-          url: url
+          url: url,
+          data: runtimeConstants
         });
       },
 
@@ -882,13 +947,19 @@ angular.module('dataCollectorApp.common')
        * @param snapshotName
        * @param snapshotLabel
        * @param batchSize
+       * @param startPipeline
        * @returns {*}
        */
-      captureSnapshot: function(pipelineName, rev, snapshotName, snapshotLabel, batchSize) {
+      captureSnapshot: function(pipelineName, rev, snapshotName, snapshotLabel, batchSize, startPipeline) {
         var url = apiBase + '/pipeline/' + pipelineName + '/snapshot/' + snapshotName +
           '?batchSize=' + batchSize +
           '&snapshotLabel=' + snapshotLabel +
           '&rev=' + rev;
+
+        if (startPipeline) {
+          url += '&startPipeline=true';
+        }
+
         return $http({
           method: 'PUT',
           url: url
@@ -1189,21 +1260,6 @@ angular.module('dataCollectorApp.common')
       }
     };
 
-    api.timeSeries = {
-      /**
-       * Fetch Time Series Data
-       *
-       * @param query
-       */
-      getTimeSeriesData: function(query) {
-        var url = apiBase + '/pipeline/metrics/timeSeries?q=' +  query;
-        return $http({
-          method: 'GET',
-          url: url
-        });
-      }
-    };
-
     api.remote = {
       publishPipeline: function(remoteBaseURL, ssoToken, name, commitPipelineModel) {
         var deferred = $q.defer();
@@ -1324,6 +1380,135 @@ angular.module('dataCollectorApp.common')
             'Content-Type': 'application/json; charset=utf-8',
             'X-SS-User-Auth-Token': ssoToken
           }
+        });
+      },
+
+      getRemoteUsers: function(remoteBaseURL, ssoToken, orgId, offset, len, orderBy, order, active, filterText) {
+        if (offset === undefined) {
+          offset = 0;
+        }
+        if (len === undefined) {
+          len = -1;
+        }
+        var url = remoteBaseURL + 'security/rest/v1/organization/' + orgId + '/users?offset=' + offset + '&len=' + len;
+        if (orderBy) {
+          url += '&orderBy=' + orderBy;
+        }
+        if (order) {
+          url += '&order=' + order;
+        }
+        if (active !== undefined) {
+          url += '&active=' + active;
+        }
+        if (filterText && filterText.trim().length) {
+          url += '&filterText=' + filterText;
+        }
+        return $http({
+          method: 'GET',
+          url: url,
+          headers:  {
+            'Content-Type': 'application/json; charset=utf-8',
+            'X-SS-User-Auth-Token': ssoToken
+          }
+        });
+      },
+
+      getRemoteGroups: function(remoteBaseURL, ssoToken, orgId, offset, len, orderBy, order, filterText) {
+        if (offset === undefined) {
+          offset = 0;
+        }
+        if (len === undefined) {
+          len = -1;
+        }
+        var url = remoteBaseURL + 'security/rest/v1/organization/' + orgId + '/groups?offset=' + offset + '&len=' + len;
+        if (orderBy) {
+          url += '&orderBy=' + orderBy;
+        }
+        if (order) {
+          url += '&order=' + order;
+        }
+        if (filterText && filterText.trim().length) {
+          url += '&filterText=' + filterText;
+        }
+        return $http({
+          method: 'GET',
+          url: url,
+          headers:  {
+            'Content-Type': 'application/json; charset=utf-8',
+            'X-SS-User-Auth-Token': ssoToken
+          }
+        });
+      }
+    };
+
+    api.acl = {
+      /**
+       * Fetches Pipeline ACL Information
+       *
+       * @param name
+       * @returns {*}
+       */
+      getPipelineConfigAcl: function(name) {
+        var url = apiBase + '/acl/' + name;
+        return $http({
+          method: 'GET',
+          url: url
+        });
+      },
+
+      /**
+       * Sends updated Pipeline ACL to server for update.
+       *
+       * @param name - Pipeline Name
+       * @param acl - Modified ACL
+       * @returns Updated ACL
+       */
+      savePipelineAcl: function(name, acl) {
+        var url = apiBase + '/acl/' + name;
+        return $http({
+          method: 'POST',
+          url: url,
+          data: acl
+        });
+      },
+
+      /**
+       * Fetch the Pipeline Permissions for current user
+       *
+       * @returns {*}
+       */
+      getPipelinePermissions: function(pipelineName) {
+        var url = apiBase + '/acl/' + pipelineName + '/permissions';
+        return $http({
+          method: 'GET',
+          url: url
+        });
+      },
+
+      /**
+       * Get all Subjects in Pipeline ACL
+       *
+       * @returns {*}
+       */
+      getSubjects: function () {
+        var url = apiBase + '/acl/pipelines/subjects';
+        return $http({
+          method: 'GET',
+          url: url
+        });
+      },
+
+      /**
+       * Update Subjects in Pipeline ACL
+       *
+       * @returns {*}
+       */
+      updateSubjects: function (subjectMapping) {
+        var url = apiBase + '/acl/pipelines/subjects';
+        return $http({
+          method: 'POST',
+          url: url,
+          data: subjectMapping
         });
       }
 

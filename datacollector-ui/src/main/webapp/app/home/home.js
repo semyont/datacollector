@@ -66,13 +66,13 @@ angular
     angular.extend($scope, {
       loaded: false,
       totalPipelinesCount: 0,
-      selectedPipelineLabel: 'system:allPipelines',
       filteredPipelines: [],
       header: {
         pipelineGridView: $rootScope.$storage.pipelineListState.gridView,
         sortColumn: 'LAST_MODIFIED',
         sortReverse: true,
-        searchInput: $scope.$storage.pipelineListState.searchInput
+        searchInput: $scope.$storage.pipelineListState.searchInput,
+        showNameColumn: $scope.$storage.pipelineListState.showNameColumn
       },
       selectedPipelineMap: {},
       selectedPipelineList: [],
@@ -234,6 +234,25 @@ angular
       },
 
       /**
+       * Share Pipeline Configuration
+       */
+      sharePipelineConfig: function(pipelineInfo, $event) {
+        pipelineService.sharePipelineConfigCommand(pipelineInfo, $event);
+      },
+
+      /**
+       * Share Selected Pipeline
+       */
+      shareSelectedPipelineConfig: function () {
+        if ($scope.selectedPipelineList && $scope.selectedPipelineList.length > 0) {
+          var selectedPipeline = _.find($scope.filteredPipelines, function(pipeline) {
+            return $scope.selectedPipelineList[0] === pipeline.name
+          });
+          pipelineService.sharePipelineConfigCommand(selectedPipeline);
+        }
+      },
+
+      /**
        * Reset Offset to Origin for selected pipelines
        */
       resetOffsetForSelectedPipelines: function() {
@@ -279,8 +298,6 @@ angular
             }
           }
         });
-
-        $scope.unSelectAll();
       },
 
       /**
@@ -334,8 +351,6 @@ angular
             pipeline.metadata.labels = _(mergedLabels).uniq();
           });
         }, function () {});
-
-        $scope.unSelectAll();
       },
 
       /**
@@ -367,15 +382,20 @@ angular
           $rootScope.common.errors = [];
         }
         api.pipelineAgent.exportSelectedPipelines(selectedPipelineList, includeDefinitions);
-        $scope.unSelectAll();
       },
 
       /**
        * Download Remote Pipeline Configuration
        */
       downloadRemotePipelineConfig: function($event) {
-        var existingPipelineNames = _.pluck($scope.filteredPipelines, 'name');
-        pipelineService.downloadRemotePipelineConfigCommand($event, existingPipelineNames)
+        var existingDPMPipelineIds = [];
+        angular.forEach($scope.filteredPipelines, function (pipelineInfo) {
+          if (pipelineInfo.metadata && pipelineInfo.metadata['dpm.pipeline.id']) {
+            existingDPMPipelineIds.push(pipelineInfo.metadata['dpm.pipeline.id']);
+          }
+        });
+
+        pipelineService.downloadRemotePipelineConfigCommand($event, existingDPMPipelineIds)
           .then(function() {
             $route.reload();
           });
@@ -440,26 +460,6 @@ angular
         );
 
         var selectedPipelineList = $scope.selectedPipelineList;
-        var validationIssues = [];
-        angular.forEach($scope.filteredPipelines, function(pipelineInfo) {
-          if (selectedPipelineList.indexOf(pipelineInfo.name) !== -1) {
-            var pipelineStatus = $rootScope.common.pipelineStatusMap[pipelineInfo.name];
-            if (pipelineStatus && pipelineStatus.name === pipelineInfo.name &&
-              _.contains(['RUNNING', 'STARTING', 'CONNECT_ERROR', 'RETRY', 'STOPPING'], pipelineStatus.status)) {
-              validationIssues.push('Start operation is not supported for Pipeline "' +
-                pipelineInfo.name + '" with state ' +  pipelineStatus.status );
-            }
-
-            if (!pipelineInfo.valid) {
-              validationIssues.push('Pipeline "' + pipelineInfo.name + '" is not valid');
-            }
-          }
-        });
-
-        if (validationIssues.length > 0) {
-          $rootScope.common.errors = validationIssues;
-          return;
-        }
         $rootScope.common.errors = [];
 
         api.pipelineAgent.startPipelines(selectedPipelineList).success(function(res) {
@@ -474,8 +474,6 @@ angular
         }).error(function(data) {
           $rootScope.common.errors = [data];
         });
-
-        $scope.unSelectAll();
       },
 
       /**
@@ -538,23 +536,12 @@ angular
 
         var selectedPipelineList = $scope.selectedPipelineList;
         var selectedPipelineInfoList = [];
-        var validationIssues = [];
+
         angular.forEach($scope.filteredPipelines, function(pipelineInfo) {
           if (selectedPipelineList.indexOf(pipelineInfo.name) !== -1) {
-            var pipelineStatus = $rootScope.common.pipelineStatusMap[pipelineInfo.name];
-            if (pipelineStatus && pipelineStatus.name === pipelineInfo.name &&
-              !_.contains(['RUNNING', 'STARTING', 'CONNECT_ERROR', 'RETRY', 'STOPPING'], pipelineStatus.status)) {
-              validationIssues.push('Stop operation is not supported for Pipeline "' +
-                pipelineInfo.name + '" with state ' +  pipelineStatus.status );
-            }
             selectedPipelineInfoList.push(pipelineInfo);
           }
         });
-
-        if (validationIssues.length > 0) {
-          $rootScope.common.errors = validationIssues;
-          return;
-        }
         $rootScope.common.errors = [];
 
         var modalInstance = $modal.open({
@@ -585,8 +572,6 @@ angular
             }
           });
         }, function () {});
-
-        $scope.unSelectAll();
       },
 
       /**
@@ -765,6 +750,24 @@ angular
           pipelineInfo.name.indexOf('System Pipeline for Job') === 0 &&
           pipelineStatus.attributes && pipelineStatus.attributes.IS_REMOTE_PIPELINE
         );
+      },
+
+      /**
+       * Callback function when Show Name column menu item clicked
+       */
+      onToggleShowNameColumn: function() {
+        var showNameColumn = !$scope.header.showNameColumn;
+        $scope.$storage.pipelineListState.showNameColumn = showNameColumn;
+        $scope.header.showNameColumn = showNameColumn;
+      },
+
+      /**
+       * Register callback function to be called once all labels have been loaded
+       * The callback is called with two params (system labels and custom labels)
+       * @param callback
+       */
+      onLabelsLoaded: function(callback) {
+        $scope.onLabelsLoadedCallback = callback;
       }
 
     });
@@ -791,10 +794,6 @@ angular
             $scope.header.sortColumn = $scope.$storage.pipelineListState.sortColumn;
             $scope.header.sortReverse = $scope.$storage.pipelineListState.sortReverse;
           }
-
-          if ($scope.$storage.pipelineListState.selectedLabel) {
-            $scope.selectedPipelineLabel = $scope.$storage.pipelineListState.selectedLabel;
-          }
         }
 
         if ($scope.$storage.pipelineListState.searchInput) {
@@ -805,6 +804,34 @@ angular
       },
       function () {
         $scope.loaded = true;
+      }
+    );
+
+    $q.all([
+      api.pipelineAgent.getSystemPipelineLabels(),
+      api.pipelineAgent.getPipelineLabels()
+    ]).then(
+      function (results) {
+
+        /**
+         * Labels are loaded only once so they're sent to library.js
+         */
+        if (_.isFunction($scope.onLabelsLoadedCallback)) {
+          $scope.onLabelsLoadedCallback(results[0].data, results[1].data);
+        }
+
+        /**
+         * Make sure we only keep selection of still-existing labels
+         */
+        var labels = results[0].data.concat(results[1].data);
+        if (labels.indexOf($scope.$storage.pipelineListState.selectedLabel) !== -1) {
+          $scope.selectedPipelineLabel = $scope.$storage.pipelineListState.selectedLabel;
+        } else {
+          $scope.selectedPipelineLabel = 'system:allPipelines';
+        }
+      },
+      function () {
+        $scope.selectedPipelineLabel = 'system:allPipelines';
       }
     );
 

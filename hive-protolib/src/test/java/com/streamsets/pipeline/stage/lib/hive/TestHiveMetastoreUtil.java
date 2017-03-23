@@ -194,11 +194,11 @@ public class TestHiveMetastoreUtil {
     Assert.assertTrue(HiveMetastoreUtil.validateColumnName("Santhosh"));
     Assert.assertTrue(HiveMetastoreUtil.validateColumnName("sdc_log"));
     Assert.assertTrue(HiveMetastoreUtil.validateColumnName("sdc_log2"));
+    Assert.assertTrue(HiveMetastoreUtil.validateColumnName("_abc"));
 
     Assert.assertFalse(HiveMetastoreUtil.validateColumnName("cool column"));
     Assert.assertFalse(HiveMetastoreUtil.validateColumnName("0"));
     Assert.assertFalse(HiveMetastoreUtil.validateColumnName("cool@column"));
-    Assert.assertFalse(HiveMetastoreUtil.validateColumnName("_abc"));
   }
 
   @Test
@@ -221,27 +221,5 @@ public class TestHiveMetastoreUtil {
     } catch (IllegalArgumentException e) {
       //Expected
     }
-    
-    try {
-      HiveMetastoreUtil.stripHdfsHostAndPort("hdfs://host:4567");
-      Assert.fail("Should fail if no / after host: port");
-    } catch (IllegalArgumentException e) {
-      //Expected
-    }
-
-    try {
-      HiveMetastoreUtil.stripHdfsHostAndPort("hdfs://host");
-      Assert.fail("Should fail if no / after host");
-    } catch (IllegalArgumentException e) {
-      //Expected
-    }
-
-    try {
-      HiveMetastoreUtil.stripHdfsHostAndPort("samp");
-      Assert.fail("Should fail if the location does not match regex hdfs://[^/]+(:[0-9]+)?/.*");
-    } catch (IllegalArgumentException e) {
-      //Expected
-    }
-
   }
 }

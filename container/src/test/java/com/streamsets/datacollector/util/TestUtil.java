@@ -61,8 +61,10 @@ import com.streamsets.datacollector.runner.SourceOffsetTracker;
 import com.streamsets.datacollector.runner.production.ProductionSourceOffsetTracker;
 import com.streamsets.datacollector.runner.production.RulesConfigLoaderRunnable;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
+import com.streamsets.datacollector.store.AclStoreTask;
 import com.streamsets.datacollector.store.PipelineStoreException;
 import com.streamsets.datacollector.store.PipelineStoreTask;
+import com.streamsets.datacollector.store.impl.FileAclStoreTask;
 import com.streamsets.datacollector.store.impl.FilePipelineStoreTask;
 import com.streamsets.pipeline.api.Batch;
 import com.streamsets.pipeline.api.BatchMaker;
@@ -70,11 +72,13 @@ import com.streamsets.pipeline.api.Config;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.BaseSource;
 import com.streamsets.pipeline.api.base.BaseTarget;
 import com.streamsets.pipeline.api.base.SingleLaneProcessor;
 import com.streamsets.pipeline.api.base.SingleLaneRecordProcessor;
+import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.pipeline.lib.executor.SafeScheduledExecutorService;
 import dagger.Module;
 import dagger.ObjectGraph;
@@ -106,13 +110,12 @@ public class TestUtil {
   public volatile static boolean EMPTY_OFFSET = false;
 
   public static class SourceOffsetTrackerImpl implements SourceOffsetTracker {
-    private String currentOffset;
-    private String newOffset;
+    private final Map<String, String> offsets;
     private boolean finished;
     private long lastBatchTime;
 
-    public SourceOffsetTrackerImpl(String currentOffset) {
-      this.currentOffset = currentOffset;
+    public SourceOffsetTrackerImpl(Map<String, String> offsets) {
+      this.offsets = new HashMap<>(offsets);
       finished = false;
     }
 
@@ -122,21 +125,28 @@ public class TestUtil {
     }
 
     @Override
-    public String getOffset() {
-      return currentOffset;
-    }
-
-    @Override
-    public void setOffset(String newOffset) {
-      this.newOffset = newOffset;
-    }
-
-    @Override
-    public void commitOffset() {
-      currentOffset = newOffset;
-      finished = (currentOffset == null);
-      newOffset = null;
+    public void commitOffset(String entity, String newOffset) {
       lastBatchTime = System.currentTimeMillis();
+      System.out.println(Utils.format("Committing entity({}), offset({}) on time({})", entity, newOffset, lastBatchTime));
+
+      if(entity == null) {
+        return;
+      }
+
+      if(Source.POLL_SOURCE_OFFSET_KEY.equals(entity)) {
+        finished = (newOffset == null);
+      }
+
+      if(newOffset == null) {
+        offsets.remove(entity);
+      } else {
+        offsets.put(entity, newOffset);
+      }
+    }
+
+    @Override
+    public Map<String, String> getOffsets() {
+      return offsets;
     }
 
     @Override
@@ -303,7 +313,7 @@ public class TestUtil {
         //The if check is needed because the tests restart the pipeline manager. In that case the check prevents
         //us from trying to create the same pipeline again
         if(!pipelineStoreTask.hasPipeline("invalid")) {
-          pipelineStoreTask.create(USER, "invalid", "invalid cox its empty", false);
+          pipelineStoreTask.create(USER, "invalid", "label" ,"invalid its empty", false);
           PipelineConfiguration pipelineConf = pipelineStoreTask.load("invalid", PIPELINE_REV);
           PipelineConfiguration mockPipelineConf = MockStages.createPipelineConfigurationSourceTarget();
           pipelineConf.setErrorStage(mockPipelineConf.getErrorStage());
@@ -312,7 +322,7 @@ public class TestUtil {
         }
 
         if (!pipelineStoreTask.hasPipeline(MY_PIPELINE)) {
-          pipelineStoreTask.create(USER, MY_PIPELINE, "description", false);
+          pipelineStoreTask.create(USER, MY_PIPELINE, "label" ,"description", false);
           PipelineConfiguration pipelineConf = pipelineStoreTask.load(MY_PIPELINE, ZERO_REV);
           PipelineConfiguration mockPipelineConf = MockStages.createPipelineConfigurationSourceTarget();
           pipelineConf.setStages(mockPipelineConf.getStages());
@@ -337,7 +347,7 @@ public class TestUtil {
         }
 
         if(!pipelineStoreTask.hasPipeline(MY_SECOND_PIPELINE)) {
-          pipelineStoreTask.create("user2", MY_SECOND_PIPELINE, "description2", false);
+          pipelineStoreTask.create("user2", MY_SECOND_PIPELINE, "label" ,"description2", false);
           PipelineConfiguration pipelineConf = pipelineStoreTask.load(MY_SECOND_PIPELINE, ZERO_REV);
           PipelineConfiguration mockPipelineConf = MockStages.createPipelineConfigurationSourceProcessorTarget();
           pipelineConf.setStages(mockPipelineConf.getStages());
@@ -350,7 +360,8 @@ public class TestUtil {
         }
 
         if(!pipelineStoreTask.hasPipeline(HIGHER_VERSION_PIPELINE)) {
-          PipelineConfiguration pipelineConfiguration = pipelineStoreTask.create("user2", HIGHER_VERSION_PIPELINE, "description2", false);
+          PipelineConfiguration pipelineConfiguration = pipelineStoreTask.create("user2", HIGHER_VERSION_PIPELINE,
+              "label" ,"description2", false);
           PipelineConfiguration mockPipelineConf = MockStages.createPipelineConfigurationSourceProcessorTargetHigherVersion();
           mockPipelineConf.getConfiguration().add(new Config("executionMode",
             ExecutionMode.STANDALONE.name()));
@@ -360,7 +371,7 @@ public class TestUtil {
         }
 
         if(!pipelineStoreTask.hasPipeline(PIPELINE_WITH_EMAIL)) {
-          pipelineStoreTask.create("user2", PIPELINE_WITH_EMAIL, "description2", false);
+          pipelineStoreTask.create("user2", PIPELINE_WITH_EMAIL, "label" ,"description2", false);
           PipelineConfiguration pipelineConf = pipelineStoreTask.load(PIPELINE_WITH_EMAIL, ZERO_REV);
           PipelineConfiguration mockPipelineConf = MockStages.createPipelineConfigurationSourceProcessorTarget();
           pipelineConf.setStages(mockPipelineConf.getStages());
@@ -395,6 +406,23 @@ public class TestUtil {
       CachePipelineStateStore cachePipelineStateStore = new CachePipelineStateStore(pipelineStateStore, conf);
       cachePipelineStateStore.init();
       return cachePipelineStateStore;
+    }
+  }
+
+  @Module(
+      injects = {AclStoreTask.class},
+      library = true,
+      includes = {TestRuntimeModule.class, TestPipelineStoreModuleNew.class}
+  )
+  public static class TestAclStoreModule {
+    public TestAclStoreModule() {
+    }
+
+    @Provides @Singleton
+    public AclStoreTask provideAclStore(RuntimeInfo info, PipelineStoreTask pipelineStoreTask) {
+      AclStoreTask aclStoreTask = new FileAclStoreTask(info, pipelineStoreTask,  new LockCache<String>());
+      aclStoreTask.init();
+      return aclStoreTask;
     }
   }
 
@@ -626,7 +654,7 @@ public class TestUtil {
   /*************** PipelineManager ***************/
 
   @Module(injects = {StandaloneAndClusterPipelineManager.class, StandaloneRunner.class}, library = true,
-    includes = {TestPipelineStoreModuleNew.class, TestExecutorModule.class, TestSnapshotStoreModule.class})
+    includes = {TestPipelineStoreModuleNew.class, TestExecutorModule.class, TestSnapshotStoreModule.class, TestAclStoreModule.class})
   public static class TestPipelineManagerModule {
 
     public TestPipelineManagerModule() {

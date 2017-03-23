@@ -20,14 +20,17 @@
 package com.streamsets.datacollector.runner.preview;
 
 import com.streamsets.datacollector.runner.SourceOffsetTracker;
+import com.streamsets.pipeline.api.Source;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class PreviewSourceOffsetTracker implements SourceOffsetTracker {
-  private String currentOffset;
-  private String newOffset;
+  private Map<String, String> offsets;
   private boolean finished;
 
-  public PreviewSourceOffsetTracker(String currentOffset) {
-    this.currentOffset = currentOffset;
+  public PreviewSourceOffsetTracker(Map<String, String> offset) {
+    this.offsets = new HashMap<>(offset);
     finished = false;
   }
 
@@ -37,20 +40,25 @@ public class PreviewSourceOffsetTracker implements SourceOffsetTracker {
   }
 
   @Override
-  public String getOffset() {
-    return currentOffset;
+  public void commitOffset(String entity, String newOffset) {
+    if(entity == null) {
+      return;
+    }
+
+    if(Source.POLL_SOURCE_OFFSET_KEY.equals(entity)) {
+      finished = (newOffset == null);
+    }
+
+    if(newOffset == null) {
+      offsets.remove(entity);
+    } else {
+      offsets.put(entity, newOffset);
+    }
   }
 
   @Override
-  public void setOffset(String newOffset) {
-    this.newOffset = newOffset;
-  }
-
-  @Override
-  public void commitOffset() {
-    currentOffset = newOffset;
-    finished = (currentOffset == null);
-    newOffset = null;
+  public Map<String, String> getOffsets() {
+    return offsets;
   }
 
   @Override

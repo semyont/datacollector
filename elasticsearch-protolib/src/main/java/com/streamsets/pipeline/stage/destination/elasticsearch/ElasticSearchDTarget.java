@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2015 StreamSets Inc.
  *
  * Licensed under the Apache Software Foundation (ASF) under one
@@ -25,25 +25,27 @@ import com.streamsets.pipeline.api.GenerateResourceBundle;
 import com.streamsets.pipeline.api.StageDef;
 import com.streamsets.pipeline.api.Target;
 import com.streamsets.pipeline.configurablestage.DTarget;
+import com.streamsets.pipeline.stage.config.elasticsearch.ElasticsearchTargetConfig;
+import com.streamsets.pipeline.stage.config.elasticsearch.Groups;
 
 @GenerateResourceBundle
 @StageDef(
-    version = 5,
+    version = 7,
     label = "Elasticsearch",
     description = "Upload data to an Elasticsearch cluster",
     icon = "elasticsearch.png",
     onlineHelpRefUrl = "index.html#Destinations/Elasticsearch.html#task_uns_gtv_4r",
-    upgrader = ElasticSearchDTargetUpgrader.class
+    upgrader = ElasticsearchDTargetUpgrader.class
 )
 @ConfigGroups(Groups.class)
 public class ElasticSearchDTarget extends DTarget {
 
   @ConfigDefBean
-  public ElasticSearchConfigBean elasticSearchConfigBean;
+  public ElasticsearchTargetConfig elasticSearchConfig;
 
   @Override
   protected Target createTarget() {
-    return new ElasticSearchTarget(elasticSearchConfigBean);
+    return new ElasticsearchTarget(elasticSearchConfig);
   }
 
 }

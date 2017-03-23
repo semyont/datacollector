@@ -22,10 +22,12 @@ package com.streamsets.datacollector.event.dto;
 import java.util.Collection;
 import com.streamsets.datacollector.config.dto.ValidationStatus;
 import com.streamsets.datacollector.execution.PipelineStatus;
+import com.streamsets.lib.security.acl.dto.Acl;
 
 public class PipelineStatusEvent implements Event {
 
   private String name;
+  private String title;
   private String rev;
   private PipelineStatus pipelineStatus;
   private String message;
@@ -35,12 +37,14 @@ public class PipelineStatusEvent implements Event {
   private boolean isRemote;
   private boolean isClusterMode;
   private String offset;
+  private Acl acl;
 
   public PipelineStatusEvent() {
   }
 
   public PipelineStatusEvent(
       String name,
+      String title,
       String rev,
       boolean isRemote,
       PipelineStatus pipelineStatus,
@@ -49,9 +53,11 @@ public class PipelineStatusEvent implements Event {
       ValidationStatus validationStatus,
       String issues,
       boolean isClusterMode,
-      String offset
+      String offset,
+      Acl acl
   ) {
     this.name = name;
+    this.title = title;
     this.rev = rev;
     this.pipelineStatus = pipelineStatus;
     this.message = message;
@@ -61,6 +67,7 @@ public class PipelineStatusEvent implements Event {
     this.workerInfos = workerInfos;
     this.isClusterMode = isClusterMode;
     this.offset = offset;
+    this.acl = acl;
   }
 
   public boolean isRemote() {
@@ -77,6 +84,14 @@ public class PipelineStatusEvent implements Event {
 
   public void setName(String name) {
     this.name = name;
+  }
+
+  public String getTitle() {
+    return title;
+  }
+
+  public void setTitle(String title) {
+    this.title = title;
   }
 
   public String getRev() {
@@ -144,4 +159,11 @@ public class PipelineStatusEvent implements Event {
     this.offset = offset;
   }
 
+  public void setAcl(Acl acl) {
+    this.acl = acl;
+  }
+
+  public Acl getAcl() {
+    return acl;
+  }
 }

@@ -26,6 +26,7 @@ import com.streamsets.datacollector.email.EmailSender;
 import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.record.RecordImpl;
 import com.streamsets.datacollector.util.Configuration;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
@@ -52,14 +53,17 @@ public class TestPreconditionsPredicate {
     return new StageContext(
         "i",
         StageType.PROCESSOR,
+        -1,
         true,
         null,
         (List) Collections.emptyList(),
         (Map) Collections.emptyMap(),
         (Map) ImmutableMap.of("a", "A"),
         ExecutionMode.STANDALONE,
+        DeliveryGuarantee.AT_LEAST_ONCE,
         "",
-        new EmailSender(new Configuration())
+        new EmailSender(new Configuration()),
+        new Configuration()
     );
   }
 

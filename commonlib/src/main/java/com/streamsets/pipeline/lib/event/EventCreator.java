@@ -24,12 +24,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.streamsets.pipeline.api.EventRecord;
 import com.streamsets.pipeline.api.Field;
+import com.streamsets.pipeline.api.Processor;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.Stage;
+import com.streamsets.pipeline.api.Target;
+import com.streamsets.pipeline.api.ToEventContext;
 import com.streamsets.pipeline.api.impl.Utils;
 import org.apache.commons.lang.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -101,10 +107,22 @@ public class EventCreator {
   }
 
   /**
-   * Create new record according to this
+   * Create new event record according for this stage context and event context.
    */
-  public EventBuilder create(Stage.Context context) {
-    return new EventBuilder(context);
+  public EventBuilder create(Stage.Context context, ToEventContext toEvent) {
+    return new EventBuilder(context, toEvent);
+  }
+
+  public EventBuilder create(Source.Context context) {
+    return new EventBuilder(context, context);
+  }
+
+  public EventBuilder create(Processor.Context context) {
+    return new EventBuilder(context, context);
+  }
+
+  public EventBuilder create(Target.Context context) {
+    return new EventBuilder(context, context);
   }
 
   /**
@@ -113,17 +131,29 @@ public class EventCreator {
   public class EventBuilder {
 
     /**
-     * Context that will be used to actually generate the event record (and optionally also send it).
+     * Context that will be used to actually generate the event record.
      */
     private Stage.Context context;
+
+    /**
+     * Event sink that will be used to send events out.
+     */
+    private ToEventContext toEvent;
 
     /**
      * Map that will be used as root field of the event record.
      */
     private Map<String, Field> rootMap;
 
-    private EventBuilder(Stage.Context context) {
+    /**
+     * Proper constructor that separate configuration from error sink.
+     *
+     * @param context Context of the stage with configuration of what should happen when error record occur.
+     * @param toEvent Event sink into which records will be send if TO_ERROR is configured by user.
+     */
+    private EventBuilder(Stage.Context context, ToEventContext toEvent) {
       this.context = context;
+      this.toEvent = toEvent;
       this.rootMap = new HashMap<>();
     }
 
@@ -140,6 +170,15 @@ public class EventCreator {
     public EventBuilder with(String key, Map<String, Field> value) {
       Field field = (value instanceof LinkedHashMap)? Field.create(Field.Type.LIST_MAP, value) : Field.create(Field.Type.MAP, value);
       rootMap.put(key, field);
+      return this;
+    }
+
+    public EventBuilder withStringList(String key, List<Object> value) {
+      List<Field> wrappedList = new ArrayList<>();
+      for (Object object : value) {
+        wrappedList.add(Field.create(Field.Type.STRING, object.toString()));
+      }
+      rootMap.put(key, Field.create(Field.Type.LIST, wrappedList));
       return this;
     }
 
@@ -177,7 +216,7 @@ public class EventCreator {
      * This method will validate that all required field are present and that no "unknown" fields have been created.
      */
     public void createAndSend() {
-      context.toEvent(create());
+      toEvent.toEvent(create());
     }
   }
 }

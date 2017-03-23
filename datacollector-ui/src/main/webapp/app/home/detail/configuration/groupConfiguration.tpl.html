@@ -142,7 +142,7 @@
                 </button>
                 <button type="button" class="btn btn-default"
                         ng-show="$last"
-                        ng-click="addToCustomField(detailPaneConfig, detailPaneConfig.configuration[configIndex].value, configDefinition.model.configDefinitions)">
+                        ng-click="addToCustomField(detailPaneConfig, detailPaneConfig.configuration[configIndex], configDefinition.model.configDefinitions)">
                   <i class="fa fa-plus pointer"></i>
                 </button>
               </div>
@@ -186,7 +186,7 @@
                 </button>
                 <button type="button" class="btn btn-default"
                         ng-show="$last"
-                        ng-click="addToCustomField(detailPaneConfig, detailPaneConfig.configuration[configIndex].value, configDefinition.model.configDefinitions)">
+                        ng-click="addToCustomField(detailPaneConfig, detailPaneConfig.configuration[configIndex], configDefinition.model.configDefinitions)">
                   <i class="fa fa-plus pointer"></i>
                 </button>
               </div>
@@ -200,11 +200,16 @@
         <button type="button" class="btn btn-default btn-sm"
                 ng-if="!detailPaneConfig.configuration[configIndex].value || detailPaneConfig.configuration[configIndex].value.length === 0"
                 ng-hide="isPipelineReadOnly || isPipelineRunning"
-                ng-click="addToCustomField(detailPaneConfig, detailPaneConfig.configuration[configIndex].value, configDefinition.model.configDefinitions)">
+                ng-click="addToCustomField(detailPaneConfig, detailPaneConfig.configuration[configIndex], configDefinition.model.configDefinitions)">
           <i class="fa fa-plus pointer"></i>
         </button>
 
-        <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+        <div class="help-block">
+          <div ng-repeat="issue in getConfigurationIssues(detailPaneConfig, configDefinition)">
+            <span>{{issue.message}}</span>
+            <span ng-show="issue.count > 1" class="badge">{{issue.count}}</span>
+          </div>
+        </div>
 
       </div>
 

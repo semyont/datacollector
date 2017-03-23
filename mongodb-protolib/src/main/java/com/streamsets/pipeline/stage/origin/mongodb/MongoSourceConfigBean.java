@@ -42,23 +42,36 @@ public class MongoSourceConfigBean {
   public boolean isCapped;
 
   @ConfigDef(
-      required = true,
+      required = false,
       type = ConfigDef.Type.STRING,
       defaultValue = "2015-01-01 00:00:00",
-      label = "Start Timestamp",
-      description = "Provide in format: YYYY-MM-DD HH:mm:ss. Oldest data to be retrieved.",
+      label = "Initial Offset",
+      description = "Must be provided in timestamp format: YYYY-MM-DD HH:mm:ss if offset field is ObjectId type. " +
+                    "If offset field is String type, provide an initial string. Oldest data to be retrieved.",
       displayPosition = 1002,
       group = "MONGODB"
   )
   public String initialOffset;
 
   @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.MODEL,
+      defaultValue = "OBJECTID",
+      label = "Offset Field Type",
+      description = "Offset field type. Currently ObjectId and String types are supported.",
+      displayPosition = 1003,
+      group = "MONGODB"
+  )
+  @ValueChooserModel(OffsetFieldTypeChooserValues.class)
+  public OffsetFieldType offsetType;
+
+  @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
       defaultValue = "_id",
       label = "Offset Field",
-      description = "Field checked to track current offset. Must be an ObjectId.",
-      displayPosition = 1003,
+      description = "Field checked to track current offset.",
+      displayPosition = 1010,
       group = "MONGODB"
   )
   public String offsetField;
@@ -69,7 +82,7 @@ public class MongoSourceConfigBean {
       defaultValue = "1000",
       required = true,
       min = 2, // Batch size of 1 in MongoDB is special and analogous to LIMIT 1
-      displayPosition = 1004,
+      displayPosition = 1011,
       group = "MONGODB"
   )
   public int batchSize;
@@ -81,7 +94,7 @@ public class MongoSourceConfigBean {
       required = true,
       elDefs = {TimeEL.class},
       evaluation = ConfigDef.Evaluation.IMPLICIT,
-      displayPosition = 1005,
+      displayPosition = 1012,
       group = "MONGODB"
   )
   public long maxBatchWaitTime;
@@ -93,7 +106,7 @@ public class MongoSourceConfigBean {
       label = "Read Preference",
       description = "Sets the read preference",
       group = "MONGODB",
-      displayPosition = 1006
+      displayPosition = 1013
   )
   @ValueChooserModel(ReadPreferenceChooserValues.class)
   public ReadPreferenceLabel readPreference;

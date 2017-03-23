@@ -30,7 +30,10 @@ import org.apache.avro.Schema;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
 
@@ -150,6 +153,21 @@ public class AvroSchemaHelper {
   }
 
   /**
+   * Looks up schema id for the specified subject from the schema registry
+   * @param subject subject for which schema Id must be looked up.
+   * @return the schema id
+   * @throws SchemaRegistryException if there is an error with the registry client
+   */
+  public int getSchemaIdFromSubject(String subject) throws SchemaRegistryException {
+    try {
+      SchemaMetadata metadata = registryClient.getLatestSchemaMetadata(subject);
+      return metadata.getId();
+    } catch (IOException | RestClientException e) {
+      throw new SchemaRegistryException(e);
+    }
+  }
+
+  /**
    * Loads and parses a schema for the specified schema ID from the schema registry
    * @param id schema ID to fetch from the registry
    * @return parsed avro schema
@@ -191,9 +209,27 @@ public class AvroSchemaHelper {
     ByteBuffer wrapped = ByteBuffer.wrap(data);
     // 5 == MAGIC_BYTE + ID_SIZE
     if (wrapped.get() != MAGIC_BYTE) {
-      Optional.absent();
+      return Optional.absent();
     }
 
     return Optional.of(wrapped.getInt());
+  }
+
+  /**
+   * Helper method to extract default values from a Schema. This is normally done
+   * in DataGeneratorFormat validation, however we have to do it at runtime for
+   * Schema Registry.
+   * @param schema schema to extract default values from
+   * @return map of default value
+   * @throws SchemaRegistryException
+   */
+  public static Map<String, Object> getDefaultValues(Schema schema) throws SchemaRegistryException {
+    Map<String, Object> defaultValues = new HashMap<>();
+    try {
+      defaultValues.putAll(AvroTypeUtil.getDefaultValuesFromSchema(schema, new HashSet<String>()));
+    } catch (IOException e) {
+      throw new SchemaRegistryException(e);
+    }
+    return defaultValues;
   }
 }

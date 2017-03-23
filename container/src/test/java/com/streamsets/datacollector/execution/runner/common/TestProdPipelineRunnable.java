@@ -20,7 +20,6 @@
 package com.streamsets.datacollector.execution.runner.common;
 
 import com.codahale.metrics.MetricRegistry;
-import com.streamsets.datacollector.config.DeliveryGuarantee;
 import com.streamsets.datacollector.config.MemoryLimitConfiguration;
 import com.streamsets.datacollector.execution.Manager;
 import com.streamsets.datacollector.execution.PipelineStateStore;
@@ -41,6 +40,8 @@ import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.datacollector.util.TestUtil;
 import com.streamsets.pipeline.api.BatchMaker;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.BaseSource;
 
@@ -99,7 +100,7 @@ public class TestProdPipelineRunnable {
     pipelineStateStore.saveState("admin", TestUtil.MY_PIPELINE, "0", PipelineStatus.RUNNING, null, null, null, null, 0, 0);
     runnable.run();
     // The source returns null offset because all the data from source was read
-    Assert.assertNull(pipeline.getCommittedOffset());
+    Assert.assertTrue(pipeline.getCommittedOffsets().isEmpty());
   }
 
   @Test
@@ -161,12 +162,12 @@ public class TestProdPipelineRunnable {
     Mockito.when(runtimeInfo.getId()).thenReturn("id");
     Mockito.when(runtimeInfo.getDataDir()).thenReturn(testDir.getAbsolutePath());
 
-    SourceOffsetTracker tracker = new TestUtil.SourceOffsetTrackerImpl("1");
+    SourceOffsetTracker tracker = new TestUtil.SourceOffsetTrackerImpl(Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "1"));
     FileSnapshotStore snapshotStore = Mockito.mock(FileSnapshotStore.class);
 
     Mockito.when(snapshotStore.getInfo(TestUtil.MY_PIPELINE, "0", SNAPSHOT_NAME)).
       thenReturn(new SnapshotInfoImpl("user", SNAPSHOT_NAME, "SNAPSHOT LABEL", TestUtil.MY_PIPELINE, "0",
-          System.currentTimeMillis(), false));
+          System.currentTimeMillis(), false, 0));
     BlockingQueue<Object> productionObserveRequests = new ArrayBlockingQueue<>(100, true /*FIFO*/);
     Configuration conf = new Configuration();
     ProductionPipelineRunner runner =
@@ -178,7 +179,7 @@ public class TestProdPipelineRunnable {
     runner.setOffsetTracker(tracker);
 
     ProductionPipeline pipeline = new ProductionPipelineBuilder(TestUtil.MY_PIPELINE, "0", conf, runtimeInfo,
-      MockStages.createStageLibrary(), runner, null).build(MockStages.createPipelineConfigurationSourceProcessorTarget());
+      MockStages.createStageLibrary(), runner, null).build(MockStages.userContext(), MockStages.createPipelineConfigurationSourceProcessorTarget());
 
     pipelineStateStore.saveState("admin", TestUtil.MY_PIPELINE, "0", PipelineStatus.STOPPED, null, null, null, null, 0, 0);
 

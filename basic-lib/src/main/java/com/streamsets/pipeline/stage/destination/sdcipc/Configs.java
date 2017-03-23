@@ -20,10 +20,12 @@
 package com.streamsets.pipeline.stage.destination.sdcipc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.math.IntMath;
 import com.streamsets.pipeline.lib.el.VaultEL;
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.impl.Utils;
+import com.streamsets.pipeline.lib.util.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +58,7 @@ public class Configs {
   private static final String CONFIG_PREFIX = "config.";
   private static final String HOST_PORTS = CONFIG_PREFIX + "hostPorts";
   private static final String TRUST_STORE_FILE = CONFIG_PREFIX + "trustStoreFile";
+  private static final int MAX_BACKOFF_WAIT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   @ConfigDef(
       required = true,
@@ -134,21 +137,22 @@ public class Configs {
       type = ConfigDef.Type.NUMBER,
       defaultValue = "3",
       label = "Retries per Batch",
-      displayPosition = 10,
+      displayPosition = 70,
       group = "ADVANCED",
       min = 0,
-      max = 10
+      max = Integer.MAX_VALUE
   )
   public int retriesPerBatch;
 
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.NUMBER,
-      defaultValue = "0",
+      defaultValue = "30",
       label = "Back off period",
       description = "If set to non-zero, each retry will be spaced exponentially. For value 10, first retry will be" +
-        " done after 10 milliseconds, second retry after additional 100 milliseconds, third retry after additional second, ...",
-      displayPosition = 15,
+        " done after 10 milliseconds, second retry after additional 100 milliseconds, third retry after additional second, ..." +
+        " The maximum wait time is 5 minutes.",
+      displayPosition = 80,
       group = "ADVANCED",
       min=0
   )
@@ -159,7 +163,7 @@ public class Configs {
       type = ConfigDef.Type.NUMBER,
       defaultValue = "5000",
       label = "Connection Timeout (ms)",
-      displayPosition = 20,
+      displayPosition = 90,
       group = "ADVANCED",
       min = 100
   )
@@ -170,7 +174,7 @@ public class Configs {
       type = ConfigDef.Type.NUMBER,
       defaultValue = "2000",
       label = "Read Timeout (ms)",
-      displayPosition = 30,
+      displayPosition = 100,
       group = "ADVANCED",
       min = 100
   )
@@ -181,10 +185,13 @@ public class Configs {
       type = ConfigDef.Type.BOOLEAN,
       defaultValue = "true",
       label = "Use Compression",
-      displayPosition = 40,
+      displayPosition = 110,
       group = "ADVANCED"
   )
   public boolean compression;
+
+  // This flag indicates that connection validation must apply the retry and backoff.
+  boolean retryDuringValidation = false;
 
   private SSLSocketFactory sslSocketFactory;
 
@@ -204,10 +211,45 @@ public class Configs {
         }
       }
       if (ok && !context.isPreview()) {
-        validateConnectivity(context, issues);
+        List<Stage.ConfigIssue> moreIssues = new ArrayList<>();
+        validateConnectivity(context, moreIssues);
+
+        int retryCount = 0;
+        while (!moreIssues.isEmpty() && retryDuringValidation && (retryCount < retriesPerBatch)) {
+          backOffWait(retryCount);
+
+          moreIssues.clear();
+          validateConnectivity(context, moreIssues);
+          retryCount++;
+        }
+
+        issues.addAll(moreIssues);
       }
     }
     return issues;
+  }
+
+  public void backOffWait(int retryCount) {
+    // No wait if wait is disabled or this is first re-try
+    if(retryCount <= 0 || backOff <= 0) {
+      return;
+    }
+
+    // Wait time period
+    int waitTime;
+
+    // Current exponential back off
+    try {
+      waitTime = IntMath.checkedPow(backOff, retryCount);
+    } catch (ArithmeticException e) {
+      waitTime = MAX_BACKOFF_WAIT;
+    }
+
+    // Apply upper limit for the wait and finally wait
+    waitTime = Math.min(waitTime, MAX_BACKOFF_WAIT);
+    if (!ThreadUtil.sleep(waitTime)) {
+      LOG.info("Backoff waiting was interrupted");
+    }
   }
 
   boolean validateHostPorts(Stage.Context context, List<Stage.ConfigIssue> issues) {

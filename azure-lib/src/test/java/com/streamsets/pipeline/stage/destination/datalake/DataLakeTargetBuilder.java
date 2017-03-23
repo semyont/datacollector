@@ -9,7 +9,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,6 +32,7 @@ public class DataLakeTargetBuilder {
     conf.clientKey = dummyKey;
     conf.dirPathTemplate = "/tmp/out/";
     conf.uniquePrefix = "test";
+    conf.fileNameSuffix = "";
     conf.timeDriver = "${time:now()}";
     conf.dataFormat = DataFormat.TEXT;
     conf.dataFormatConfig.textFieldPath = "/";

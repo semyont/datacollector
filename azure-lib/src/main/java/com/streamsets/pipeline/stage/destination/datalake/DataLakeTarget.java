@@ -20,10 +20,8 @@
 
 package com.streamsets.pipeline.stage.destination.datalake;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Multimap;
+import com.microsoft.azure.datalake.store.ADLException;
 import com.microsoft.azure.datalake.store.ADLStoreClient;
-import com.microsoft.azure.datalake.store.IfExists;
 import com.microsoft.azure.datalake.store.oauth2.AzureADAuthenticator;
 import com.microsoft.azure.datalake.store.oauth2.AzureADToken;
 import com.streamsets.pipeline.api.Batch;
@@ -32,40 +30,53 @@ import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.BaseTarget;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.el.ELEval;
+import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.el.ELVars;
+import com.streamsets.pipeline.config.DataFormat;
 import com.streamsets.pipeline.lib.el.ELUtils;
+import com.streamsets.pipeline.lib.el.FakeRecordEL;
 import com.streamsets.pipeline.lib.el.TimeEL;
 import com.streamsets.pipeline.lib.el.TimeNowEL;
-import com.streamsets.pipeline.lib.generator.DataGenerator;
+import com.streamsets.pipeline.lib.executor.SafeScheduledExecutorService;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
+import com.streamsets.pipeline.stage.destination.datalake.writer.DataLakeWriterThread;
+import com.streamsets.pipeline.stage.destination.datalake.writer.RecordWriter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class DataLakeTarget extends BaseTarget {
   private static final Logger LOG = LoggerFactory.getLogger(DataLakeTarget.class);
   private final DataLakeConfigBean conf;
+  private final int threadPoolSize = 1;
   private static final String EL_PREFIX = "${";
-  private ByteArrayOutputStream baos;
   private ADLStoreClient client;
   private ELEval dirPathTemplateEval;
   private ELVars dirPathTemplateVars;
   private ELEval timeDriverEval;
   private ELVars timeDriverVars;
   private Calendar calendar;
-  private String filePath;
-
+  private RecordWriter writer;
   private ErrorRecordHandler errorRecordHandler;
+  private SafeScheduledExecutorService scheduledExecutor;
+
+
+  public static final String TARGET_DIRECTORY_HEADER = "targetDirectory";
 
   public DataLakeTarget(DataLakeConfigBean conf) {
     this.conf = conf;
@@ -77,7 +88,7 @@ public class DataLakeTarget extends BaseTarget {
 
     conf.init(getContext(), issues);
     errorRecordHandler = new DefaultErrorRecordHandler(getContext());
-    baos = new ByteArrayOutputStream();
+    scheduledExecutor = new SafeScheduledExecutorService(threadPoolSize, "data-lake-target");
 
     dirPathTemplateEval = getContext().createELEval("dirPathTemplate");
     dirPathTemplateVars = getContext().createELVars();
@@ -121,18 +132,75 @@ public class DataLakeTarget extends BaseTarget {
       );
     }
 
+    if (conf.dataFormat != DataFormat.WHOLE_FILE) {
+      if (!conf.fileNameSuffix.isEmpty() && (conf.fileNameSuffix.startsWith(".") || conf.fileNameSuffix.contains("/"))) {
+
+        issues.add(getContext().createConfigIssue(Groups.DATALAKE.name(),
+            DataLakeConfigBean.ADLS_CONFIG_BEAN_PREFIX + "fileNameSuffix",
+            Errors.ADLS_08
+        ));
+      }
+
+      if (conf.maxRecordsPerFile < 0) {
+        issues.add(getContext().createConfigIssue(Groups.DATALAKE.name(),
+            DataLakeConfigBean.ADLS_CONFIG_BEAN_PREFIX + "maxRecordsPerFile",
+            Errors.ADLS_09
+        ));
+      }
+    }
+
     if (issues.isEmpty()) {
       // connect to ADLS
       try {
         client = createClient(conf.authTokenEndpoint, conf.clientId, conf.clientKey, conf.accountFQDN);
-      } catch (IOException ex) {
+
+        if (conf.checkPermission && !conf.dirPathTemplateInHeader) {
+          validatePermission();
+        }
+      } catch (ELEvalException ex0) {
         issues.add(getContext().createConfigIssue(
             Groups.DATALAKE.name(),
-            DataLakeConfigBean.ADLS_CONFIG_BEAN_PREFIX + "clientId",
+            DataLakeConfigBean.ADLS_CONFIG_BEAN_PREFIX + "dirPathTemplate",
+            Errors.ADLS_00,
+            ex0.toString()
+        ));
+      } catch (IOException ex1) {
+        String errorMessage = ex1.toString();
+        if (ex1 instanceof ADLException) {
+          errorMessage = ex1.getMessage();
+          if (errorMessage == null) {
+            errorMessage = ((ADLException) ex1).remoteExceptionMessage;
+          }
+        }
+
+        LOG.error(Errors.ADLS_02.getMessage(), errorMessage, ex1);
+        issues.add(getContext().createConfigIssue(
+            Groups.DATALAKE.name(),
+            DataLakeConfigBean.ADLS_CONFIG_BEAN_PREFIX,
             Errors.ADLS_02,
-            ex.toString()
+            errorMessage
         ));
       }
+    }
+
+    if (issues.isEmpty()) {
+      writer = new RecordWriter(
+          client,
+          conf.dataFormat,
+          conf.dataFormatConfig,
+          conf.uniquePrefix,
+          conf.fileNameSuffix,
+          conf.dataFormatConfig.fileNameEL,
+          conf.dirPathTemplateInHeader,
+          getContext(),
+          conf.rollIfHeader,
+          conf.rollHeaderName,
+          conf.maxRecordsPerFile,
+          conf.dataFormatConfig.wholeFileExistsAction,
+          conf.authTokenEndpoint,
+          conf.clientId,
+          conf.clientKey
+      );
     }
 
     return issues;
@@ -148,73 +216,119 @@ public class DataLakeTarget extends BaseTarget {
   @Override
   public void destroy() {
     super.destroy();
+    try {
+      if(writer != null) {
+        writer.close();
+      }
+
+      if (scheduledExecutor != null && !scheduledExecutor.isTerminated()) {
+        scheduledExecutor.shutdown();
+
+        while (!scheduledExecutor.isShutdown()) {
+          Thread.sleep(100);
+        }
+      }
+    } catch (IOException ex) {
+      String errorMessage = ex.toString();
+      if (ex instanceof ADLException) {
+        errorMessage = ex.getMessage();
+        if (errorMessage == null) {
+          errorMessage = ((ADLException) ex).remoteExceptionMessage;
+        }
+      }
+      LOG.error(Errors.ADLS_04.getMessage(), errorMessage, ex);
+    } catch (InterruptedException ex) {
+      LOG.error("interrupted: {}", ex.toString(), ex);
+      Thread.currentThread().interrupt();
+    }
   }
 
   @Override
   public void write(Batch batch) throws StageException {
-    Multimap<String, Record> partitions = ELUtils.partitionBatchByExpression(
-        dirPathTemplateEval,
-        dirPathTemplateVars,
-        conf.dirPathTemplate,
-        timeDriverEval,
-        timeDriverVars,
-        conf.timeDriver,
-        calendar,
-        batch
-    );
+    List<Future<List<OnRecordErrorException>>> futures = new ArrayList<>();
+    List<OnRecordErrorException> errorRecords = new ArrayList<>();
 
-    OutputStream stream = null;
-    Record record = null;
-    DataGenerator generator = null;
+    // First, get the file path per records
+    Map<String, List<Record>> recordsPerFile = getRecordsPerFile(batch);
 
-    for (String key : partitions.keySet()) {
-      Iterator<Record> iterator = partitions.get(key).iterator();
-      // for uniqueness of the file name
-      filePath = getFilePath(key, conf.uniquePrefix);
+    // Write the record to the respective file path
+    for (Map.Entry<String, List<Record>> entry : recordsPerFile.entrySet()) {
+      String filePath = entry.getKey();
+      List<Record> records = entry.getValue();
+      Callable<List<OnRecordErrorException>> worker = new DataLakeWriterThread(writer, filePath, records);
+      Future<List<OnRecordErrorException>> future = scheduledExecutor.submit(worker);
+      futures.add(future);
+    }
 
+    // Wait for proper execution finish
+    for (Future<List<OnRecordErrorException>> f : futures) {
       try {
-        if (!client.checkExists(filePath)) {
-          stream = client.createFile(filePath, IfExists.FAIL);
-        } else {
-          stream = client.getAppendStream(filePath);
-        }
-
-        while (iterator.hasNext()) {
-          record = iterator.next();
-          baos.reset();
-          generator = conf.dataFormatConfig.getDataGeneratorFactory().getGenerator(baos);
-          generator.write(record);
-          generator.close();
-          stream.write(baos.toByteArray());
-        }
-      } catch (IOException ex) {
-        if(record == null) {
-          // possible permission error to the directory or connection issues, then throw stage exception
-          LOG.error(Errors.ADLS_02.getMessage(), ex.toString(), ex);
-          throw new StageException(Errors.ADLS_02, ex, ex);
-        } else {
-          LOG.error(Errors.ADLS_03.getMessage(), ex.toString(), ex);
-          errorRecordHandler.onError(new OnRecordErrorException(record, Errors.ADLS_03, ex.toString(), ex));
-        }
-      } finally {
-        try {
-          if (generator != null) {
-            generator.close();
-          }
-
-          if (stream != null) {
-            stream.close();
-          }
-        } catch (IOException ex2) {
-          //no-op
-          LOG.error("fail to close stream or generator: {}. reason: {}", ex2.toString(), ex2);
+        List<OnRecordErrorException> result = f.get();
+        errorRecords.addAll(result);
+      } catch (InterruptedException e) {
+        LOG.error("Interrupted data generation thread", e);
+        Thread.currentThread().interrupt();
+      } catch (ExecutionException e) {
+        if (e.getCause() instanceof StageException) {
+          throw (StageException) e.getCause();
+        } else{
+          throw new StageException(Errors.ADLS_11, e.toString(), e);
         }
       }
     }
+
+    for (OnRecordErrorException errorRecord : errorRecords) {
+      LOG.error(errorRecord.getErrorCode().getMessage(), errorRecord.toString());
+      errorRecordHandler.onError(errorRecord);
+    }
   }
 
-  @VisibleForTesting
-  String getFilePath(String directoryPath, String uniquePrefix) {
-    return directoryPath + "/" + uniquePrefix + "-" + UUID.randomUUID();
+  private Map<String, List<Record>> getRecordsPerFile(Batch batch) throws StageException{
+    Iterator<Record> recordIterator = batch.getRecords();
+
+    Map<String, List<Record>> recordsPerFile = new HashMap<>();
+
+    while (recordIterator.hasNext()) {
+      Record record = recordIterator.next();
+
+      try {
+        Date recordTime = writer.getRecordTime(timeDriverEval, timeDriverVars, conf.timeDriver, record);
+
+        if (recordTime == null) {
+          LOG.error(Errors.ADLS_07.getMessage(), conf.timeDriver);
+          errorRecordHandler.onError(new OnRecordErrorException(record, Errors.ADLS_07, conf.timeDriver));
+        }
+
+        String filePath = writer.getFilePath(
+            conf.dirPathTemplate,
+            record,
+            recordTime
+        );
+        List<Record> records = recordsPerFile.get(filePath);
+        if (records == null) {
+          records = new ArrayList<>();
+        }
+        records.add(record);
+        recordsPerFile.put(filePath, records);
+      } catch (ELEvalException ex0) {
+        LOG.error(Errors.ADLS_00.getMessage(), ex0.toString(), ex0);
+        errorRecordHandler.onError(new OnRecordErrorException(record, Errors.ADLS_00, ex0.toString(), ex0));
+      }
+    }
+    return recordsPerFile;
+  }
+
+  private void validatePermission() throws ELEvalException, IOException {
+    ELVars vars = getContext().createELVars();
+    ELEval elEval = getContext().createELEval("dirPathTemplate", FakeRecordEL.class);
+    TimeEL.setCalendarInContext(vars, calendar);
+    String dirPath = elEval.eval(vars, conf.dirPathTemplate, String.class);
+    String filePath = dirPath + "/" + UUID.randomUUID();
+
+    final String octalPermission = "0770";
+    if(!client.checkExists(filePath)) {
+      client.createFile(filePath, null, octalPermission, true);
+      client.delete(filePath);
+    }
   }
 }

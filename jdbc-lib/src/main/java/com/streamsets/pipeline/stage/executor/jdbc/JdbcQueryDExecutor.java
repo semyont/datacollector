@@ -23,6 +23,7 @@ import com.streamsets.pipeline.api.ConfigDefBean;
 import com.streamsets.pipeline.api.ConfigGroups;
 import com.streamsets.pipeline.api.Executor;
 import com.streamsets.pipeline.api.GenerateResourceBundle;
+import com.streamsets.pipeline.api.HideConfigs;
 import com.streamsets.pipeline.api.StageDef;
 import com.streamsets.pipeline.configurablestage.DExecutor;
 
@@ -35,6 +36,9 @@ import com.streamsets.pipeline.configurablestage.DExecutor;
 )
 @ConfigGroups(value = Groups.class)
 @GenerateResourceBundle
+@HideConfigs(
+  "config.hikariConfigBean.readOnly"
+)
 public class JdbcQueryDExecutor extends DExecutor {
 
   @ConfigDefBean
@@ -42,6 +46,9 @@ public class JdbcQueryDExecutor extends DExecutor {
 
   @Override
   protected Executor createExecutor() {
+    // The executor is meant to issue changing queries so having connection in read only mode doesn't make sense
+    config.hikariConfigBean.readOnly = false;
+
     return new JdbcQueryExecutor(config);
   }
 

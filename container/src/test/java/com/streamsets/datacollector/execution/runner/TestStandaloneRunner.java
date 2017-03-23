@@ -20,6 +20,7 @@
 
 package com.streamsets.datacollector.execution.runner;
 
+import com.codahale.metrics.MetricRegistry;
 import com.icegreen.greenmail.util.GreenMail;
 import com.icegreen.greenmail.util.GreenMailUtil;
 import com.streamsets.datacollector.execution.Manager;
@@ -34,13 +35,17 @@ import com.streamsets.datacollector.execution.common.ExecutorConstants;
 import com.streamsets.datacollector.execution.manager.standalone.StandaloneAndClusterPipelineManager;
 import com.streamsets.datacollector.execution.runner.common.AsyncRunner;
 import com.streamsets.datacollector.execution.runner.common.PipelineRunnerException;
+import com.streamsets.datacollector.execution.runner.common.ProductionPipeline;
 import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.main.RuntimeModule;
+import com.streamsets.datacollector.main.StandaloneRuntimeInfo;
+import com.streamsets.datacollector.runner.production.OffsetFileUtil;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.datacollector.util.TestUtil;
 import com.streamsets.dc.execution.manager.standalone.ResourceManager;
 import com.streamsets.pipeline.api.ExecutionMode;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.lib.util.ThreadUtil;
 import dagger.Module;
 import dagger.ObjectGraph;
@@ -55,12 +60,17 @@ import org.junit.Test;
 import javax.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import static com.streamsets.datacollector.util.AwaitConditionUtil.desiredPipelineState;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -81,6 +91,9 @@ public class TestStandaloneRunner {
     System.setProperty(DATA_DIR_KEY, dataDir.getAbsolutePath());
     TestUtil.captureStagesForProductionRun();
     TestUtil.EMPTY_OFFSET = false;
+    RuntimeInfo info = new StandaloneRuntimeInfo(RuntimeModule.SDC_PROPERTY_PREFIX, new MetricRegistry(),
+        Arrays.asList(getClass().getClassLoader()));
+    OffsetFileUtil.saveOffsets(info, TestUtil.MY_PIPELINE, "0", Collections.singletonMap(Source.POLL_SOURCE_OFFSET_KEY, "dummy"));
     ObjectGraph objectGraph = ObjectGraph.create(new TestUtil.TestPipelineManagerModule());
     pipelineStateStore = objectGraph.get(PipelineStateStore.class);
     pipelineManager = new StandaloneAndClusterPipelineManager(objectGraph);
@@ -109,6 +122,23 @@ public class TestStandaloneRunner {
     Runner runner = pipelineManager.getRunner("admin", TestUtil.MY_PIPELINE, "0");
     runner.start();
     waitForState(runner, PipelineStatus.RUNNING);
+    ((AsyncRunner)runner).getRunner().prepareForStop();
+    ((AsyncRunner)runner).getRunner().stop();
+    waitForState(runner, PipelineStatus.STOPPED);
+  }
+
+  @Test(timeout = 20000)
+  public void testPipelineStartWithParameters() throws Exception {
+    Runner runner = pipelineManager.getRunner("admin", TestUtil.MY_PIPELINE, "0");
+    Map<String, Object> runtimeConstants = new HashMap<>();
+    runtimeConstants.put("param1", "Param1 Value");
+    runner.start(runtimeConstants);
+    waitForState(runner, PipelineStatus.RUNNING);
+    PipelineState pipelineState = runner.getState();
+    Map<String, Object> runtimeConstantsInState = (Map<String, Object>) pipelineState.getAttributes()
+        .get(ProductionPipeline.RUNTIME_CONSTANTS_ATTR);
+    assertNotNull(runtimeConstantsInState);
+    assertEquals(runtimeConstants.get("param1"), runtimeConstantsInState.get("param1"));
     ((AsyncRunner)runner).getRunner().prepareForStop();
     ((AsyncRunner)runner).getRunner().stop();
     waitForState(runner, PipelineStatus.STOPPED);
@@ -423,6 +453,30 @@ public class TestStandaloneRunner {
     assertNotNull(snapshot);
     assertNull(snapshot.getInfo());
     assertNull(snapshot.getOutput());
+
+    ((AsyncRunner)runner).getRunner().prepareForStop();
+    ((AsyncRunner)runner).getRunner().stop();
+    waitForState(runner, PipelineStatus.STOPPED);
+  }
+
+  @Test (timeout = 60000)
+  public void testStartAndCaptureSnapshot() throws Exception {
+    Runner runner = pipelineManager.getRunner("admin", TestUtil.MY_PIPELINE, "0");
+    final String snapshotId = UUID.randomUUID().toString();
+    runner.startAndCaptureSnapshot(null, snapshotId, "snapshot label", 1, 10);
+    waitForState(runner, PipelineStatus.RUNNING);
+
+    Snapshot snapshot = runner.getSnapshot(snapshotId);
+    assertNotNull(snapshot);
+
+    SnapshotInfo info = snapshot.getInfo();
+    assertNotNull(info);
+    assertNotNull(snapshot.getOutput());
+    assertFalse(info.isInProgress());
+    assertEquals(snapshotId, info.getId());
+    assertEquals(TestUtil.MY_PIPELINE, info.getName());
+    assertEquals("0", info.getRev());
+    assertEquals(1, info.getBatchNumber());
 
     ((AsyncRunner)runner).getRunner().prepareForStop();
     ((AsyncRunner)runner).getRunner().stop();

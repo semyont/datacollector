@@ -54,6 +54,22 @@ public class TestPipelineConfigurationValidator {
   }
 
   @Test
+  public void testEmptyTitle() {
+    StageLibraryTask lib = MockStages.createStageLibrary();
+    PipelineConfiguration conf = MockStages.createPipelineConfigurationSourceProcessorTarget();
+    conf.setTitle("");
+    PipelineConfigurationValidator validator = new PipelineConfigurationValidator(lib, "name", conf);
+    Assert.assertTrue(validator.validate().getIssues().hasIssues());
+    Assert.assertTrue(validator.canPreview());
+    Assert.assertTrue(validator.getIssues().hasIssues());
+    Assert.assertTrue(validator.getOpenLanes().isEmpty());
+
+    List<Issue> issues = conf.getIssues().getIssues();
+    Assert.assertEquals(1, issues.size());
+    Assert.assertEquals(ValidationError.VALIDATION_0093.name(), issues.get(0).getErrorCode());
+  }
+
+  @Test
   public void testRequiredInactiveConfig() {
     StageLibraryTask lib = MockStages.createStageLibrary();
     PipelineConfiguration conf = MockStages.createPipelineWithRequiredDependentConfig();
@@ -176,6 +192,19 @@ public class TestPipelineConfigurationValidator {
   public void testEmptyValueRequiredField() {
     StageLibraryTask lib = MockStages.createStageLibrary();
     PipelineConfiguration conf = MockStages.createPipelineConfTargetWithReqField();
+    PipelineConfigurationValidator validator = new PipelineConfigurationValidator(lib, "name", conf);
+    conf = validator.validate();
+    Assert.assertTrue(conf.getIssues().hasIssues());
+
+    List<Issue> issues = conf.getIssues().getIssues();
+    Assert.assertEquals(1, issues.size());
+    Assert.assertEquals(ValidationError.VALIDATION_0007.name(), issues.get(0).getErrorCode());
+  }
+
+  @Test
+  public void testEmptyValueRequiredMapField() {
+    StageLibraryTask lib = MockStages.createStageLibrary();
+    PipelineConfiguration conf = MockStages.createPipelineConfTargetWithRequiredMapField();
     PipelineConfigurationValidator validator = new PipelineConfigurationValidator(lib, "name", conf);
     conf = validator.validate();
     Assert.assertTrue(conf.getIssues().hasIssues());

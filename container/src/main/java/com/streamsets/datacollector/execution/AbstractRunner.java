@@ -28,6 +28,7 @@ import com.streamsets.datacollector.execution.alerts.EmailNotifier;
 import com.streamsets.datacollector.execution.runner.common.PipelineRunnerException;
 import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
+import com.streamsets.datacollector.store.AclStoreTask;
 import com.streamsets.datacollector.store.PipelineStoreException;
 import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.util.Configuration;
@@ -35,15 +36,15 @@ import com.streamsets.datacollector.util.ContainerError;
 import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.datacollector.util.ValidationUtil;
 import com.streamsets.datacollector.validation.PipelineConfigurationValidator;
+import com.streamsets.lib.security.acl.dto.Acl;
 import com.streamsets.pipeline.api.StageException;
-
-import javax.inject.Inject;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
@@ -53,14 +54,16 @@ import java.util.concurrent.TimeUnit;
 public abstract  class AbstractRunner implements Runner {
   private static final Logger LOG = LoggerFactory.getLogger(AbstractRunner.class);
 
+  @Inject protected AclStoreTask aclStoreTask;
   @Inject protected EventListenerManager eventListenerManager;
   @Inject protected PipelineStoreTask pipelineStore;
   @Inject protected StageLibraryTask stageLibrary;
   @Inject protected RuntimeInfo runtimeInfo;
   @Inject protected Configuration configuration;
+  protected Map<String, Object> runtimeConstants;
 
-  protected PipelineConfiguration getPipelineConf(String name, String rev) throws PipelineStoreException,
-    PipelineRunnerException {
+
+  protected PipelineConfiguration getPipelineConf(String name, String rev) throws PipelineException {
     PipelineConfiguration load = pipelineStore.load(name, rev);
     PipelineConfigurationValidator validator = new PipelineConfigurationValidator(stageLibrary, name, load);
     PipelineConfiguration validate = validator.validate();
@@ -69,6 +72,10 @@ public abstract  class AbstractRunner implements Runner {
         validator.getIssues()));
     }
     return validate;
+  }
+
+  protected Acl getAcl(String name) throws PipelineException {
+    return aclStoreTask.getAcl(name);
   }
 
   protected void registerEmailNotifierIfRequired(PipelineConfigBean pipelineConfigBean, String name, String rev) {
@@ -106,8 +113,9 @@ public abstract  class AbstractRunner implements Runner {
     return isRemote != null && (boolean) isRemote;
   }
 
-  protected ScheduledFuture<Void> scheduleForRetries(ScheduledExecutorService runnerExecutor) throws
-      PipelineStoreException {
+  protected ScheduledFuture<Void> scheduleForRetries(
+      ScheduledExecutorService runnerExecutor
+  ) throws PipelineStoreException {
     long delay = 0;
     long retryTimeStamp = getState().getNextRetryTimeStamp();
     long currentTime = System.currentTimeMillis();
@@ -115,15 +123,19 @@ public abstract  class AbstractRunner implements Runner {
       delay = retryTimeStamp - currentTime;
     }
     LOG.info("Scheduling retry in '{}' milliseconds", delay);
-    ScheduledFuture<Void> future = runnerExecutor.schedule(new Callable<Void>() {
+    return runnerExecutor.schedule(new Callable<Void>() {
       @Override
       public Void call() throws StageException, PipelineException {
         LOG.info("Starting the runner now");
         prepareForStart();
-        start();
+        start(runtimeConstants);
         return null;
       }
     }, delay, TimeUnit.MILLISECONDS);
-    return future;
+  }
+
+  @Override
+  public void start() throws PipelineException, StageException {
+    start(null);
   }
 }

@@ -21,13 +21,11 @@ package com.streamsets.pipeline.stage.origin.jdbc.table;
 
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.ListBeanModel;
-import com.streamsets.pipeline.api.Source;
+import com.streamsets.pipeline.api.PushSource;
 import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.ValueChooserModel;
 import com.streamsets.pipeline.config.TimeZoneChooserValues;
 import com.streamsets.pipeline.lib.jdbc.JdbcErrors;
-import com.streamsets.pipeline.stage.origin.jdbc.CommonSourceConfigBean;
-import com.streamsets.pipeline.stage.origin.jdbc.Groups;
 
 import java.util.List;
 
@@ -35,9 +33,9 @@ public class TableJdbcConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.MODEL,
-      label = "Table Configuration",
-      displayPosition  = 60,
-      group = "JDBC"
+      label = "Table Configs",
+      displayPosition  = 10,
+      group = "TABLE"
   )
   @ListBeanModel
   public List<TableConfigBean> tableConfigs;
@@ -60,7 +58,7 @@ public class TableJdbcConfigBean {
       defaultValue = "SWITCH_TABLES",
       label = "Per Batch Strategy",
       description = "Determines the strategy for each batch to generate records from.",
-      displayPosition = 180,
+      displayPosition = 80,
       group = "JDBC"
   )
   @ValueChooserModel(BatchTableStrategyChooserValues.class)
@@ -68,11 +66,42 @@ public class TableJdbcConfigBean {
 
   @ConfigDef(
       required = true,
+      type = ConfigDef.Type.NUMBER,
+      defaultValue = "-1",
+      label = "Batches from Result Set",
+      description = "Determines the number of batches that can be generated from the fetched " +
+          "result set after which result set is closed. Leave -1 to keep the result set open as long as possible",
+      min = -1,
+      max = Integer.MAX_VALUE,
+      displayPosition = 170,
+      group = "JDBC",
+      dependsOn = "batchTableStrategy",
+      triggeredByValue = "SWITCH_TABLES"
+  )
+  public int numberOfBatchesFromRs;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.NUMBER,
+      defaultValue = "-1",
+      label = "Result Set Cache Size",
+      description = "Determines how many open statements/result sets can be cached." +
+          " Leave -1 to Opt Out and have one statement open per table.",
+      displayPosition = 180,
+      group = "JDBC",
+      dependsOn = "batchTableStrategy",
+      //For Process all rows we will need a cache with size 1, user does not have to configure it.
+      triggeredByValue = "SWITCH_TABLES"
+  )
+  public int resultCacheSize;
+
+  @ConfigDef(
+      required = true,
       type = ConfigDef.Type.MODEL,
       defaultValue = "NONE",
-      label = "Table Order Strategy",
-      description = "Determines the strategy for table ordering",
-      displayPosition = 180,
+      label = "Initial Table Order Strategy",
+      description = "Determines the strategy for initial table ordering",
+      displayPosition = 190,
       group = "ADVANCED"
   )
   @ValueChooserModel(TableOrderStrategyChooserValues.class)
@@ -80,38 +109,42 @@ public class TableJdbcConfigBean {
 
   @ConfigDef(
       required = true,
-      type = ConfigDef.Type.BOOLEAN,
-      defaultValue = "false",
-      label = "Configure Fetch Size",
-      description = "Determines whether to configure fetch size for the JDBC Statement",
-      displayPosition = 190,
-      group = "ADVANCED"
+      type = ConfigDef.Type.NUMBER,
+      defaultValue = "1000",
+      label = "Fetch Size",
+      description = "Fetch Size for the JDBC Statement. Should not be 0",
+      displayPosition = 210,
+      group = "JDBC"
   )
-  public boolean configureFetchSize;
+  public int fetchSize;
 
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.NUMBER,
-      defaultValue = "-1",
-      label = "Fetch Size",
-      description = "Fetch Size for the JDBC Statement. Should not be 0 and Should be less than or equal to batch size.",
-      displayPosition = 200,
-      group = "ADVANCED",
-      dependsOn = "configureFetchSize",
-      triggeredByValue = "true"
+      defaultValue = "1",
+      label = "Number of Threads",
+      description = "Number of threads to parallely read data from",
+      displayPosition = 220,
+      group = "JDBC"
   )
-  public int fetchSize;
+  public int numberOfThreads;
 
-  private static final String TABLE_JDBC_CONFIG_BEAN_PREFIX = "tableJdbcConfigBean.";
+  public static final String TABLE_JDBC_CONFIG_BEAN_PREFIX = "tableJdbcConfigBean.";
   public static final String TABLE_CONFIG = TABLE_JDBC_CONFIG_BEAN_PREFIX + "tableConfigs";
-  private static final String FETCH_SIZE = TABLE_JDBC_CONFIG_BEAN_PREFIX + "fetchSize";
+  public static final String BATCHES_FROM_THE_RESULT_SET = "numberOfBatchesFromRs";
 
-  public List<Stage.ConfigIssue> validateConfigs(Source.Context context, List<Stage.ConfigIssue> issues, CommonSourceConfigBean commonSourceConfigBean) {
-    if (configureFetchSize && fetchSize > commonSourceConfigBean.maxBatchSize) {
-      issues.add(context.createConfigIssue(Groups.ADVANCED.name(), FETCH_SIZE, JdbcErrors.JDBC_65, fetchSize));
-    }
+  public List<Stage.ConfigIssue> validateConfigs(PushSource.Context context, List<Stage.ConfigIssue> issues) {
     if (tableConfigs.isEmpty()) {
-      issues.add(context.createConfigIssue(Groups.JDBC.name(), TABLE_CONFIG, JdbcErrors.JDBC_66));
+      issues.add(context.createConfigIssue(Groups.TABLE.name(), TABLE_CONFIG, JdbcErrors.JDBC_66));
+    }
+    if (batchTableStrategy == BatchTableStrategy.SWITCH_TABLES && numberOfBatchesFromRs == 0) {
+      issues.add(
+          context.createConfigIssue(
+              Groups.JDBC.name(),
+              TABLE_JDBC_CONFIG_BEAN_PREFIX +"numberOfBatchesFromRs",
+              JdbcErrors.JDBC_76
+          )
+      );
     }
     return issues;
   }

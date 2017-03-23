@@ -21,7 +21,6 @@ package com.streamsets.datacollector.runner;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableList;
-import com.streamsets.datacollector.config.DeliveryGuarantee;
 import com.streamsets.datacollector.config.PipelineConfiguration;
 import com.streamsets.datacollector.config.StageConfiguration;
 import com.streamsets.datacollector.creation.PipelineConfigBean;
@@ -32,7 +31,9 @@ import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
 import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.pipeline.api.ExecutionMode;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.Processor;
+import com.streamsets.pipeline.api.PushSource;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.Stage;
@@ -56,6 +57,13 @@ public class TestPipeline {
     MockStages.resetStageCaptures();
   }
 
+  private Pipe[] getSourceAndPipelinePipes(Pipeline pipeline) {
+    List<Pipe> p = new ArrayList<>(1 + pipeline.getRunners().get(0).size());
+    p.add(pipeline.getSourcePipe());
+    p.addAll(pipeline.getRunners().get(0).getPipes());
+    return p.toArray(new Pipe[p.size()]);
+  }
+
   @Test
   @SuppressWarnings("unchecked")
   public void testBuilder() throws Exception {
@@ -71,8 +79,8 @@ public class TestPipeline {
     pipelineConfigs.add(new Config("executionMode", ExecutionMode.STANDALONE));
     PipelineConfiguration pipelineConf = new PipelineConfiguration(PipelineStoreTask.SCHEMA_VERSION,
       PipelineConfigBean.VERSION, UUID.randomUUID(),
-      null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
-    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", pipelineConf);
+        "label", null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", MockStages.userContext(), pipelineConf);
 
     PipelineRunner runner = Mockito.mock(PipelineRunner.class);
     MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
@@ -82,7 +90,7 @@ public class TestPipeline {
     Pipeline pipeline = builder.build(runner);
 
     // assert the pipes
-    Pipe[] pipes = pipeline.getPipes();
+    Pipe[] pipes = getSourceAndPipelinePipes(pipeline);
     Assert.assertEquals(9, pipes.length);
     Assert.assertTrue(pipes[0] instanceof StagePipe);
     Assert.assertTrue(pipes[1] instanceof ObserverPipe);
@@ -163,9 +171,9 @@ public class TestPipeline {
     pipelineConfigs.add(new Config("stopPipelineOnError", false));
     pipelineConfigs.add(new Config("executionMode", ExecutionMode.STANDALONE));
     PipelineConfiguration pipelineConf = new PipelineConfiguration(PipelineStoreTask.SCHEMA_VERSION,
-      PipelineConfigBean.VERSION, UUID.randomUUID(),
-      null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
-    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", pipelineConf);
+      PipelineConfigBean.VERSION, UUID.randomUUID(),"label",
+        null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", MockStages.userContext(), pipelineConf);
 
     PipelineRunner runner = Mockito.mock(PipelineRunner.class);
     MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
@@ -175,7 +183,7 @@ public class TestPipeline {
     Pipeline pipeline = builder.build(runner);
 
     // assert the pipes
-    Pipe[] pipes = pipeline.getPipes();
+    Pipe[] pipes = getSourceAndPipelinePipes(pipeline);
     Assert.assertEquals(9, pipes.length);
     Assert.assertTrue(pipes[0] instanceof StagePipe);
     Assert.assertEquals("s", pipes[0].getStage().getConfiguration().getInstanceName());
@@ -213,8 +221,8 @@ public class TestPipeline {
     pipelineConfigs.add(new Config("executionMode", ExecutionMode.STANDALONE));
     PipelineConfiguration pipelineConf = new PipelineConfiguration(PipelineStoreTask.SCHEMA_VERSION,
        PipelineConfigBean.VERSION, UUID.randomUUID(),
-       null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
-    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", pipelineConf);
+        "label", null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", MockStages.userContext(), pipelineConf);
 
     PipelineRunner runner = Mockito.mock(PipelineRunner.class);
     MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
@@ -224,7 +232,7 @@ public class TestPipeline {
     Pipeline pipeline = builder.build(runner);
 
     // assert the pipes
-    Pipe[] pipes = pipeline.getPipes();
+    Pipe[] pipes = getSourceAndPipelinePipes(pipeline);
 
     Source.Context sourceContext = pipes[0].getStage().getContext();
     Processor.Context processorContext = pipes[3].getStage().getContext();
@@ -276,8 +284,8 @@ public class TestPipeline {
 
     PipelineConfiguration pipelineConf = new PipelineConfiguration(PipelineStoreTask.SCHEMA_VERSION,
        PipelineConfigBean.VERSION, UUID.randomUUID(),
-       null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
-    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", pipelineConf);
+        "label", null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", MockStages.userContext(), pipelineConf);
 
     PipelineRunner runner = Mockito.mock(PipelineRunner.class);
     MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
@@ -316,7 +324,7 @@ public class TestPipeline {
     // Mockito.verifyNoMoreInteractions(runner);
 
     pipeline.destroy();
-    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(Pipe[].class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
+    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(SourcePipe.class), Mockito.any(List.class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
     Mockito.verifyNoMoreInteractions(source);
     Mockito.verifyNoMoreInteractions(processor);
     Mockito.verifyNoMoreInteractions(target);
@@ -338,8 +346,8 @@ public class TestPipeline {
 
     PipelineConfiguration pipelineConf = new PipelineConfiguration(PipelineStoreTask.SCHEMA_VERSION,
        PipelineConfigBean.VERSION, UUID.randomUUID(),
-       null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
-    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", pipelineConf);
+        "label", null, pipelineConfigs, null, stageDefs, MockStages.getErrorStageConfig(), MockStages.getStatsAggregatorStageConfig());
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", MockStages.userContext(), pipelineConf);
 
     PipelineRunner runner = Mockito.mock(PipelineRunner.class);
     MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
@@ -368,7 +376,7 @@ public class TestPipeline {
     Mockito.verify(target, Mockito.times(1)).init(Mockito.any(Stage.Info.class),
                                                   Mockito.any(Target.Context.class));
     pipeline.destroy();
-    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(Pipe[].class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
+    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(SourcePipe.class), Mockito.any(List.class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
 
     // test runtime exception on init
 
@@ -392,7 +400,7 @@ public class TestPipeline {
                                                   Mockito.any(Target.Context.class));
 
     pipeline.destroy();
-    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(Pipe[].class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
+    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(SourcePipe.class), Mockito.any(List.class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
 
     // test exception on destroy
 
@@ -408,7 +416,110 @@ public class TestPipeline {
 
     pipeline.init();
     pipeline.destroy();
-    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(Pipe[].class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
+    Mockito.verify(runner, Mockito.times(1)).destroy(Mockito.any(SourcePipe.class), Mockito.any(List.class), Mockito.any(BadRecordsHandler.class), Mockito.any(StatsAggregationHandler.class));
+  }
+
+  @Test
+  public void testCreateAdditionalRunnersOnInit() throws Exception {
+    StageLibraryTask lib = MockStages.createStageLibrary();
+    List<StageConfiguration> stageDefs = ImmutableList.of(
+        MockStages.createPushSource("s", ImmutableList.of("p")),
+        MockStages.createTarget("t", ImmutableList.of("p"))
+    );
+    List<Config> pipelineConfigs = new ArrayList<>(2);
+    pipelineConfigs.add(new Config("deliveryGuarantee", DeliveryGuarantee.AT_LEAST_ONCE));
+    pipelineConfigs.add(new Config("stopPipelineOnError", false));
+    pipelineConfigs.add(new Config("executionMode", ExecutionMode.STANDALONE));
+
+    PipelineConfiguration pipelineConf = new PipelineConfiguration(
+      PipelineStoreTask.SCHEMA_VERSION,
+      PipelineConfigBean.VERSION,
+      UUID.randomUUID(),
+      null,
+      "",
+      pipelineConfigs,
+      null,
+      stageDefs,
+      MockStages.getErrorStageConfig(),
+      MockStages.getStatsAggregatorStageConfig()
+    );
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", MockStages.userContext(), pipelineConf);
+
+    PipelineRunner runner = Mockito.mock(PipelineRunner.class);
+    MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
+    Mockito.when(runner.getMetrics()).thenReturn(metrics);
+    Mockito.when(runner.getRuntimeInfo()).thenReturn(Mockito.mock(RuntimeInfo.class));
+
+    // We want 10 pipeline runners to be created
+    PushSource source = Mockito.mock(PushSource.class);
+    Mockito.when(source.getNumberOfThreads()).thenReturn(10);
+
+    Target target = Mockito.mock(Target.class);
+    MockStages.setPushSourceCapture(source);
+    MockStages.setTargetCapture(target);
+
+    Pipeline pipeline = builder.build(runner);
+
+    Assert.assertTrue(pipeline.init().isEmpty());
+
+    // Origin is initialized only once
+    Mockito.verify(source, Mockito.times(1)).init(Mockito.any(Stage.Info.class), Mockito.any(PushSource.Context.class));
+
+    // But the Target is initialized 10 times (~10 different "virtual" instances)
+    Mockito.verify(target, Mockito.times(10)).init(Mockito.any(Stage.Info.class), Mockito.any(Target.Context.class));
+    Assert.assertEquals(10, pipeline.getRunners().size());
+  }
+
+  @Test
+  public void testCreateAdditionalRunnersOnInitLimitedByPipelineConfiguration() throws Exception {
+    StageLibraryTask lib = MockStages.createStageLibrary();
+    List<StageConfiguration> stageDefs = ImmutableList.of(
+        MockStages.createPushSource("s", ImmutableList.of("p")),
+        MockStages.createTarget("t", ImmutableList.of("p"))
+    );
+    List<Config> pipelineConfigs = new ArrayList<>(2);
+    pipelineConfigs.add(new Config("deliveryGuarantee", DeliveryGuarantee.AT_LEAST_ONCE));
+    pipelineConfigs.add(new Config("stopPipelineOnError", false));
+    pipelineConfigs.add(new Config("maxRunners", 5));
+    pipelineConfigs.add(new Config("executionMode", ExecutionMode.STANDALONE));
+
+    PipelineConfiguration pipelineConf = new PipelineConfiguration(
+      PipelineStoreTask.SCHEMA_VERSION,
+      PipelineConfigBean.VERSION,
+      UUID.randomUUID(),
+      null,
+      "",
+      pipelineConfigs,
+      null,
+      stageDefs,
+      MockStages.getErrorStageConfig(),
+      MockStages.getStatsAggregatorStageConfig()
+    );
+    Pipeline.Builder builder = new Pipeline.Builder(lib, new Configuration(), "name", "name", "0", MockStages.userContext(), pipelineConf);
+
+    PipelineRunner runner = Mockito.mock(PipelineRunner.class);
+    MetricRegistry metrics = Mockito.mock(MetricRegistry.class);
+    Mockito.when(runner.getMetrics()).thenReturn(metrics);
+    Mockito.when(runner.getRuntimeInfo()).thenReturn(Mockito.mock(RuntimeInfo.class));
+
+    // Origin reports 10 threads
+    PushSource source = Mockito.mock(PushSource.class);
+    Mockito.when(source.getNumberOfThreads()).thenReturn(10);
+
+    Target target = Mockito.mock(Target.class);
+    MockStages.setPushSourceCapture(source);
+    MockStages.setTargetCapture(target);
+
+    Pipeline pipeline = builder.build(runner);
+
+    Assert.assertTrue(pipeline.init().isEmpty());
+
+    // Origin is initialized only once
+    Mockito.verify(source, Mockito.times(1)).init(Mockito.any(Stage.Info.class), Mockito.any(PushSource.Context.class));
+
+    // But the Target is initialized 10 times (~10 different "virtual" instances)
+    Mockito.verify(target, Mockito.times(5)).init(Mockito.any(Stage.Info.class), Mockito.any(Target.Context.class));
+    Assert.assertEquals(5, pipeline.getRunners().size());
   }
 
 }

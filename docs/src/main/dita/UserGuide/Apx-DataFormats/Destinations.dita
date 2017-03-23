@@ -66,16 +66,19 @@
               <entry>Azure Data Lake Store</entry>
               <entry><image href="../Graphics/CheckIcon.png" scale="30" id="image_esg_j4k_1y"
                 /></entry>
-              <entry/>
+              <entry><image href="../Graphics/CheckIcon.png" scale="30" id="image_slh_k1p_sy"
+                /></entry>
               <entry><image href="../Graphics/CheckIcon.png" scale="30" id="image_dvz_j4k_1y"
                 /></entry>
               <entry><image href="../Graphics/CheckIcon.png" scale="30" id="image_sbb_k4k_1y"
                 /></entry>
-              <entry/>
+              <entry><image href="../Graphics/CheckIcon.png" scale="30" id="image_xql_k1p_sy"
+                /></entry>
               <entry/>
               <entry><image href="../Graphics/CheckIcon.png" scale="30" id="image_ltc_k4k_1y"
                 /></entry>
-              <entry/>
+              <entry><image href="../Graphics/CheckIcon.png" scale="30" id="image_tts_2wl_3y"
+                /></entry>
             </row>
                                                 <row>
                                                   <entry>Cassandra</entry>
@@ -242,6 +245,12 @@
                                                   Applicable * * *</entry>
                                                   <entry/>
                                                 </row>
+                                          <row>
+                                            <entry>MapR DB JSON</entry>
+                                            <entry namest="c2" nameend="c9">* * * Not
+                                              Applicable * * *</entry>
+                                            <entry/>
+                                          </row>
                                                 <row>
                                                   <entry>MapR FS</entry>
                                                   <entry><image href="../Graphics/CheckIcon.png"

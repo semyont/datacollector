@@ -41,12 +41,15 @@ import com.streamsets.datacollector.main.RuntimeModule;
 import com.streamsets.datacollector.main.StandaloneRuntimeInfo;
 import com.streamsets.datacollector.runner.MockStages;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
+import com.streamsets.datacollector.store.AclStoreTask;
 import com.streamsets.datacollector.store.PipelineStoreException;
 import com.streamsets.datacollector.store.PipelineStoreTask;
+import com.streamsets.datacollector.store.impl.FileAclStoreTask;
 import com.streamsets.datacollector.store.impl.FilePipelineStoreTask;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.LockCache;
 import com.streamsets.datacollector.util.LockCacheModule;
+import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.lib.executor.SafeScheduledExecutorService;
 import dagger.Module;
@@ -96,8 +99,10 @@ public class TestStandalonePipelineManager {
   public static class TestPipelineManagerModule {
     private static Logger LOG = LoggerFactory.getLogger(TestPipelineManagerModule.class);
     private final long expiry;
+    private final long initialExpiryDelay;
 
-    public TestPipelineManagerModule(long expiry) {
+    public TestPipelineManagerModule(long expiry, long initialExpiryDelay) {
+      this.initialExpiryDelay = initialExpiryDelay;
       this.expiry = expiry;
     }
 
@@ -124,6 +129,7 @@ public class TestStandalonePipelineManager {
     public Configuration provideConfiguration() {
       Configuration configuration = new Configuration();
       configuration.set(StandaloneAndClusterPipelineManager.RUNNER_EXPIRY_INTERVAL, expiry);
+      configuration.set(StandaloneAndClusterPipelineManager.RUNNER_EXPIRY_INITIAL_DELAY, initialExpiryDelay);
       return configuration;
     }
 
@@ -134,6 +140,17 @@ public class TestStandalonePipelineManager {
         pipelineStateStore, lockCache);
       filePipelineStoreTask.init();
       return filePipelineStoreTask;
+    }
+
+    @Provides @Singleton
+    public AclStoreTask provideAclStoreTask(
+        RuntimeInfo runtimeInfo,
+        PipelineStoreTask pipelineStoreTask,
+        LockCache<String> lockCache
+    ) {
+      AclStoreTask aclStoreTask = new FileAclStoreTask(runtimeInfo, pipelineStoreTask, lockCache);
+      aclStoreTask.init();
+      return aclStoreTask;
     }
 
     @Provides @Singleton
@@ -195,8 +212,8 @@ public class TestStandalonePipelineManager {
 
   }
 
-  private void setUpManager(long expiry, boolean isDPMEnabled) {
-    ObjectGraph objectGraph = ObjectGraph.create(new TestPipelineManagerModule(expiry));
+  private void setUpManager(long expiry, long initialThreadExpiryDelay, boolean isDPMEnabled) {
+    ObjectGraph objectGraph = ObjectGraph.create(new TestPipelineManagerModule(expiry, initialThreadExpiryDelay));
     RuntimeInfo info = objectGraph.get(RuntimeInfo.class);
     info.setDPMEnabled(isDPMEnabled);
     pipelineStoreTask = objectGraph.get(PipelineStoreTask.class);
@@ -211,7 +228,9 @@ public class TestStandalonePipelineManager {
     System.setProperty(RuntimeModule.SDC_PROPERTY_PREFIX + RuntimeInfo.DATA_DIR, "./target/var");
     File f = new File(System.getProperty(RuntimeModule.SDC_PROPERTY_PREFIX + RuntimeInfo.DATA_DIR));
     FileUtils.deleteDirectory(f);
-    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL, false);
+    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL,
+        StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INITIAL_DELAY,
+        false);
   }
 
   @After
@@ -222,8 +241,8 @@ public class TestStandalonePipelineManager {
   }
 
   @Test
-  public void testPreviewer() throws PipelineStoreException {
-    pipelineStoreTask.create("user", "abcd", "blah", false);
+  public void testPreviewer() throws PipelineException {
+    pipelineStoreTask.create("user", "abcd", "label","blah", false);
     Previewer previewer = pipelineManager.createPreviewer("user", "abcd", "0");
     assertEquals(previewer, pipelineManager.getPreviewer(previewer.getId()));
     ((StandaloneAndClusterPipelineManager)pipelineManager).outputRetrieved(previewer.getId());
@@ -244,20 +263,20 @@ public class TestStandalonePipelineManager {
 
   @Test
   public void testRunner() throws Exception {
-    pipelineStoreTask.create("user", "aaaa", "blah", false);
+    pipelineStoreTask.create("user", "aaaa", "label","blah", false);
     Runner runner = pipelineManager.getRunner("user1", "aaaa", "0");
     assertNotNull(runner);
   }
 
   @Test
   public void testGetPipelineStates() throws Exception {
-    pipelineStoreTask.create("user", "aaaa", "blah", false);
+    pipelineStoreTask.create("user", "aaaa", "label","blah", false);
     List<PipelineState> pipelineStates = pipelineManager.getPipelines();
 
     assertEquals("aaaa", pipelineStates.get(0).getName());
     assertEquals("0", pipelineStates.get(0).getRev());
 
-    pipelineStoreTask.create("user", "bbbb", "blah", false);
+    pipelineStoreTask.create("user", "bbbb", "label","blah", false);
     pipelineStates = pipelineManager.getPipelines();
     assertEquals(2, pipelineStates.size());
 
@@ -271,14 +290,16 @@ public class TestStandalonePipelineManager {
 
   @Test
   public void testRemotePipelineStartup() throws Exception {
-    pipelineStoreTask.create("user", "remote", "0", true);
+    pipelineStoreTask.create("user", "remote", "label","0", true);
     pipelineStateStore.saveState("user", "remote", "0", PipelineStatus.CONNECTING, "blah", null, ExecutionMode
             .STANDALONE,
         null, 0, 0);
     pipelineManager.stop();
     pipelineStoreTask.stop();
 
-    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL, true);
+    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL,
+        StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INITIAL_DELAY,
+        true);
 
     await().atMost(Duration.FIVE_SECONDS).until(numPipelinesEqualTo(pipelineManager, 1));
     List<PipelineState> pipelineStates = pipelineManager.getPipelines();
@@ -290,7 +311,9 @@ public class TestStandalonePipelineManager {
     pipelineStateStore.saveState("user", "remote", "0", PipelineStatus.CONNECTING, "blah", null, ExecutionMode
         .STANDALONE, null, 0, 0);
 
-    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL, false);
+    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL,
+        StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INITIAL_DELAY,
+        false);
     await().atMost(Duration.FIVE_SECONDS).until(numPipelinesEqualTo(pipelineManager, 1));
 
     pipelineStates = pipelineManager.getPipelines();
@@ -302,12 +325,14 @@ public class TestStandalonePipelineManager {
 
   @Test
   public void testInitTask() throws Exception {
-    pipelineStoreTask.create("user", "aaaa", "blah", false);
+    pipelineStoreTask.create("user", "aaaa", "label","blah", false);
     pipelineStateStore.saveState("user", "aaaa", "0", PipelineStatus.CONNECTING, "blah", null, ExecutionMode.STANDALONE, null, 0, 0);
     pipelineManager.stop();
     pipelineStoreTask.stop();
 
-    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL, false);
+    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL,
+        StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INITIAL_DELAY,
+        false);
 
     await().atMost(Duration.FIVE_SECONDS).until(numPipelinesEqualTo(pipelineManager, 1));
 
@@ -319,7 +344,9 @@ public class TestStandalonePipelineManager {
     pipelineStoreTask.stop();
     pipelineStateStore.saveState("user", "aaaa", "0", PipelineStatus.FINISHING, "blah", null, ExecutionMode.STANDALONE, null, 0, 0);
 
-    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL, false);
+    setUpManager(StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INTERVAL,
+        StandaloneAndClusterPipelineManager.DEFAULT_RUNNER_EXPIRY_INITIAL_DELAY,
+        false);
     await().atMost(Duration.FIVE_SECONDS).until(numPipelinesEqualTo(pipelineManager, 1));
 
     pipelineStates = pipelineManager.getPipelines();
@@ -330,7 +357,7 @@ public class TestStandalonePipelineManager {
 
   @Test
   public void testExpiry() throws Exception {
-    pipelineStoreTask.create("user", "aaaa", "blah", false);
+    pipelineStoreTask.create("user", "aaaa", "label","blah", false);
     Runner runner = pipelineManager.getRunner("user1", "aaaa", "0");
     pipelineStateStore.saveState("user", "aaaa", "0", PipelineStatus.RUNNING_ERROR, "blah", null, ExecutionMode.STANDALONE, null, 0, 0);
     assertEquals(PipelineStatus.RUNNING_ERROR, runner.getState().getStatus());
@@ -339,9 +366,10 @@ public class TestStandalonePipelineManager {
     pipelineManager.stop();
     pipelineStoreTask.stop();
 
-    pipelineStateStore.saveState("user", "aaaa", "0", PipelineStatus.RUNNING_ERROR, "blah", null, ExecutionMode.STANDALONE, null, 0, 0);
+    pipelineStateStore.saveState("user", "aaaa", "0", PipelineStatus.RUNNING_ERROR, "blah", null, ExecutionMode
+        .STANDALONE, null, 0, 0);
     pipelineManager = null;
-    setUpManager(100, false);
+    setUpManager(100, 0, false);
     await().atMost(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
       @Override
       public Boolean call() throws Exception {
@@ -353,9 +381,9 @@ public class TestStandalonePipelineManager {
 
   @Test
   public void testPipelineRunnersAtDifferentTimesExpiry() throws Exception {
-    pipelineStoreTask.create("user", "aaaa", "blah", false);
-    pipelineStoreTask.create("user", "bbbb", "blah", false);
-    setUpManager(100, false);
+    pipelineStoreTask.create("user", "aaaa", "label","blah", false);
+    pipelineStoreTask.create("user", "bbbb", "label","blah", false);
+    setUpManager(100, 0, false);
 
     pipelineManager.getRunner("user1", "aaaa", "0");
     pipelineStateStore.saveState("user", "aaaa", "0", PipelineStatus.STOPPED, "blah", null, ExecutionMode.STANDALONE, null, 0, 0);
@@ -385,7 +413,7 @@ public class TestStandalonePipelineManager {
 
   @Test
   public void testChangeExecutionModes() throws Exception {
-    pipelineStoreTask.create("user1", "pipeline2", "blah", false);
+    pipelineStoreTask.create("user1", "pipeline2", "label","blah", false);
     pipelineStateStore.saveState("user", "pipeline2", "0", PipelineStatus.EDITED, "blah", null, ExecutionMode.STANDALONE, null, 0, 0);
     Runner runner1 = pipelineManager.getRunner("user1", "pipeline2", "0");
     pipelineStateStore.saveState("user", "pipeline2", "0", PipelineStatus.EDITED, "blah", null, ExecutionMode.CLUSTER_BATCH, null, 0, 0);

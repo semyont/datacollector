@@ -44,8 +44,22 @@ public class BadRecordsHandler {
     return  errorStage.init();
   }
 
-  public void handle(String sourceOffset, List<Record> badRecords) throws StageException {
-    ((Target)errorStage.getStage()).write(new BatchImpl("errorStage", sourceOffset, badRecords));
+  public void handle(String sourceEntity, String sourceOffset, List<Record> badRecords) throws StageException {
+    // Shortcut to avoid synchronization if there are no error records
+    if(badRecords.isEmpty()) {
+      return;
+    }
+
+    synchronized (errorStage) {
+      errorStage.execute(
+        sourceOffset,     // Source offset for this batch
+        -1,     // BatchSize is not used for target
+        new BatchImpl("errorStage", sourceEntity, sourceOffset, badRecords),
+        null,  // BatchMaker doesn't make sense for target
+        null,    // Error stage can't generate error records
+        null    // And also can't generate events
+      );
+    }
   }
 
   public void destroy() {

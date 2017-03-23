@@ -48,11 +48,14 @@
       "addAndRemoveStages": "Add/Remove Stages",
       "allStages": "All Stages",
       "autoArrange": "Auto Arrange",
+      "batchNumber": "Batch Number",
       "cancel": "Cancel",
       "changeRule": "Change Rule",
       "captured": "Captured",
       "close": "Close",
       "condition": "Condition",
+      "create": "Create",
+      "creating": "Creating...",
       "createdBy": "Created By",
       "createdOn": "Created On",
       "delete": "Delete",
@@ -68,6 +71,8 @@
       "download": "Download",
       "downloading": "Downloading...",
       "edit": "Edit",
+      "email": "Email Address",
+      "emailPlaceholder": "Enter Email Address",
       "error": "Error",
       "errorCode": "Error Code",
       "errorMessage": "Error Message",
@@ -75,27 +80,36 @@
       "errorRecord": "Error",
       "errors": "Errors",
       "eventRecord": "Event Record",
+      "execute": "Execute",
       "export": "Export",
       "exportWithLibraryDefinitions": "Export for DPM",
       "fieldName": "Field Name",
       "fieldName.placeholder": "New Field Name",
+      "fieldHeader": "Field Header",
       "fromStage": "From Stage",
       "fromStageLane": "From Stage Stream",
       "fromStageLanePredicate": "From Stage Stream Condition",
       "generate": "Generate",
       "getThisVersion": "Get",
       "gridView": "Grid View",
+      "groups": "Groups",
+      "groupId": "Group ID",
+      "groupIdPlaceholder": "Enter Group ID",
       "help": "Help",
+      "hideNameColumn": "Hide ID Column",
       "histogram": "Records Per Batch Histogram (5 minutes decay)",
+      "id": "ID",
       "import": "Import",
       "install": "Install",
       "installing": "Installing...",
+      "isOwner": "Is owner",
       "retry": "Retry",
       "label": "Label",
       "labels": "Labels",
       "lastModifiedBy": "Last Modified By",
       "lastModifiedOn": "Last Modified On",
       "lastStatusChange": "Timestamp",
+      "lastUpdated": "Last Updated",
       "library": "Library",
       "listView": "List View",
       "loading": "Loading",
@@ -108,8 +122,10 @@
       "nextStage": "Next Stage",
       "newRecord": "New Output Record",
       "no": "No",
+      "noRecords": "No Records to view.",
       "numberOfCopies": "Number of Copies",
       "outputRecord": "Output Record",
+      "owner": "Owner",
       "pipeline": "Pipeline",
       "previousStage": "Previous Stage",
       "processor": "Processor",
@@ -123,13 +139,16 @@
       "required": "Required",
       "reset": "Reset",
       "restart": "Restart Data Collector",
+      "read": "Read",
       "revertChanges": "Revert Data Changes",
       "sampleRecords": "Sample Records",
       "sampleValue": "Sample Value",
       "save": "Save",
       "schemaVersion": "Schema Version",
       "settings": "Settings",
+      "share": "Share",
       "showMore": "Show More...",
+      "showNameColumn": "Show ID Column",
       "source": "Origin",
       "stage": "Stage",
       "stages": "Stages",
@@ -138,19 +157,31 @@
       "status": "Status",
       "step": "Run With Changes",
       "stream": "Stream",
+      "subject": "Subject",
       "tableView": "Table View",
       "target": "Destination",
       "targets": "Destinations",
       "timestamp": "Timestamp",
+      "title": "Title",
       "toStage": "To Stage",
       "type": "Type",
+      "userId": "User ID",
+      "userIdPlaceholder": "Enter User ID",
+      "userName": "Display Name",
+      "userNamePlaceholder": "Enter Display Name",
       "undo": "Undo",
       "uninstall": "Uninstall",
       "uninstalling": "Uninstalling...",
+      "update": "Update",
+      "upload": "Upload",
+      "uploading": "Uploading...",
+      "users": "Users",
       "username": "Login",
       "username.placeholder": "Your login",
       "value": "Value",
       "view": "View",
+      "viewLogs": "View Logs",
+      "write": "Write",
       "yes": "Yes"
     },
     "messages": {
@@ -177,6 +208,9 @@
   },
   "home": {
     "ago": "ago",
+    "createDPMUsers": {
+      "title": "Create DPM Groups & Users"
+    },
     "enableDPM": {
       "alreadyEnabledMsg": "DPM is already enabled",
       "contactMessage": "Contact <a href=\"mailto:enteprise@streamsets.com\" target=\"_top\">enteprise@streamsets.com</a> for a StreamSets Enterprise account",
@@ -191,7 +225,8 @@
       "installStatsLibraryMessage": "Important: DPM requires that the statistics stage library be installed on each registered Data Collector. DPM requires the library to run system pipelines on the Data Collector.",
       "isEnableInProgress": "Enabling DPM...",
       "isManagedByClouderaManager": "For an installation with Cloudera Manager, you must use the Cloudera Manager to enable Data Collector to work with DPM. <a href=\"https://streamsets.com/documentation/datacollector/latest/help//index.html#DPM/RegisterSDCwithDPM.html\" target=\"_blank\">Learn More...</a>",
-      "successMessage": "Successfully generated the authentication token and updated the files 'etc/application-token.txt' and 'etc/dpm.properties'. Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart"
+      "restartMessage": "Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart",
+      "successMessage": "Successfully generated the authentication token and updated the files 'etc/application-token.txt' and 'etc/dpm.properties'."
     },
     "createPipeline": "Create New Pipeline",
     "commitPipelineHistory": {
@@ -268,6 +303,7 @@
       "more": "More",
       "nextBatch": "Preview Next Batch",
       "notifications": "Notifications",
+      "noConstantsDefinedMsg": "No Pipeline Constants defined",
       "pauseMonitoring": "Pause Monitoring",
       "pipeline": "Pipeline",
       "pipelineIssues": "Pipeline Issues",
@@ -287,6 +323,7 @@
       "stageLibrary": "Stage Library",
       "start": "Start",
       "startingPipeline": "Starting Pipeline...",
+      "startWithParametersTitle": "Start With Parameters",
       "stop": "Stop",
       "stopConfirmationTitle": "Stop Pipeline Confirmation",
       "stopConfirmationMessage": "Are you sure you want to stop Pipeline '{{name}}'?",
@@ -328,8 +365,10 @@
         "errorsCount": "Stage Errors Count (since last startup)",
         "errorsHistogram": "Stage Errors Histogram (5 minutes decay)"
       },
+      "committedOffsets": "Committed Offsets",
       "configuration": "Configuration",
       "configurationTab": {
+        "changeStageLibrary": "Change Stage Library",
         "linkInformation": "Stream Information",
         "enterKey": "Enter Name",
         "enterPredicate": "Enter Condition",
@@ -492,6 +531,7 @@
         "lastBatchErrorMessagesCount": "Last Batch Error Messages Count",
         "memoryConsumed": "Heap Memory Usage",
         "runtimeStatistics": "Runtime Statistics",
+        "runtimeConstants": "Runtime Constants",
         "settingsTitle": "Monitoring Settings",
         "slaveSDCInstances": "Worker SDC Instances",
         "timeInCurrentStage": "Time in Current Stage",
@@ -501,7 +541,10 @@
         "stageBatchProcessingTimer": "Stage Batch Processing Timer (in seconds)",
         "stageBatchProcessingTimerYAxis": "( Mean Timer Percentiles )",
         "stageMemoryConsumed": "Stage Heap Memory Usage (in MB)",
-        "triggered": "Triggered"
+        "triggered": "Triggered",
+        "runners": "Runners",
+        "totalRunners": "Total runners",
+        "availableRunners": "Available runners"
       },
       "timeSeries": "Time Series",
       "timeSeriesTab": {
@@ -530,7 +573,7 @@
       "rememberMe": "Remember the configuration",
       "runPreview": "Run Preview",
       "showFieldType": "Show Field Type",
-      "showHeader": "Show Record Header",
+      "showHeader": "Show Record/Field Header",
       "skipTargets": "Skip Targets",
       "snapshotSource": "Snapshot Data",
       "stageErrorsWarning": "{{stageErrorsCount}} Stage Errors, check Errors tab for more detail.",
@@ -551,10 +594,12 @@
       "duplicatePipelineDefinition": "Duplicate Pipeline Definition",
       "emptyPipelineList": "No Pipeline to view.",
       "newPipelineDefinition": "New Pipeline",
-      "namePlaceholder": "Pipeline Definition Name",
-      "nameRequiredValidation": "Please enter name of the pipeline.",
+      "namePlaceholder": "Pipeline Definition Title",
+      "nameRequiredValidation": "Please enter title of the pipeline.",
       "nameValidation": "Enter alphanumeric characters, spaces and underscores.",
       "processorPlaceholder": "Select Processor...",
+      "sharingSettings": "Sharing Settings",
+      "selectUsersAndGroupsPlaceholder": "Select users and groups...",
       "sourcePlaceholder":"Select Origin...",
       "system:allPipelines" : "All Pipelines",
       "system:publishedPipelines": "Published Pipelines",
@@ -564,7 +609,10 @@
       "system:nonRunningPipelines": "Non Running Pipelines",
       "system:invalidPipelines": "Invalid Pipelines",
       "system:errorPipelines": "Error Pipelines",
-      "targetPlaceholder": "Select Destination..."
+      "system:sharedWithMePipelines": "Shared with Me",
+      "targetPlaceholder": "Select Destination...",
+      "transferPermissions": "Transfer Permissions",
+      "updatePermissionsSuccessMessage": "Successfully updated all permissions"
     },
     "noPipelines": "No Pipeline Found",
     "import": {
@@ -605,7 +653,8 @@
       "captureSnapshotInProgress": "Capturing...",
       "labelChangeTitle": "Click to change Snapshot label",
       "modalTitle": "Snapshots",
-      "noSnapshots": "No Snapshots"
+      "noSnapshots": "No Snapshots",
+      "startAndCaptureSnapshot": "Start & Capture Snapshot"
     },
     "sortColumn": {
       "NAME": "Name",
@@ -652,6 +701,8 @@
   },
   "logs": {
     "all": "All",
+    "autoFetchContinue": "Start Auto Refresh",
+    "autoFetchPause": "Stop Auto Refresh",
     "download": "Download",
     "emptyMessage": "Loading Logs...",
     "loadPreviousLog": "Load Previous Logs",
@@ -659,6 +710,7 @@
     "logConfig": {
       "headerLabel": "Log Config"
     },
+    "noLogsMessage": "No Record Found",
     "refreshLog": "Refresh Log",
     "title": "Logs"
   },
@@ -726,10 +778,16 @@
     "TIMER_MEAN_RATE" : "Mean Rate"
   },
   "packageManager": {
+    "additionalDrivers": "External Libraries",
     "customRepoUrl": {
       "title": "Configure Custom Repo URL",
       "repoUrl": "Custom Repo URL",
       "urlValidation": ""
+    },
+    "deleteExtras": {
+      "confirmationMessage": "Are you sure you want to delete below additional drivers?",
+      "successMessage": "Successfully deleted additional driver. Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart",
+      "title": "Delete Additional Drivers"
     },
     "header": {
       "customRepoUrl": "Custom Repo Url",
@@ -738,17 +796,23 @@
     },
     "install": {
       "confirmationMessage": "Are you sure you want to install below stage libraries?",
-      "title": "Install Stage Library",
-      "successMessage": "Successfully installed stage libraries. Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart"
-    },
-    "uninstall": {
-      "confirmationMessage": "Are you sure you want to uninstall below stage libraries?",
-      "title": "Uninstall Stage Library",
-      "successMessage": "Successfully uninstalled stage libraries. Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart"
+      "successMessage": "Successfully installed stage libraries. Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart",
+      "title": "Install Stage Library"
     },
     "manifestURL": "Manifest URL",
     "noStageLibrary": "No Stage Library Found",
-    "title": "Package Manager"
+    "noStageLibrariesExtras": "No Additional Drivers Found",
+    "title": "Package Manager",
+    "uninstall": {
+      "confirmationMessage": "Are you sure you want to uninstall below stage libraries?",
+      "successMessage": "Successfully uninstalled stage libraries. Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart",
+      "title": "Uninstall Stage Library"
+    },
+    "uploadExtras": {
+      "library": "Stage Library",
+      "successMessage": "Successfully installed external library. Restart the Data Collector for the changes to take effect. If you started the Data Collector manually, click Restart Data Collector. If you started the Data Collector as a service, click Cancel and then run the following command: sdc service restart",
+      "title": "Install External Libraries"
+    }
   },
   "restapi": {
     "title": "Data Collector RESTful API"
@@ -762,12 +826,14 @@
   "sdcSettings": {
     "title": "Settings",
     "helpBar": "Hide Pipeline Creation Help Bar",
-    "restResponse": "Hide REST Response Menu"
+    "restResponse": "Hide REST Response Menu",
+    "runPreviewForFieldPaths": "Run preview in background for fetching fields paths"
   },
   "sdcDirectories" : {
     "title": "SDC Directories",
     "configDir": "Configuration Directory",
     "dataDir": "Data Directory",
+    "libsExtraDir": "SDC Libraries Extra Directory",
     "logDir": "Log Directory",
     "resourcesDir": "Resources Directory",
     "runtimeDir": "Runtime Directory",

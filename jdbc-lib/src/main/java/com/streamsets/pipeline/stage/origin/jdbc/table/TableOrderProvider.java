@@ -37,20 +37,13 @@ public interface TableOrderProvider {
   void initialize(Map<String, TableContext> allTableContexts) throws SQLException, ExecutionException, StageException;
 
   /**
-   * Returns number of tables being selected for the Table Order Provider
-   * @return Number of tables
+   * Returns the ordered queue of tables
+   * @return The ordered list of tables.
    */
-  int getNumberOfTables();
-
-
-  /**
-   * Returns the next table in the order.
-   * @return Next table in the order.
-   */
-  TableContext nextTable() throws SQLException, ExecutionException, StageException;
+  Queue<String> getOrderedTables() throws SQLException, ExecutionException, StageException;
 
   abstract class BaseTableOrderProvider implements TableOrderProvider {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TableOrderProvider.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TableOrderProvider.class);
     private static final Joiner NEW_LINE_JOINER = Joiner.on("\n");
 
     private Map<String, TableContext> tableContextMap;
@@ -59,11 +52,9 @@ public interface TableOrderProvider {
     @Override
     public void initialize(Map<String, TableContext> allTableContexts) throws SQLException, ExecutionException, StageException {
       tableContextMap = allTableContexts;
-      for (String qualifiedTableName : allTableContexts.keySet()) {
-        addTable(qualifiedTableName);
-      }
-      tableQueue = calculateOrGetOrder();
-      LOGGER.info("Ordering of Tables : \n {}", NEW_LINE_JOINER.join(tableQueue));
+      allTableContexts.keySet().forEach(this::addTable);
+      tableQueue = calculateOrder();
+      LOG.info("Ordering of Tables : \n {}", NEW_LINE_JOINER.join(tableQueue));
     }
 
     TableContext getTableContext(String schema, String tableName) {
@@ -75,18 +66,11 @@ public interface TableOrderProvider {
     }
 
     @Override
-    public int getNumberOfTables() {
-      return tableContextMap.keySet().size();
+    public Queue<String> getOrderedTables() throws SQLException, ExecutionException, StageException {
+     return tableQueue;
     }
 
-    @Override
-    public TableContext nextTable() throws SQLException, ExecutionException, StageException {
-      if (tableQueue.isEmpty()) {
-        tableQueue = calculateOrGetOrder();
-      }
-      return tableContextMap.get(tableQueue.poll());
-    }
-    abstract Queue<String> calculateOrGetOrder() throws SQLException, ExecutionException, StageException;
+    abstract Queue<String> calculateOrder() throws SQLException, ExecutionException, StageException;
 
     abstract void addTable(String qualifiedTableName);
   }

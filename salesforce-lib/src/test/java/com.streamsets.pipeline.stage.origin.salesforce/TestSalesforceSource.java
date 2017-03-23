@@ -18,12 +18,14 @@ package com.streamsets.pipeline.stage.origin.salesforce;
 
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Stage;
+import com.streamsets.pipeline.lib.salesforce.ForceRepeatQuery;
 import com.streamsets.pipeline.lib.salesforce.ForceSourceConfigBean;
 import com.streamsets.pipeline.sdk.SourceRunner;
 import com.streamsets.pipeline.sdk.StageRunner;
 import com.streamsets.testing.NetworkUtils;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,8 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+// Skip these tests until Mock Server supports metadata
+@Ignore
 public class TestSalesforceSource {
   private static final Logger LOG = LoggerFactory.getLogger(TestSalesforceSource.class);
   private static final String username = "test@example.com";
@@ -73,23 +77,6 @@ public class TestSalesforceSource {
     mockServer = new MockSalesforceApiServer(port);
 
     authEndpoint = "localhost:"+port;
-
-    LinkedHashMap<String, String> record1 = new LinkedHashMap<>();
-    record1.put("Name", "Pat");
-    LinkedHashMap<String, String> record2 = new LinkedHashMap<>();
-    record2.put("Name", "Arvind");
-    LinkedHashMap<String, String> record3 = new LinkedHashMap<>();
-    record3.put("Name", "Adam");
-    LinkedHashMap<String, String> record4 = new LinkedHashMap<>();
-    record4.put("Name", "Natty");
-
-    LinkedHashMap<String,LinkedHashMap<String,String>> initFourRecords = new LinkedHashMap<>();
-    initFourRecords.put("001000000000001", record1);
-    initFourRecords.put("001000000000002", record2);
-    initFourRecords.put("001000000000003", record3);
-    initFourRecords.put("001000000000004", record4);
-
-    mockServer.asyncApi().insert(initFourRecords);
   }
 
   @After
@@ -97,7 +84,7 @@ public class TestSalesforceSource {
     mockServer.stop();
   }
 
-  private void testAPI(ForceSource origin) throws Exception {
+  private void testAPI(ForceSource origin, String secondOffset) throws Exception {
     SourceRunner runner = new SourceRunner.Builder(ForceDSource.class, origin)
         .addOutputLane("lane")
         .build();
@@ -117,31 +104,100 @@ public class TestSalesforceSource {
       output = runner.runProduce(output.getNewOffset(), 100);
       parsedRecords = output.getRecords().get("lane");
       assertEquals(2, parsedRecords.size());
-      assertEquals("eventId:-1", output.getNewOffset());
+      assertEquals(secondOffset, output.getNewOffset());
     } finally {
       runner.runDestroy();
     }
   }
 
-  @Test
-  public void testBulkAPI() throws Exception {
-    ForceSourceConfigBean conf = getForceSourceConfig();
-    conf.useBulkAPI = true;
+  private void addFourRowsBulk() {
+    LinkedHashMap<String, String> record1 = new LinkedHashMap<>();
+    record1.put("Name", "Pat");
+    LinkedHashMap<String, String> record2 = new LinkedHashMap<>();
+    record2.put("Name", "Arvind");
+    LinkedHashMap<String, String> record3 = new LinkedHashMap<>();
+    record3.put("Name", "Adam");
+    LinkedHashMap<String, String> record4 = new LinkedHashMap<>();
+    record4.put("Name", "Natty");
 
-    testAPI(new ForceSource(conf));
+    LinkedHashMap<String,LinkedHashMap<String,String>> initFourRecords = new LinkedHashMap<>();
+    initFourRecords.put("001000000000001", record1);
+    initFourRecords.put("001000000000002", record2);
+    initFourRecords.put("001000000000003", record3);
+    initFourRecords.put("001000000000004", record4);
+
+    mockServer.asyncApi().insert(initFourRecords);
   }
 
   @Test
-  public void testSoapAPI() throws Exception {
+  public void testBulkAPINoRepeat() throws Exception {
     ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.useBulkAPI = true;
+    conf.repeatQuery = ForceRepeatQuery.NO_REPEAT;
 
+    addFourRowsBulk();
+
+    testAPI(new ForceSource(conf), null);
+  }
+
+  @Test
+  public void testBulkAPIFull() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.useBulkAPI = true;
+    conf.repeatQuery = ForceRepeatQuery.FULL;
+
+    addFourRowsBulk();
+
+    testAPI(new ForceSource(conf), "recordId:"+initialOffset);
+  }
+
+  @Test
+  public void testBulkAPIIncremental() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.useBulkAPI = true;
+    conf.repeatQuery = ForceRepeatQuery.INCREMENTAL;
+
+    addFourRowsBulk();
+
+    testAPI(new ForceSource(conf), "recordId:001000000000004");
+  }
+
+  private void addFourRowsSoap() {
     mockServer.sforceApi().query().returnResults()
         .withRow().withField("Id", "001000000000001").withField("Name", "Pat")
         .withRow().withField("Id", "001000000000002").withField("Name", "Arvind")
         .withRow().withField("Id", "001000000000003").withField("Name", "Adam")
         .withRow().withField("Id", "001000000000004").withField("Name", "Natty");
+  }
 
-    testAPI(new ForceSource(conf));
+  @Test
+  public void testSoapAPINoRepeat() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.repeatQuery = ForceRepeatQuery.NO_REPEAT;
+
+    addFourRowsSoap();
+
+    testAPI(new ForceSource(conf), null);
+  }
+
+  @Test
+  public void testSoapAPIFull() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.repeatQuery = ForceRepeatQuery.FULL;
+
+    addFourRowsSoap();
+
+    testAPI(new ForceSource(conf), "recordId:"+initialOffset);
+  }
+
+  @Test
+  public void testSoapAPIIncremental() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.repeatQuery = ForceRepeatQuery.INCREMENTAL;
+
+    addFourRowsSoap();
+
+    testAPI(new ForceSource(conf), "recordId:001000000000004");
   }
 
   @Test
@@ -224,8 +280,6 @@ public class TestSalesforceSource {
 
   @Test
   public void testEmptyResultSetBulk() throws Exception {
-    mockServer.asyncApi().clear();
-
     ForceSourceConfigBean conf = getForceSourceConfig();
     conf.useBulkAPI = true;
     conf.subscribeToStreaming = false;
@@ -244,11 +298,62 @@ public class TestSalesforceSource {
       List<Record> parsedRecords = recordMap.get("lane");
 
       assertEquals(0, parsedRecords.size());
-
-      assertEquals("eventId:-1", output.getNewOffset());
+      assertEquals(null, output.getNewOffset());
     } finally {
       runner.runDestroy();
     }
+  }
+
+  @Test
+  public void testStreaming() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.queryExistingData = false;
+    conf.subscribeToStreaming = true;
+    conf.pushTopic = "Test";
+    ForceSource origin = new ForceSource(conf);
+
+    mockServer.sforceApi().query().returnResults()
+        .withRow().withField("Id", "001000000000001").withField("Query", "SELECT Id, Name FROM Account");
+
+    SourceRunner runner = new SourceRunner.Builder(ForceDSource.class, origin)
+        .addOutputLane("lane")
+        .build();
+
+    List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
+    assertEquals(0, issues.size());
+  }
+
+  @Test
+  public void testStreamingNoPushTopic() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.queryExistingData = false;
+    conf.subscribeToStreaming = true;
+    ForceSource origin = new ForceSource(conf);
+
+    SourceRunner runner = new SourceRunner.Builder(ForceDSource.class, origin)
+        .addOutputLane("lane")
+        .build();
+
+    List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
+    assertEquals(1, issues.size());
+    assertTrue(issues.get(0).toString().contains("A configuration is invalid"));
+  }
+
+  @Test
+  public void testStreamingBadPushTopic() throws Exception {
+    ForceSourceConfigBean conf = getForceSourceConfig();
+    conf.queryExistingData = false;
+    conf.subscribeToStreaming = true;
+    conf.pushTopic = "Test";
+    ForceSource origin = new ForceSource(conf);
+
+    SourceRunner runner = new SourceRunner.Builder(ForceDSource.class, origin)
+        .addOutputLane("lane")
+        .build();
+
+    List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
+    assertEquals(1, issues.size());
+    assertTrue(issues.get(0).toString().contains("A configuration is invalid"));
   }
 
   private ForceSourceConfigBean getForceSourceConfig() {
@@ -265,6 +370,7 @@ public class TestSalesforceSource {
     conf.initialOffset = initialOffset;
     conf.offsetColumn = offsetColumn;
     conf.useBulkAPI = false;
+    conf.repeatQuery = ForceRepeatQuery.NO_REPEAT;
 
     conf.subscribeToStreaming = false;
     conf.pushTopic = null;

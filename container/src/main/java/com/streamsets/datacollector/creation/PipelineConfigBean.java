@@ -20,7 +20,6 @@
 package com.streamsets.datacollector.creation;
 
 import com.streamsets.datacollector.config.StatsTargetChooserValues;
-import com.streamsets.datacollector.config.DeliveryGuarantee;
 import com.streamsets.datacollector.config.DeliveryGuaranteeChooserValues;
 import com.streamsets.datacollector.config.ErrorHandlingChooserValues;
 import com.streamsets.datacollector.config.ExecutionModeChooserValues;
@@ -32,6 +31,7 @@ import com.streamsets.datacollector.config.PipelineStateChooserValues;
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.ConfigGroups;
 import com.streamsets.pipeline.api.ExecutionMode;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.GenerateResourceBundle;
 import com.streamsets.pipeline.api.MultiValueChooserModel;
 import com.streamsets.pipeline.api.Stage;
@@ -196,7 +196,7 @@ public class PipelineConfigBean implements Stage {
     required = true,
     type = ConfigDef.Type.STRING,
     label = "Worker Java Options",
-    defaultValue = "-XX:PermSize=128M -XX:MaxPermSize=256M -Dhttps.protocols=TLSv1.2,TLSv1.1 -Dlog4j.debug",
+    defaultValue = "-XX:+UseConcMarkSweepGC -XX:+UseParNewGC -Dlog4j.debug",
     description = "Add properties as needed. Changes to default settings are not recommended.",
     displayPosition = 110,
     group = "CLUSTER",
@@ -253,6 +253,17 @@ public class PipelineConfigBean implements Stage {
       displayPosition = 180
   )
   public long rateLimit;
+
+  @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.NUMBER,
+      defaultValue = "0",
+      label = "Max runners",
+      description = "Maximum number of runners that should be created for this pipeline. Use 0 to not impose limit.",
+      min = 0,
+      displayPosition = 190
+  )
+  public int maxRunners = 0;
 
   @Override
   public List<ConfigIssue> init(Info info, Context context) {

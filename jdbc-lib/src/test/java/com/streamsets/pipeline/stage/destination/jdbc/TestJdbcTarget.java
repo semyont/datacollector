@@ -27,10 +27,8 @@ import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.Target;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
-import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
-import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
-import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnParamMapping;
-import com.streamsets.pipeline.lib.jdbc.JdbcMultiRowRecordWriter;
+import com.streamsets.pipeline.lib.jdbc.*;
+import com.streamsets.pipeline.lib.operation.UnsupportedOperationAction;
 import com.streamsets.pipeline.sdk.RecordCreator;
 import com.streamsets.pipeline.sdk.TargetRunner;
 import org.joda.time.Instant;
@@ -62,7 +60,8 @@ public class TestJdbcTarget {
   private final String unprivUser = "unpriv_user";
   private final String unprivPassword = "unpriv_pass";
   private final String database = "TEST";
-  private final String tableName = "TEST.TEST_TABLE";
+  private final String schema = "TEST";
+  private final String tableName = "TEST_TABLE";
 
   private final String h2ConnectionString = "jdbc:h2:mem:" + database;
 
@@ -101,6 +100,11 @@ public class TestJdbcTarget {
       statement.addBatch(
         "CREATE TABLE IF NOT EXISTS TEST.DATETIMES (P_ID INT NOT NULL, T TIME, D DATE, DT DATETIME, PRIMARY KEY(P_ID)) "
       );
+      statement.addBatch(
+          "CREATE TABLE IF NOT EXISTS \"TEST\".\"test_table@\"" +
+              "(P_ID INT NOT NULL, FIRST_NAME VARCHAR(255), LAST_NAME VARCHAR(255), TS TIMESTAMP, UNIQUE(P_ID), " +
+              "PRIMARY KEY(P_ID));"
+      );
       statement.addBatch("CREATE USER IF NOT EXISTS " + unprivUser + " PASSWORD '" + unprivPassword + "';");
       statement.addBatch("GRANT SELECT ON TEST.TEST_TABLE TO " + unprivUser + ";");
 
@@ -117,7 +121,7 @@ public class TestJdbcTarget {
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_TWO;");
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_THREE;");
       statement.execute("DROP TABLE IF EXISTS TEST.DATETIMES;");
-
+      statement.execute("DROP TABLE IF EXISTS \"TEST\".\"test_table@\";");
     }
 
     // Last open connection terminates H2
@@ -143,12 +147,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -169,12 +178,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -209,12 +223,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -250,12 +269,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target)
@@ -311,12 +335,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         true,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target)
@@ -356,9 +385,8 @@ public class TestJdbcTarget {
     try (Statement statement = connection.createStatement()) {
       ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.TEST_TABLE");
       rs.next();
-      assertEquals(0, rs.getInt(1));
+      assertEquals(0, rs.getInt(1));  // the 3rd record should make it
     }
-
     assertEquals(3, targetRunner.getErrorRecords().size());
   }
 
@@ -372,12 +400,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
-        -1,
+        JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target)
@@ -435,12 +468,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         true,
-        -1,
+        JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target)
@@ -492,12 +530,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, unprivUser, unprivPassword)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -548,12 +591,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean("bad connection string", username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -572,12 +620,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, "foo", "bar")
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -596,12 +649,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         tableName,
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -620,21 +678,26 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
+        schema,
         "${record:attribute('tableName')}",
         fieldMappings,
+        true, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
 
     List<Record> records = ImmutableList.of(
-        generateRecord(1, "Adam", "Kunicki", "TEST.TABLE_ONE"),
-        generateRecord(2, "John", "Smith", "TEST.TABLE_TWO"),
-        generateRecord(3, "Jane", "Doe", "TEST.TABLE_TWO"),
-        generateRecord(4, "Jane", "Doe", "TEST.TABLE_THREE")
+        generateRecord(1, "Adam", "Kunicki", "TABLE_ONE"),
+        generateRecord(2, "John", "Smith", "TABLE_TWO"),
+        generateRecord(3, "Jane", "Doe", "TABLE_TWO"),
+        generateRecord(4, "Jane", "Doe", "TABLE_THREE")
     );
     targetRunner.runInit();
     targetRunner.runWrite(records);
@@ -654,6 +717,45 @@ public class TestJdbcTarget {
 
     try (Statement statement = connection.createStatement()) {
       ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.TABLE_THREE");
+      rs.next();
+      assertEquals(1, rs.getInt(1));
+    }
+  }
+
+  @Test
+  public void testEncloseTableNames() throws Exception {
+    List<JdbcFieldColumnParamMapping> fieldMappings = ImmutableList.of(
+        new JdbcFieldColumnParamMapping("[0]", "P_ID"),
+        new JdbcFieldColumnParamMapping("[1]", "FIRST_NAME"),
+        new JdbcFieldColumnParamMapping("[2]", "LAST_NAME"),
+        new JdbcFieldColumnParamMapping("[3]", "TS")
+    );
+
+    Target target = new JdbcTarget(
+        schema,
+        "${record:attribute('tableName')}",
+        fieldMappings,
+        true, // enclose table name
+        false,
+        false,
+        JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
+        ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
+        createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+    List<Record> records = ImmutableList.of(
+        generateRecord(1, "Ji Sun", "Kim", "test_table@")
+    );
+    targetRunner.runInit();
+    targetRunner.runWrite(records);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.\"test_table@\"");
       rs.next();
       assertEquals(1, rs.getInt(1));
     }
@@ -684,12 +786,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
-        "TEST.DATETIMES",
+        schema,
+        "DATETIMES",
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
@@ -727,12 +834,17 @@ public class TestJdbcTarget {
     );
 
     Target target = new JdbcTarget(
-        "TEST.DATETIMES",
+        schema,
+        "DATETIMES",
         fieldMappings,
+        false, // enclose table name
         false,
         false,
         JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+        PreparedStatementCache.UNLIMITED_CACHE,
         ChangeLogFormat.NONE,
+        JDBCOperationType.INSERT,
+        UnsupportedOperationAction.DISCARD,
         createConfigBean(h2ConnectionString, username, password)
     );
     TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();

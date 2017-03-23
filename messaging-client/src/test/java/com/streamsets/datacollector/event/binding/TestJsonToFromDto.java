@@ -28,12 +28,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+import com.streamsets.lib.security.acl.dto.Acl;
+import com.streamsets.lib.security.acl.dto.Permission;
+import com.streamsets.lib.security.acl.dto.ResourceType;
+import org.junit.Assert;
 import org.junit.Test;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.streamsets.datacollector.config.dto.PipelineConfigAndRules;
 import com.streamsets.datacollector.config.json.PipelineConfigAndRulesJson;
-import com.streamsets.datacollector.event.binding.MessagingJsonToFromDto;
 import com.streamsets.datacollector.event.dto.ClientEvent;
 import com.streamsets.datacollector.event.dto.EventType;
 import com.streamsets.datacollector.event.dto.PipelineBaseEvent;
@@ -71,8 +74,24 @@ public class TestJsonToFromDto {
   public void testPipelineServerEventJson() throws Exception {
     UUID uuid = UUID.randomUUID();
     PipelineConfigAndRules pipelineConfigAndRules = new PipelineConfigAndRules("config", "rules");
-    PipelineSaveEvent pipelineSaveEvent =
-     new PipelineSaveEvent("name1", "rev1", "user1", "desc", pipelineConfigAndRules);
+
+    long time = System.currentTimeMillis();
+    Acl acl = new Acl();
+    acl.setResourceId("resourceId");
+    acl.setLastModifiedBy("user1");
+    acl.setLastModifiedOn(time);
+    acl.setResourceType(ResourceType.PIPELINE);
+    Permission permission = new Permission();
+    permission.setSubjectId("user1");
+    acl.setPermissions(Arrays.asList(permission));
+
+    PipelineSaveEvent pipelineSaveEvent = new PipelineSaveEvent();
+    pipelineSaveEvent.setName("name1");
+    pipelineSaveEvent.setRev("rev1");
+    pipelineSaveEvent.setUser("user1");
+    pipelineSaveEvent.setDescription("desc");
+    pipelineSaveEvent.setPipelineConfigurationAndRules(pipelineConfigAndRules);
+    pipelineSaveEvent.setAcl(acl);
 
     PipelineSaveEventJson pseJson = new PipelineSaveEventJson();
     PipelineConfigAndRulesJson pipelineConfigAndRulesJson = new PipelineConfigAndRulesJson();
@@ -83,7 +102,7 @@ public class TestJsonToFromDto {
     pseJson.setUser("user1");
     pseJson.setPipelineConfigurationAndRules(pipelineConfigAndRulesJson);
 
-    List<ServerEventJson> serverJsonList = new ArrayList<ServerEventJson>();
+    List<ServerEventJson> serverJsonList = new ArrayList<>();
     ServerEventJson serverEventJson = new ServerEventJson();
     serverEventJson.setEventId(uuid.toString());
     serverEventJson.setEventTypeId(EventType.SAVE_PIPELINE.getValue());
@@ -105,5 +124,13 @@ public class TestJsonToFromDto {
     assertEquals("name1", saveEvent.getName());
     assertEquals("rev1", saveEvent.getRev());
     assertEquals("user1", saveEvent.getUser());
+  }
+
+  @Test
+  public void testUnknownEventType() throws Exception {
+    ServerEventJson serverEventJson = new ServerEventJson();
+    serverEventJson.setEventId("1");
+    serverEventJson.setEventTypeId(100000);
+    Assert.assertNull(MessagingJsonToFromDto.INSTANCE.asDto(serverEventJson));
   }
 }

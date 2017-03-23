@@ -19,32 +19,38 @@
  */
 package com.streamsets.pipeline.stage.origin.jdbc.table;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.Field;
+import com.streamsets.pipeline.api.OnRecordError;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Stage;
+import com.streamsets.pipeline.api.StageException;
+import com.streamsets.pipeline.api.impl.ErrorMessage;
+import com.streamsets.pipeline.lib.jdbc.JdbcErrors;
+import com.streamsets.pipeline.sdk.PushSourceRunner;
 import com.streamsets.pipeline.sdk.RecordCreator;
-import com.streamsets.pipeline.sdk.SourceRunner;
-import com.streamsets.pipeline.sdk.StageRunner;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.internal.util.reflection.Whitebox;
 
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 
 public class BasicIT extends BaseTableJdbcSourceIT {
-  private static final String STARS_INSERT_TEMPLATE = "INSERT into TEST.%s values (%s, '%s', '%s');";
-  private static final String TRANSACTION_INSERT_TEMPLATE = "INSERT into TEST.%s values (%s, %s, '%s');";
-
-  private static final Random RANDOM = new Random();
+  private static final String STARS_INSERT_TEMPLATE = "INSERT into TEST.%s values (%s, '%s', '%s')";
+  private static final String TRANSACTION_INSERT_TEMPLATE = "INSERT into TEST.%s values (%s, %s, '%s')";
+  private static final String STREAMING_TABLE_INSERT_TEMPLATE = "INSERT into TEST.%s values (%s, '%s')";
 
   private static List<Record> EXPECTED_CRICKET_STARS_RECORDS;
   private static List<Record> EXPECTED_TENNIS_STARS_RECORDS;
@@ -63,10 +69,10 @@ public class BasicIT extends BaseTableJdbcSourceIT {
   private static List<Record> createTransactionRecords(int noOfRecords) {
     List<Record> records = new ArrayList<>();
     long currentTime = (System.currentTimeMillis() / 1000) * 1000;
-    for (int i =0; i < noOfRecords; i++) {
+    for (int i = 0; i < noOfRecords; i++) {
       Record record = RecordCreator.create();
       LinkedHashMap<String, Field> fields = new LinkedHashMap<>();
-      fields.put("random_int", Field.create(RANDOM.nextInt(100)));
+      fields.put("unique_int", Field.create(i + 1));
       fields.put("t_date", Field.create(Field.Type.LONG, currentTime));
       fields.put("random_string", Field.create(UUID.randomUUID().toString()));
       record.set(Field.createListMap(fields));
@@ -75,6 +81,15 @@ public class BasicIT extends BaseTableJdbcSourceIT {
       currentTime = currentTime + 1000;
     }
     return records;
+  }
+
+  private static Record createStreamingTableRecord(int index) {
+    Record record = RecordCreator.create();
+    LinkedHashMap<String, Field> fields = new LinkedHashMap<>();
+    fields.put("unique_int", Field.create(Field.Type.INTEGER, index + 1));
+    fields.put("random_string", Field.create(UUID.randomUUID().toString()));
+    record.set(Field.createListMap(fields));
+    return record;
   }
 
   @BeforeClass
@@ -113,12 +128,10 @@ public class BasicIT extends BaseTableJdbcSourceIT {
     EXPECTED_TRANSACTION_RECORDS = createTransactionRecords(20);
 
     try (Statement statement = connection.createStatement()) {
-      statement.addBatch("CREATE SCHEMA IF NOT EXISTS TEST;");
-
       //CRICKET_STARS
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.CRICKET_STARS " +
-              "(p_id INT NOT NULL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255));"
+          "CREATE TABLE TEST.CRICKET_STARS " +
+              "(p_id INT NOT NULL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255))"
       );
 
       for (Record record : EXPECTED_CRICKET_STARS_RECORDS) {
@@ -135,8 +148,8 @@ public class BasicIT extends BaseTableJdbcSourceIT {
 
       //TENNIS STARS
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.TENNIS_STARS " +
-              "(p_id INT NOT NULL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255));"
+          "CREATE TABLE TEST.TENNIS_STARS " +
+              "(p_id INT NOT NULL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255))"
       );
 
       for (Record record : EXPECTED_TENNIS_STARS_RECORDS) {
@@ -153,21 +166,26 @@ public class BasicIT extends BaseTableJdbcSourceIT {
 
       //TRANSACTION
       statement.addBatch(
-          "CREATE TABLE IF NOT EXISTS TEST.TRANSACTION " +
-              "(random_int INT NOT NULL , t_date LONG, random_string VARCHAR(255));"
+          "CREATE TABLE TEST.TRANSACTION_TABLE " +
+              "(unique_int INT NOT NULL , t_date BIGINT, random_string VARCHAR(255))"
       );
 
       for (Record record : EXPECTED_TRANSACTION_RECORDS) {
         statement.addBatch(
             String.format(
                 TRANSACTION_INSERT_TEMPLATE,
-                "TRANSACTION",
-                record.get("/random_int").getValueAsInteger(),
+                "TRANSACTION_TABLE",
+                record.get("/unique_int").getValueAsInteger(),
                 record.get("/t_date").getValueAsLong(),
                 record.get("/random_string").getValueAsString()
             )
         );
       }
+
+      statement.addBatch(
+          "CREATE TABLE TEST.STREAMING_TABLE " +
+              "(unique_int INT NOT NULL PRIMARY KEY, random_string VARCHAR(255))"
+      );
 
       statement.executeBatch();
     }
@@ -176,24 +194,50 @@ public class BasicIT extends BaseTableJdbcSourceIT {
   @AfterClass
   public static void tearDown() throws SQLException {
     try (Statement statement = connection.createStatement()) {
-      statement.execute("DROP TABLE IF EXISTS TEST.CRICKET_STARS;");
-      statement.execute("DROP TABLE IF EXISTS TEST.TENNIS_STARS;");
+      for (String table : ImmutableList.of("CRICKET_STARS", "TENNIS_STARS", "TRANSACTION_TABLE", "STREAMING_TABLE")) {
+        statement.addBatch(String.format(DROP_STATEMENT_TEMPLATE, database, table));
+      }
+      statement.executeBatch();
     }
   }
 
+  private List<Record> runProduceSingleBatchAndGetRecords(
+      TableJdbcSource tableJdbcSource,
+      Map<String, String> offsets,
+      int batchSize
+  ) throws Exception {
+    List<Record> records = new ArrayList<>();
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+        .addOutputLane("a")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
+    runner.runInit();
+
+    JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 1);
+    try {
+      runner.runProduce(offsets, batchSize, callback);
+      records.addAll(callback.waitForAllBatchesAndReset().get(0));
+      offsets.clear();
+      offsets.putAll(runner.getOffsets());
+    } finally {
+      runner.runDestroy();
+    }
+    return records;
+  }
+
+
   @Test
   public void testNoTableMatchesTablePatternValidationError() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "NO_TABLE%";
-    tableConfigBean.schema = database;
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("NO_TABLE%")
+        .schema(database)
+        .build();
 
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
 
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
         .addOutputLane("a").build();
     List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
     Assert.assertEquals(1, issues.size());
@@ -201,56 +245,50 @@ public class BasicIT extends BaseTableJdbcSourceIT {
 
   @Test
   public void testSingleTableSingleBatch() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "CRICKET_STARS";
-    tableConfigBean.schema = database;
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("CRICKET_STARS")
+        .schema(database)
+        .build();
 
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
 
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
-    runner.runInit();
-    try {
-      StageRunner.Output output = runner.runProduce("", 1000);
-      List<Record> records = output.getRecords().get("a");
-      Assert.assertEquals(10, records.size());
-      checkRecords(EXPECTED_CRICKET_STARS_RECORDS, records);
-      Assert.assertEquals(0, runner.runProduce(output.getNewOffset(), 1000).getRecords().get("a").size());
-    } finally {
-      runner.runDestroy();
-    }
+    Map<String, String> offsets = new HashMap<>();
+    List<Record> records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 1000);
+    Assert.assertEquals(10, records.size());
+    checkRecords(EXPECTED_CRICKET_STARS_RECORDS, records);
   }
 
   @Test
   public void testSingleTableMultipleBatches() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "CRICKET_STARS";
-    tableConfigBean.schema = database;
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("CRICKET_STARS")
+        .schema(database)
+        .build();
 
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
+
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+        .addOutputLane("a")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
     runner.runInit();
     try {
-      StageRunner.Output output = runner.runProduce("", 5);
-      List<Record> records = output.getRecords().get("a");
+      JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 2);
+      runner.runProduce(Collections.emptyMap(), 5, callback);
+
+      List<List<Record>> batchRecords = callback.waitForAllBatchesAndReset();
+
+      List<Record> records = batchRecords.get(0);
       Assert.assertEquals(5, records.size());
       checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(0, 5), records);
 
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
+      records = batchRecords.get(1);
       Assert.assertEquals(5, records.size());
       checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(5, 10), records);
-
-      Assert.assertEquals(0, runner.runProduce(output.getNewOffset(), 1000).getRecords().get("a").size());
     } finally {
       runner.runDestroy();
     }
@@ -258,34 +296,36 @@ public class BasicIT extends BaseTableJdbcSourceIT {
 
   @Test
   public void testMultipleTablesSingleBatch() throws Exception {
-    TableConfigBean tableConfigBean1 = new TableConfigBean();
-    tableConfigBean1.tablePattern = "CRICKET_STARS";
-    tableConfigBean1.schema = database;
+    TableConfigBean tableConfigBean1 =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("CRICKET_STARS")
+        .schema(database)
+        .build();
+    TableConfigBean tableConfigBean2 =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("TENNIS_STARS")
+        .schema(database)
+        .build();
 
-    TableConfigBean tableConfigBean2 = new TableConfigBean();
-    tableConfigBean2.tablePattern = "TENNIS_STARS";
-    tableConfigBean2.schema = database;
-
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean1, tableConfigBean2), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
-
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean1, tableConfigBean2))
+        .build();
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+        .addOutputLane("a")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
     runner.runInit();
     try {
-      StageRunner.Output output = runner.runProduce("", 1000);
-      List<Record> records = output.getRecords().get("a");
+      JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 2);
+      runner.runProduce(Collections.emptyMap(), 1000, callback);
+
+      List<List<Record>> batchRecords = callback.waitForAllBatchesAndReset();
+
+      List<Record> records = batchRecords.get(0);
       Assert.assertEquals(10, records.size());
       checkRecords(EXPECTED_CRICKET_STARS_RECORDS, records);
 
-      output = runner.runProduce(output.getNewOffset(), 1000);
-      records = output.getRecords().get("a");
+      records = batchRecords.get(1);
       Assert.assertEquals(15, records.size());
       checkRecords(EXPECTED_TENNIS_STARS_RECORDS, records);
-
     } finally {
       runner.runDestroy();
     }
@@ -294,45 +334,45 @@ public class BasicIT extends BaseTableJdbcSourceIT {
   @Test
   public void testBatchStrategySwitchTables() throws Exception {
     //With a '%_STARS' regex which has to select both tables.
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "%_STARS";
-    tableConfigBean.schema = database;
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("%_STARS")
+        .schema(database)
+        .build();
 
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
 
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+        .addOutputLane("a")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
     runner.runInit();
     try {
-      StageRunner.Output output = runner.runProduce("", 5);
-      List<Record> records = output.getRecords().get("a");
+      JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 5);
+      runner.runProduce(Collections.emptyMap(), 5, callback);
+
+      List<List<Record>> batchRecords = callback.waitForAllBatchesAndReset();
+
+      List<Record> records = batchRecords.get(0);
       Assert.assertEquals(5, records.size());
       checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(0, 5), records);
 
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
+      records = batchRecords.get(1);
       Assert.assertEquals(5, records.size());
       checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(0, 5), records);
 
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
+      records = batchRecords.get(2);
       Assert.assertEquals(5, records.size());
       checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(5, 10), records);
 
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
+      records = batchRecords.get(3);
       Assert.assertEquals(5, records.size());
       checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(5, 10), records);
 
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
+      records = batchRecords.get(4);
       Assert.assertEquals(5, records.size());
       checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(10, 15), records);
-
     } finally {
       runner.runDestroy();
     }
@@ -340,132 +380,318 @@ public class BasicIT extends BaseTableJdbcSourceIT {
 
   @Test
   public void testBatchStrategyProcessAllRows() throws Exception {
-    TableConfigBean tableConfigBean1 = new TableConfigBean();
-    tableConfigBean1.tablePattern = "TENNIS_STARS";
-    tableConfigBean1.schema = database;
+    TableConfigBean tableConfigBean1 =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("TENNIS_STARS")
+        .schema(database)
+        .build();
 
-    TableConfigBean tableConfigBean2 = new TableConfigBean();
-    tableConfigBean2.tablePattern = "CRICKET_STARS";
-    tableConfigBean2.schema = database;
+    TableConfigBean tableConfigBean2 =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("CRICKET_STARS")
+        .schema(database)
+        .build();
 
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(
-            ImmutableList.of(tableConfigBean1, tableConfigBean2),
-            false,
-            -1,
-            TableOrderStrategy.NONE,
-            BatchTableStrategy.PROCESS_ALL_AVAILABLE_ROWS_FROM_TABLE
-        )
-    );
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean1, tableConfigBean2))
+        .batchTableStrategy(BatchTableStrategy.PROCESS_ALL_AVAILABLE_ROWS_FROM_TABLE)
+        .build();
 
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+    Map<String, String> offsets = new HashMap<>();
+    List<Record> records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 5);
+    Assert.assertEquals(5, records.size());
+    checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(0, 5), records);
+
+    records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 5);
+    Assert.assertEquals(5, records.size());
+    checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(5, 10), records);
+
+    records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 5);
+    Assert.assertEquals(5, records.size());
+    checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(10, 15), records);
+
+    records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 5);
+    Assert.assertEquals(5, records.size());
+    checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(0, 5), records);
+
+    records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 5);
+    Assert.assertEquals(5, records.size());
+    checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(5, 10), records);
+  }
+
+  @SuppressWarnings("unchecked")
+  private void testMetricsValues(Map<String, String> offsets, String tableName) throws Exception {
+    //With a '%' regex which has to select both tables.
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("%_STARS")
+        .schema(database)
+        .build();
+
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
+
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
         .addOutputLane("a").build();
     runner.runInit();
+
+    JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 1);
+    Stage.Context context  = runner.getContext();
     try {
-      StageRunner.Output output = runner.runProduce("", 5);
-      List<Record> records = output.getRecords().get("a");
-      Assert.assertEquals(5, records.size());
-      checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(0, 5), records);
+      runner.runProduce(offsets, 10, callback);
+      callback.waitForAllBatchesAndReset();
 
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
-      Assert.assertEquals(5, records.size());
-      checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(5, 10), records);
+      Map<String, Object> gaugeMap =
+          context.getGauge(TableJdbcRunnable.TABLE_METRICS + "0").getValue();
 
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
-      Assert.assertEquals(5, records.size());
-      checkRecords(EXPECTED_TENNIS_STARS_RECORDS.subList(10, 15), records);
-
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
-      Assert.assertEquals(5, records.size());
-      checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(0, 5), records);
-
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
-      Assert.assertEquals(5, records.size());
-      checkRecords(EXPECTED_CRICKET_STARS_RECORDS.subList(5, 10), records);
-
-
-
+      Assert.assertEquals(tableName, gaugeMap.get(TableJdbcRunnable.CURRENT_TABLE));
+      offsets.clear();
+      offsets.putAll(runner.getOffsets());
     } finally {
       runner.runDestroy();
     }
   }
 
-
   @Test
-  @SuppressWarnings("unchecked")
   public void testMetrics() throws Exception {
-    //With a '%' regex which has to select both tables.
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "%_STARS";
-    tableConfigBean.schema = database;
-
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
-
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
-    runner.runInit();
-    Stage.Context context = runner.getContext();
-    try {
-      Map<String, Object> gaugeMap = (Map<String, Object>)context.getGauge(TableJdbcSource.TABLE_METRICS).getValue();
-      Integer numberOfTables = (int)gaugeMap.get(TableJdbcSource.TABLE_COUNT);
-      Assert.assertEquals(2, numberOfTables.intValue());
-
-      StageRunner.Output output = runner.runProduce("", 1000);
-      Assert.assertEquals("TEST.CRICKET_STARS", gaugeMap.get(TableJdbcSource.CURRENT_TABLE));
-
-      runner.runProduce(output.getNewOffset(), 1000);
-      Assert.assertEquals("TEST.TENNIS_STARS", gaugeMap.get(TableJdbcSource.CURRENT_TABLE));
-    } finally {
-      runner.runDestroy();
-    }
+    Map<String, String> offsets = new HashMap<>();
+    testMetricsValues(offsets, "TEST.CRICKET_STARS");
+    testMetricsValues(offsets, "TEST.TENNIS_STARS");
   }
 
   @Test
   public void testOverridePartitionColumn() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = "TRANSACTION";
-    tableConfigBean.schema = database;
-    tableConfigBean.overridePartitionColumns = true;
-    tableConfigBean.partitionColumns = new ArrayList<>();
-    tableConfigBean.partitionColumns.add("T_DATE");
+    TableConfigBean tableConfigBean =
+        new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+            .tablePattern("TRANSACTION_TABLE")
+            .schema(database)
+            .overrideDefaultOffsetColumns(true)
+            .offsetColumns(ImmutableList.of("T_DATE"))
+            .build();
 
-    TableJdbcSource tableJdbcSource = new TableJdbcSource(
-        TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-        TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-        TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-    );
+    TableJdbcSource tableJdbcSource =
+        new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+            .tableConfigBeans(ImmutableList.of(tableConfigBean))
+            .build();
 
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
+    Map<String, String> offsets = new HashMap<>();
+    List<Record> records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 5);
+    Assert.assertEquals(5, records.size());
+    checkRecords(EXPECTED_TRANSACTION_RECORDS.subList(0, 5), records);
+
+    records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 5);
+    Assert.assertEquals(5, records.size());
+    checkRecords(EXPECTED_TRANSACTION_RECORDS.subList(5, 10), records);
+
+    records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 10);
+    Assert.assertEquals(10, records.size());
+    checkRecords(EXPECTED_TRANSACTION_RECORDS.subList(10, 20), records);
+  }
+
+  private void testChangeInOffsetColumns(
+      String table,
+      Map<String, String> offset,
+      List<String> offsetColumnsForThisRun,
+      boolean shouldFail
+  ) throws Exception {
+    TableConfigBean tableConfigBean =
+        new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+            .tablePattern(table)
+            .schema(database)
+            .overrideDefaultOffsetColumns(true)
+            .offsetColumns(offsetColumnsForThisRun)
+            .build();
+
+    TableJdbcSource tableJdbcSource =
+        new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+            .tableConfigBeans(ImmutableList.of(tableConfigBean))
+            .build();
+
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+        .addOutputLane("a")
+        .setOnRecordError(OnRecordError.STOP_PIPELINE)
+        .build();
     runner.runInit();
+
+    JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 1);
+    runner.runProduce(offset, 5, callback);
     try {
-      StageRunner.Output output = runner.runProduce("", 5);
-      List<Record> records = output.getRecords().get("a");
-      Assert.assertEquals(5, records.size());
-      checkRecords(EXPECTED_TRANSACTION_RECORDS.subList(0, 5), records);
-
-      output = runner.runProduce(output.getNewOffset(), 5);
-      records = output.getRecords().get("a");
-      Assert.assertEquals(5, records.size());
-      checkRecords(EXPECTED_TRANSACTION_RECORDS.subList(5, 10), records);
-
-      output = runner.runProduce(output.getNewOffset(), 10);
-      records = output.getRecords().get("a");
-      Assert.assertEquals(10, records.size());
-      checkRecords(EXPECTED_TRANSACTION_RECORDS.subList(10, 20), records);
-
+      if (shouldFail) {
+        try {
+          callback.waitForAllBatchesAndReset();
+          Assert.fail("Produce should fail.");
+        } catch (Exception e) {
+          Throwable throwable = Throwables.getRootCause(e);
+          Assert.assertTrue(throwable instanceof StageException);
+          StageException stageException = (StageException)throwable;
+          Assert.assertEquals(JdbcErrors.JDBC_71, stageException.getErrorCode());
+        }
+      } else {
+        List<Record> outputRecords = callback.waitForAllBatchesAndReset().get(0);
+        Assert.assertEquals(5, outputRecords.size());
+        offset.clear();
+        offset.putAll(runner.getOffsets());
+      }
     } finally {
       runner.runDestroy();
     }
+  }
+
+  @Test
+  public void testIncreaseNumberOfOffsetColumnsInConfig() throws Exception {
+    Map<String, String> offset = new HashMap<>();
+    String tableName = "TRANSACTION_TABLE";
+    testChangeInOffsetColumns(
+        tableName,
+        offset,
+        ImmutableList.of("T_DATE"),
+        false
+    );
+
+    //Now we added one more column to offset configuration, should fail
+    testChangeInOffsetColumns(
+        tableName,
+        offset,
+        ImmutableList.of("T_DATE", "UNIQUE_INT"),
+        true
+    );
+  }
+
+  @Test
+  public void testDecreaseNumberOfOffsetColumnsInConfig() throws Exception {
+    Map<String, String> offset = new HashMap<>();
+    String tableName = "TRANSACTION_TABLE";
+    testChangeInOffsetColumns(
+        tableName,
+        offset,
+        ImmutableList.of("T_DATE", "UNIQUE_INT"),
+        false
+    );
+
+    //Now we removed one column from offset configuration, should fail
+    testChangeInOffsetColumns(
+        tableName,
+        offset,
+        ImmutableList.of("T_DATE"),
+        true
+    );
+  }
+
+  @Test
+  public void testChangeInOffsetColumnNameInConfig() throws Exception {
+    Map<String, String> offset = new HashMap<>();
+    String tableName = "TRANSACTION_TABLE";
+    testChangeInOffsetColumns(
+        tableName,
+        offset,
+        ImmutableList.of("UNIQUE_INT"),
+        false
+    );
+
+    //Now we changed one column from offset configuration, should fail
+    testChangeInOffsetColumns(
+        tableName,
+        offset,
+        ImmutableList.of("T_DATE"),
+        true
+    );
+  }
+
+  @Test
+  public void testStreamingInsertDuringSourceRun() throws Exception {
+    TableConfigBean tableConfigBean =
+        new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+            .tablePattern("STREAMING_TABLE")
+            .schema(database)
+            .build();
+    TableJdbcSource tableJdbcSource =
+        new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+            .tableConfigBeans(ImmutableList.of(tableConfigBean))
+            .build();
+
+    Map<String, String> offsets = new HashMap<>();
+    for (int i = 0 ; i < 10; i++) {
+      final Record record = createStreamingTableRecord(i);
+      try (Statement statement = connection.createStatement()) {
+        statement.execute(
+            String.format(
+                STREAMING_TABLE_INSERT_TEMPLATE,
+                "STREAMING_TABLE",
+                record.get("/unique_int").getValueAsInteger(),
+                record.get("/random_string").getValueAsString()
+            )
+        );
+      }
+
+      List<Record> records = runProduceSingleBatchAndGetRecords(tableJdbcSource, offsets, 1);
+      Assert.assertEquals(1, records.size());
+      checkRecords(ImmutableList.of(record), records);
+    }
+  }
+
+  @Test
+  public void testWrongInitialOffsetError() throws Exception {
+    TableConfigBean tableConfigBean =
+        new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+            .tablePattern("TRANSACTION_TABLE")
+            .schema(database)
+            .overrideDefaultOffsetColumns(true)
+            .offsetColumns(ImmutableList.of("T_DATE"))
+            .offsetColumnToInitialOffsetValue(
+                ImmutableMap.of(
+                    "T_DATE",
+                    "${time:dateTimeToMilliseconds(time:extractDateFromString('abc', 'yyyy-mm-dd'))}"
+                )
+            )
+            .build();
+
+    TableJdbcSource tableJdbcSource =
+        new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+            .tableConfigBeans(ImmutableList.of(tableConfigBean))
+            .build();
+
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+        .addOutputLane("a")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
+    List<Stage.ConfigIssue> configIssues = runner.runValidateConfigs();
+    Assert.assertEquals(1, configIssues.size());
+    Assert.assertEquals(
+        JdbcErrors.JDBC_73.getCode(),
+        ((ErrorMessage)Whitebox.getInternalState(configIssues.get(0), "message")).getErrorCode()
+    );
+  }
+
+   private void runSourceForInitialOffset(List<Record> expectedRecords, int batchSize, Map<String, String> lastOffsets) throws Exception {
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern("TENNIS_STARS")
+        .schema(database)
+        //set initial offset as id 3 (we will read from id 4)
+        .offsetColumnToInitialOffsetValue(ImmutableMap.of("P_ID", "3"))
+        .build();
+
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
+
+    PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+        .addOutputLane("a")
+        .setOnRecordError(OnRecordError.TO_ERROR)
+        .build();
+    runner.runInit();
+    try {
+      List<Record> actualRecords = runProduceSingleBatchAndGetRecords(tableJdbcSource, lastOffsets, batchSize);
+      checkRecords(expectedRecords, actualRecords);
+    } finally {
+      runner.runDestroy();
+    }
+  }
+
+  @Test
+  public void testInitialOffset() throws Exception {
+    Map<String, String> lastOffsets = new HashMap<>();
+    //no last offset, read 5 records from id 4 as initial offset (read till id 9)
+    runSourceForInitialOffset(EXPECTED_TENNIS_STARS_RECORDS.subList(3, 8), 5, lastOffsets);
+    //Now the origin is started again with initial offset 5 but we pass the last offset, which means
+    //we should read from id 9
+    runSourceForInitialOffset(EXPECTED_TENNIS_STARS_RECORDS.subList(8, 15), 100, lastOffsets);
   }
 }

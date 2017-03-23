@@ -40,7 +40,13 @@
           <li>record:attribute(&lt;attribute name>) </li>
           <li>record:attributeOrDefault(&lt;attribute name>, &lt;default value>)</li>
           <li>record:creator()</li>
+          <li>record:eventCreation()</li>
+          <li>record:eventType()</li>
+          <li>record:eventVersion()</li>
           <li>record:exists(&lt;field path>)</li>
+          <li>record:fieldAttribute(&lt;field path>, &lt;field attribute name>)</li>
+          <li>record:fieldAttributeOrDefault(&lt;field path>, &lt;field attribute name>, &lt;default
+           value>)</li>
           <li>record:id()</li>
           <li>record:path()</li>
           <li>record:type(&lt;field path>)</li>
@@ -133,7 +139,9 @@
        </entry>
        <entry>
         <ul id="ul_nmc_qpn_wx">
+         <li>pipeline:id()</li>
          <li>pipeline:name()</li>
+         <li>pipeline:title()</li>
          <li>pipeline:version()</li>
         </ul>
        </entry>
@@ -157,6 +165,8 @@
           <li>str:toUpper(&lt;string>)</li>
           <li>str:trim(&lt;string>)</li>
           <li>str:truncate(&lt;string>, &lt;length>)</li>
+          <li>str:urlDecode(&lt;URL>, &lt;charset>)</li>
+          <li>str:urlEncode(&lt;infoforURL>, &lt;charset>)</li>
          </ul>
         </p>
        </entry>
@@ -165,12 +175,15 @@
        <entry><xref href="TimeFunctions.dita#concept_qkr_trf_sw">Time functions</xref></entry>
        <entry>
         <ul id="ul_vrl_4rf_sw">
-         <li>time:extractLongFromDate(&lt;Date object>, &lt;string>)</li>
-         <li>time:extractStringFromDate(&lt;Date object>, &lt;string>)</li>
+         <li>time:createDateFromStringTZ(&lt;string>, &lt;time zone>, &lt;date format>)</li>
+         <li>time:extractDateFromString(&lt;string>, &lt;format string>)</li>
+         <li>time:extractLongFromDate(&lt;Date object>, &lt;format string>)</li>
+         <li>time:extractStringFromDate(&lt;Date object>, &lt;format string>)</li>
+         <li>time:extractStringFromDateTZ(&lt;Date object>, &lt;time zone>, &lt;format string>)</li>
          <li>time:millisecondsToDateTime(&lt;long>)</li>
-         <li>time.now()</li>
-         <li>time.trimDate(&lt;datetime>)</li>
-         <li>time.trimTime(&lt;datetime>)</li>
+         <li>time:now()</li>
+         <li>time:trimDate(&lt;datetime>)</li>
+         <li>time:trimTime(&lt;datetime>)</li>
         </ul>
        </entry>
       </row>
@@ -185,6 +198,7 @@
          <li>every(&lt;interval>, &lt;mm() | ss()>)</li>
          <li>field:field()</li>
          <li>jvm:maxMemoryMB()</li>
+         <li>offset:column(&lt;position>)</li>
          <li>runtime:conf(&lt;runtime property>)</li>
          <li>runtime:loadResource(&lt;file name>, &lt;restricted: true | false>)</li>
          <li>sdc:hostname()</li>

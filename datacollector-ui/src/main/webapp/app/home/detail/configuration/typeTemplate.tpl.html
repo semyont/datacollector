@@ -8,6 +8,15 @@
   </label>
 </script>
 
+<script type="text/ng-template" id="configurationIssuesTemplate">
+  <div class="help-block">
+    <div ng-repeat="issue in getConfigurationIssues(detailPaneConfig, configDefinition)">
+      <span>{{issue.message}}</span>
+      <span ng-show="issue.count > 1" class="badge">{{issue.count}}</span>
+    </div>
+  </div>
+</script>
+
 <script type="text/ng-template" id="stringConfigurationTemplate">
   <div class="controls col-lg-7 col-md-8">
 
@@ -19,7 +28,6 @@
            ng-model="detailPaneConfig.configuration[configIndex].value"
            ng-required="configDefinition.required">
 
-
     <textarea class="form-control"
               name="{{configDefinition.name}}"
               ng-if="configDefinition.lines > 0"
@@ -29,7 +37,7 @@
               ng-model="detailPaneConfig.configuration[configIndex].value"
               ng-required="configDefinition.required"></textarea>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -56,11 +64,9 @@
          data-type="configDefinition.type">
     </div>
 
-
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
-
 
 <script type="text/ng-template" id="characterConfigurationTemplate">
   <div class="controls col-lg-7 col-md-8" ng-init="characterModel = getCharacterValue(detailPaneConfig.configuration[configIndex].value)">
@@ -99,7 +105,7 @@
 
     </div>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -109,7 +115,7 @@
            ng-disabled="isPipelineReadOnly || isPipelineRunning"
            ng-model="detailPaneConfig.configuration[configIndex].value">
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -121,7 +127,7 @@
            ng-model="detailPaneConfig.configuration[configIndex].value"
            ng-required="configDefinition.required">
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -206,7 +212,7 @@
       </button>
     </div>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -297,8 +303,7 @@
       </button>
     </div>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
-
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -314,7 +319,8 @@
               value="{{listValue}}"
               ng-selected="listValue === detailPaneConfig.configuration[configIndex].value">{{configDefinition.model.labels[$index]}}</option>
     </select>
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -331,7 +337,7 @@
       </ui-select-choices>
     </ui-select>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -357,7 +363,8 @@
         Select Field Using Preview Data
       </button>
     </div>
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -382,7 +389,8 @@
         </ul>
       </div>
     </div>
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -434,8 +442,7 @@
 
     </div>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
-
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -477,9 +484,8 @@
   </div>
 </script>
 
-
 <script type="text/ng-template" id="listComplexConfigurationTemplate">
-  <div class="controls col-lg-7 col-md-8 container-fluid">
+  <div class="controls col-lg-12 container-fluid">
     <div class="row map-list-type"
          ng-repeat="val in listValue = customFieldValue[customFieldConfigDefinition.name] track by $index">
 
@@ -531,13 +537,13 @@
       </div>
     </div>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
 
 <script type="text/ng-template" id="mapComplexConfigurationTemplate">
-  <div class="controls col-lg-7 col-md-8">
+  <div class="controls col-lg-12">
     <div class="row map-list-type" ng-repeat="mapObject in customFieldValue[customFieldConfigDefinition.name] track by $index">
 
       <div class="col-xs-4">
@@ -595,8 +601,7 @@
       </div>
     </div>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
-
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>
 
@@ -621,6 +626,6 @@
          d-field-paths="dFieldPaths">
     </div>
 
-    <p class="help-block">{{getConfigurationIssueMessage(detailPaneConfig, configDefinition)}}</p>
+    <ng-include src="'configurationIssuesTemplate'"></ng-include>
   </div>
 </script>

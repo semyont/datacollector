@@ -19,22 +19,29 @@
  */
 package com.streamsets.datacollector.main;
 
+import com.streamsets.datacollector.http.SdcHashLoginService;
 import com.streamsets.datacollector.restapi.bean.UserJson;
-import org.eclipse.jetty.security.HashLoginService;
+import com.streamsets.pipeline.api.impl.Utils;
+import org.eclipse.jetty.security.AbstractLoginService;
 import org.eclipse.jetty.security.LoginService;
 import org.eclipse.jetty.server.UserIdentity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 
 public class FileUserGroupManager implements UserGroupManager {
+  private static final Logger LOG = LoggerFactory.getLogger(FileUserGroupManager.class);
   private static final String GROUP_PREFIX = "group:";
-  private HashLoginService hashLoginService;
+  private static final String USER_ROLE = "user";
+  private SdcHashLoginService hashLoginService;
   private Map<String, UserJson> usersMap;
   private List<UserJson> userList;
   private List<String> groupList;
@@ -42,8 +49,11 @@ public class FileUserGroupManager implements UserGroupManager {
 
   @Override
   public void setLoginService(LoginService loginService) {
-    hashLoginService = (HashLoginService) loginService;
+    hashLoginService = (SdcHashLoginService) loginService;
   }
+
+  @Override
+  public void setRoleMapping(Map<String, Set<String>> roleMapping) {}
 
   @Override
   public List<UserJson> getUsers() {
@@ -58,46 +68,59 @@ public class FileUserGroupManager implements UserGroupManager {
   }
 
   @Override
-  public UserJson getUser(final String userName) {
+  public UserJson getUser(Principal principal) {
     initialize();
-    return usersMap.get(userName);
+    return usersMap.get(principal.getName());
   }
 
   private void initialize() {
     if (!initialized) {
       synchronized (this) {
         if (!initialized) {
-          fetchUserAndGroupList();
+          try {
+            fetchUserAndGroupList();
+          } catch (IOException e) {
+            LOG.warn(Utils.format("Exception when fetching users and groups: {}", e.getMessage()));
+          }
           initialized = true;
         }
       }
     }
   }
 
-  private void fetchUserAndGroupList() {
+  private void fetchUserAndGroupList() throws IOException {
     userList = new ArrayList<>();
     usersMap = new HashMap<>();
     groupList = new ArrayList<>();
+    groupList.add(ALL_GROUP);
     if (hashLoginService != null) {
-      ConcurrentMap<String, UserIdentity> userIdentityMap = hashLoginService.getUsers();
-      for (String userName: userIdentityMap.keySet()) {
+      Properties properties = new Properties();
+      if ( hashLoginService.getResolvedConfigResource().exists()) {
+        properties.load(hashLoginService.getResolvedConfigResource().getInputStream());
+      }
+
+      for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+        String userName = ((String)entry.getKey()).trim();
         UserJson user = new UserJson();
         user.setName(userName);
         List<String> roles = new ArrayList<>();
         List<String> groups = new ArrayList<>();
-        UserIdentity userIdentity = userIdentityMap.get(userName);
+        groups.add(ALL_GROUP);
+        UserIdentity userIdentity = hashLoginService.getUserIdentity(userName);
         Set<Principal> principals = userIdentity.getSubject().getPrincipals();
         for (Principal principal: principals) {
-          if (principal.getName().startsWith(GROUP_PREFIX)) {
-            String groupName = principal.getName().replace(GROUP_PREFIX, "");
-            if (!groups.contains(groupName)) {
-              groups.add(groupName);
+          if (principal instanceof AbstractLoginService.RolePrincipal) {
+            if (principal.getName().startsWith(GROUP_PREFIX)) {
+              String groupName = principal.getName().replace(GROUP_PREFIX, "");
+              if (!groups.contains(groupName)) {
+                groups.add(groupName);
+              }
+              if (!groupList.contains(groupName)) {
+                groupList.add(groupName);
+              }
+            } else if (!roles.contains(principal.getName()) && !USER_ROLE.equals(principal.getName())) {
+              roles.add(principal.getName());
             }
-            if (!groupList.contains(groupName)) {
-              groupList.add(groupName);
-            }
-          } else if (!roles.contains(principal.getName())){
-            roles.add(principal.getName());
           }
         }
         user.setRoles(roles);
@@ -107,6 +130,4 @@ public class FileUserGroupManager implements UserGroupManager {
       }
     }
   }
-
-
 }

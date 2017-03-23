@@ -25,6 +25,8 @@
             streams file data from the origin system and writes the data to the destination system.
                 <ph conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
             /> writes the files based on the directory and file name defined in the destination. </p>
+        <p>You can limit the resources used to transfer data by specifying a transfer rate. By
+            default, whole file transfers use available resources as needed.</p>
         <p>When the origin system provides checksum metadata, you can configure the origin to verify
             the checksum. Destinations that generate events can include checksum information in
             event records.</p>
@@ -41,6 +43,7 @@
             </ul></p>
         <p>You can use the following destinations to write whole files:<ul id="ul_wrs_cvh_xw">
                 <li>Amazon S3</li>
+                <li>Azure Data Lake Store</li>
                 <li>Hadoop FS</li>
                 <li>Local FS</li>
                 <li>MapR FS</li>

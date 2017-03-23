@@ -14,12 +14,13 @@
 -->
 <!DOCTYPE task PUBLIC "-//OASIS//DTD DITA General Task//EN" "generalTask.dtd">
 <task id="task_ryz_tkr_bs">
-    <title>Configuring a JDBC Consumer</title>
+    <title>Configuring a JDBC Query Consumer</title>
     <taskbody>
         <context>
-            <p><indexterm>JDBC Consumer
-                origin<indexterm>configuring</indexterm></indexterm>Configure a JDBC Consumer origin
-                to use a JDBC connection to read database data. </p>
+            <p><indexterm>JDBC Query Consumer
+                origin<indexterm>configuring</indexterm></indexterm>Configure a JDBC Query Consumer
+                origin to use a single configured SQL query to read database data through a JDBC
+                connection. </p>
         </context>
         <steps id="steps_hhn_vkr_bs">
             <step
@@ -50,9 +51,13 @@
                                                 href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_mm5_tvg_cs"/>
                                         </xref></entry>
-                                    <entry>Defines how JDBC Consumer queries the database. Select to
-                                        perform incremental queries. Clear to perform full queries.
-                                            <p>Default is incremental mode. </p></entry>
+                                    <entry>Defines how JDBC Query Consumer queries the database.
+                                        Select to perform incremental queries. Clear to perform full
+                                        queries. <p>To process CDC data from Microsoft SQL Server,
+                                            select this option. For more information about CDC for
+                                            Microsoft SQL Server, see <xref
+                                                href="JDBCConsumer-CDCMSSQLOverview.dita#concept_tyd_gbf_5y"
+                                            />.</p><p>Default is incremental mode. </p></entry>
                                 </row>
                                 <row>
                                     <entry>SQL Query <xref href="JDBC-SQLQuery.dita"><image
@@ -76,12 +81,9 @@
                                     <entry>Column to use for the offset value.<p>Required in
                                             incremental mode.</p></entry>
                                 </row>
-                                <row>
-                                    <entry>Query Interval</entry>
-                                    <entry>Amount of time to wait between queries. Enter an
-                                        expression based on a unit of time. You can use SECONDS,
-                                        MINUTES, or HOURS.<p>Default is 10 seconds: ${10 * SECONDS}.
-                                        </p></entry>
+                                <row
+                                    conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/JDBCQueryInterval">
+                                    <entry/>
                                 </row>
                                 <row
                                     conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/JDBCUseCredentials_row">
@@ -95,12 +97,16 @@
                                             conref="../Reusable_Content/ReusablePhrases.dita#concept_vhs_5tz_xp/pName-long"
                                         /> version 1.1.0 or earlier.</entry>
                                 </row>
-                                <row>
-                                    <entry>Max Batch Size (records)</entry>
-                                    <entry>Maximum number of records to include in a batch.</entry>
+                                <row
+                                    conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/JDBCMaxBatch_row">
+                                    <entry/>
                                 </row>
                                 <row
                                     conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/JDBCMaxClob_row">
+                                    <entry/>
+                                </row>
+                                <row
+                                    conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/JDBCMaxBlob_row">
                                     <entry/>
                                 </row>
                                 <row
@@ -117,8 +123,8 @@
             </step>
             <step>
                 <cmd>To process change capture data from Microsoft SQL Server, on the
-                        <uicontrol>Change Data Capture</uicontrol> tab, configure the following
-                    properties:</cmd>
+                        <uicontrol>Change Data Capture</uicontrol> tab, optionally configure the
+                    following properties to group rows by transaction:</cmd>
                 <info>
                     <table frame="all" rowsep="1" colsep="1" id="table_vnz_v1w_ht">
                         <tgroup cols="2">
@@ -133,11 +139,12 @@
                             <tbody>
                                 <row>
                                     <entry>Transaction ID Column Name</entry>
-                                    <entry>Transaction ID column name.</entry>
+                                    <entry>Transaction ID column name, typically __$start_lsn.
+                                    </entry>
                                 </row>
                                 <row>
                                     <entry>Max Transaction Size (rows) <xref
-                                            href="JDBCConsumer-CDC.dita"><image
+                                            href="JDBCConsumer-CDCGroupTransactions.dita"><image
                                                 href="../Graphics/icon_moreInfo.png" scale="10"
                                                 id="image_gsf_kdw_ht"/>
                                         </xref></entry>
@@ -190,6 +197,10 @@
                                     <entry/>
                                 </row>
                                 <row
+                                    conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/row-AutoCommit">
+                                    <entry/>
+                                </row>
+                                <row
                                     conref="../Reusable_Content/ReusableTables.dita#concept_wfr_rnw_yq/row-EnReadOnly">
                                     <entry/>
                                 </row>
@@ -205,14 +216,25 @@
                                         </xref></entry>
                                     <entry>Adds JDBC header attributes to records. The origin
                                         creates JDBC header attributes by default. <p>
-                                            <note>When using the origin with the Hive Drift
-                                                Solution, make sure this property is
+                                            <note>When using the origin with the Drift
+                                                Synchronization Solution, make sure this property is
                                                 selected.</note>
                                         </p></entry>
                                 </row>
                                 <row>
                                     <entry>JDBC Header Prefix</entry>
                                     <entry>Prefix for JDBC header attributes. </entry>
+                                </row>
+                                <row>
+                                    <entry>Disable Query Validation</entry>
+                                    <entry>Disables the query validation that occurs by default. Use
+                                        to avoid time consuming query validation situations, like
+                                        when querying Hive, which requires using a MapReduce job to
+                                        perform the validation. <p>
+                                            <note type="warning">Query validation prevents running a
+                                                pipeline with invalid queries. Use this option with
+                                                care. </note>
+                                        </p></entry>
                                 </row>
                             </tbody>
                         </tgroup>

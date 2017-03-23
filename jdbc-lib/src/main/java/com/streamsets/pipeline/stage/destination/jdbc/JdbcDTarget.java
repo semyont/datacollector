@@ -35,21 +35,37 @@ import com.streamsets.pipeline.lib.el.TimeNowEL;
 import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
 import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
 import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnParamMapping;
+import com.streamsets.pipeline.lib.jdbc.JDBCOperationType;
+import com.streamsets.pipeline.lib.jdbc.JDBCOperationChooserValues;
+import com.streamsets.pipeline.lib.operation.UnsupportedOperationAction;
+import com.streamsets.pipeline.lib.operation.UnsupportedOperationActionChooserValues;
 
 import java.util.List;
 
-@HideConfigs(value = {"hikariConfigBean.readOnly"})
 @GenerateResourceBundle
 @StageDef(
-    version = 5,
+    version = 6,
     label = "JDBC Producer",
-    description = "Writes data to a JDBC destination.",
+    description = "Insert, update, delete data to a JDBC destination.",
     upgrader = JdbcTargetUpgrader.class,
     icon = "rdbms.png",
     onlineHelpRefUrl = "index.html#Destinations/JDBCProducer.html#task_cx3_lhh_ht"
 )
 @ConfigGroups(value = Groups.class)
+@HideConfigs(value = {
+  "hikariConfigBean.readOnly",
+  "hikariConfigBean.autoCommit",
+})
 public class JdbcDTarget extends DTarget {
+
+  @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.STRING,
+      label = "Schema Name",
+      displayPosition = 20,
+      group = "JDBC"
+  )
+  public String schema;
 
   @ConfigDef(
       required = true,
@@ -58,8 +74,8 @@ public class JdbcDTarget extends DTarget {
       evaluation = ConfigDef.Evaluation.EXPLICIT,
       defaultValue = "${record:attribute('tableName')}",
       label = "Table Name",
-      description = "Depending on the database, may be specified as <schema>.<table>. Some databases require schema " +
-          "be specified separately in the connection string.",
+      description = "Table Names should contain only table names. Schema should be defined in the connection string or " +
+          "schema configuration",
       displayPosition = 30,
       group = "JDBC"
   )
@@ -78,12 +94,24 @@ public class JdbcDTarget extends DTarget {
   public List<JdbcFieldColumnParamMapping> columnNames;
 
   @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Enclose Table Name",
+      description = "Use for lower or mixed-case database, table and field names. " +
+          "Select only when the database or tables were created with quotation marks around the names.",
+      displayPosition = 40,
+      group = "JDBC",
+      defaultValue = "false"
+  )
+  public boolean encloseTableName;
+
+  @ConfigDef(
       required = false,
       type = ConfigDef.Type.MODEL,
       label = "Change Log Format",
       defaultValue = "NONE",
       description = "If input is a change data capture log, specify the format.",
-      displayPosition = 50,
+      displayPosition = 40,
       group = "JDBC"
   )
   @ValueChooserModel(ChangeLogFormatChooserValues.class)
@@ -91,22 +119,34 @@ public class JdbcDTarget extends DTarget {
 
   @ConfigDef(
       required = true,
-      type = ConfigDef.Type.BOOLEAN,
-      defaultValue = "false",
-      label = "Rollback Batch on Error",
-      description = "Whether or not to rollback the entire batch on error. Some JDBC drivers provide information" +
-          "about individual failed rows, and can insert partial batches.",
+      type = ConfigDef.Type.MODEL,
+      defaultValue = "",
+      label = "Default Operation",
+      description = "Default operation to perform if sdc.operation.type is not set in record header.",
       displayPosition = 50,
       group = "JDBC"
   )
-  public boolean rollbackOnError;
+  @ValueChooserModel(JDBCOperationChooserValues.class)
+  public JDBCOperationType defaultOperation;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.MODEL,
+      defaultValue= "DISCARD",
+      label = "Unsupported Operation Handling",
+      description = "Action to take when operation type is not supported",
+      displayPosition = 60,
+      group = "JDBC"
+  )
+  @ValueChooserModel(UnsupportedOperationActionChooserValues.class)
+  public UnsupportedOperationAction unsupportedAction;
 
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.BOOLEAN,
-      defaultValue = "true",
-      label = "Use Multi-Row Insert",
-      description = "Whether to generate multi-row INSERT statements instead of batches of single-row INSERTs",
+      defaultValue = "false",
+      label = "Use Multi-Row Operation",
+      description = "Select to generate multi-row INSERT and DELETE. Significantly improves performance, but not all databases are supporting the syntax.",
       displayPosition = 60,
       group = "JDBC"
   )
@@ -126,18 +166,48 @@ public class JdbcDTarget extends DTarget {
   )
   public int maxPrepStmtParameters;
 
+  @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.NUMBER,
+      defaultValue = "-1",
+      label = "Max Cache Size Per Batch (Entries)",
+      description = "The maximum number of prepared statement stored in cache. Cache is used only when " +
+          "'Use Multi-Row Operation' checkbox is unchecked. Use -1 for unlimited number of entries.",
+      dependsOn = "useMultiRowInsert",
+      triggeredByValue = "false",
+      displayPosition = 60,
+      group = "JDBC"
+  )
+  public int maxPrepStmtCache;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      defaultValue = "false",
+      label = "Rollback Batch on Error",
+      description = "Whether or not to rollback the entire batch on error. Some JDBC drivers provide information" +
+          "about individual failed rows, and can insert partial batches.",
+      displayPosition = 70,
+      group = "JDBC"
+  )
+  public boolean rollbackOnError;
+
   @ConfigDefBean()
   public HikariPoolConfigBean hikariConfigBean;
 
   @Override
   protected Target createTarget() {
     return new JdbcTarget(
+        schema,
         tableNameTemplate,
-        columnNames,
+        columnNames, encloseTableName,
         rollbackOnError,
         useMultiRowInsert,
         maxPrepStmtParameters,
+        maxPrepStmtCache,
         changeLogFormat,
+        defaultOperation,
+        unsupportedAction,
         hikariConfigBean
     );
   }

@@ -288,12 +288,19 @@ public class DataFormatParser {
           .setConfig(DelimitedDataConstants.ESCAPE_CONFIG, dataFormatConfig.csvCustomEscape)
           .setConfig(DelimitedDataConstants.QUOTE_CONFIG, dataFormatConfig.csvCustomQuote)
           .setConfig(DelimitedDataConstants.PARSE_NULL, dataFormatConfig.parseNull)
-          .setConfig(DelimitedDataConstants.NULL_CONSTANT, dataFormatConfig.nullConstant);
+          .setConfig(DelimitedDataConstants.NULL_CONSTANT, dataFormatConfig.nullConstant)
+          .setConfig(DelimitedDataConstants.COMMENT_ALLOWED_CONFIG, dataFormatConfig.csvEnableComments)
+          .setConfig(DelimitedDataConstants.COMMENT_MARKER_CONFIG, dataFormatConfig.csvCommentMarker)
+          .setConfig(DelimitedDataConstants.IGNORE_EMPTY_LINES_CONFIG, dataFormatConfig.csvIgnoreEmptyLines)
+          ;
         break;
       case XML:
         builder.setMaxDataLen(dataFormatConfig.xmlMaxObjectLen);
         builder.setConfig(XmlDataParserFactory.RECORD_ELEMENT_KEY, dataFormatConfig.xmlRecordElement);
+        builder.setConfig(XmlDataParserFactory.INCLUDE_FIELD_XPATH_ATTRIBUTES_KEY,
+            dataFormatConfig.includeFieldXpathAttributes);
         builder.setConfig(XmlDataParserFactory.RECORD_ELEMENT_XPATH_NAMESPACES_KEY, dataFormatConfig.xPathNamespaceContext);
+        builder.setConfig(XmlDataParserFactory.USE_FIELD_ATTRIBUTES, dataFormatConfig.outputFieldAttributes);
         break;
       case SDC_JSON:
         builder.setMaxDataLen(-1);

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2015 StreamSets Inc.
  *
  * Licensed under the Apache Software Foundation (ASF) under one
@@ -171,6 +171,7 @@ public class TestJdbcSource {
         query,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -226,6 +227,7 @@ public class TestJdbcSource {
         queryNonIncremental,
         "",
         "",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -281,6 +283,7 @@ public class TestJdbcSource {
         queryStoredProcedure,
         initialOffset,
         "ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -327,12 +330,13 @@ public class TestJdbcSource {
   }
 
   @Test
-  public void testBadConnectionString() throws Exception {
+  public void testDriverNotFound() throws Exception {
     JdbcSource origin = new JdbcSource(
         true,
         query,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -351,6 +355,35 @@ public class TestJdbcSource {
   }
 
   @Test
+  public void testBadConnectionString() throws Exception {
+    // Want to get the H2 driver, but give it a bad connection string, testing fix for SDC-5025
+    HikariPoolConfigBean configBean = createConfigBean("some bad connection string", username, password);
+    configBean.driverClassName = "org.h2.Driver";
+
+    JdbcSource origin = new JdbcSource(
+        true,
+        query,
+        initialOffset,
+        "P_ID",
+        false,
+        "",
+        1000,
+        JdbcRecordType.LIST_MAP,
+        new CommonSourceConfigBean(queryInterval, BATCH_SIZE, CLOB_SIZE, CLOB_SIZE),
+        false,
+        "",
+        configBean
+    );
+
+    SourceRunner runner = new SourceRunner.Builder(JdbcDSource.class, origin)
+        .addOutputLane("lane")
+        .build();
+
+    List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
+    assertEquals(1, issues.size());
+  }
+
+  @Test
   public void testMissingWhereClause() throws Exception {
     String queryMissingWhere = "SELECT * FROM TEST.TEST_TABLE ORDER BY P_ID ASC LIMIT 10;";
     JdbcSource origin = new JdbcSource(
@@ -358,6 +391,7 @@ public class TestJdbcSource {
         queryMissingWhere,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -384,6 +418,7 @@ public class TestJdbcSource {
         queryMissingOrderBy,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -413,6 +448,7 @@ public class TestJdbcSource {
         queryMissingWhereAndOrderBy,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -438,6 +474,7 @@ public class TestJdbcSource {
         queryInvalid,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -463,6 +500,7 @@ public class TestJdbcSource {
         queryInvalid,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -499,6 +537,7 @@ public class TestJdbcSource {
         query,
         "1",
         "P_ID",
+        false,
         "FIRST_NAME",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -540,6 +579,7 @@ public class TestJdbcSource {
         query,
         "1",
         "P_ID",
+        false,
         "FIRST_NAME",
         1,
         JdbcRecordType.LIST_MAP,
@@ -584,6 +624,7 @@ public class TestJdbcSource {
         query,
         "1",
         "P_ID",
+        false,
         "FIRST_NAME",
         1,
         JdbcRecordType.LIST_MAP,
@@ -610,6 +651,7 @@ public class TestJdbcSource {
         query,
         "1",
         "P_ID",
+        false,
         "FIRST_NAME",
         1,
         JdbcRecordType.LIST_MAP,
@@ -635,6 +677,7 @@ public class TestJdbcSource {
         query,
         "1",
         "T.P_ID",
+        false,
         "FIRST_NAME",
         1,
         JdbcRecordType.LIST_MAP,
@@ -661,6 +704,7 @@ public class TestJdbcSource {
         query,
         initialOffset,
         "P_ID",
+        false,
         "FIRST_NAME",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -697,6 +741,7 @@ public class TestJdbcSource {
         queryClob,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -743,6 +788,7 @@ public class TestJdbcSource {
         queryDecimal,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -786,6 +832,7 @@ public class TestJdbcSource {
         query,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -831,6 +878,7 @@ public class TestJdbcSource {
         query,
         initialOffset,
         "P_ID",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,
@@ -876,6 +924,7 @@ public class TestJdbcSource {
         "SELECT * FROM TEST.TEST_UUID",
         "",
         "",
+        false,
         "",
         1000,
         JdbcRecordType.LIST_MAP,

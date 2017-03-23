@@ -23,6 +23,7 @@ import com.streamsets.datacollector.execution.PipelineState;
 import com.streamsets.datacollector.execution.StateEventListener;
 import com.streamsets.dc.execution.manager.standalone.ThreadUsage;
 
+import java.util.Map;
 import java.util.Queue;
 
 
@@ -34,8 +35,13 @@ public class StatusWebSocket extends BaseWebSocket implements StateEventListener
   }
 
   @Override
-  public void onStateChange(PipelineState fromState, PipelineState toState, String toStateJson,
-                            ThreadUsage threadUsage) {
+  public void onStateChange(
+      PipelineState fromState,
+      PipelineState toState,
+      String toStateJson,
+      ThreadUsage threadUsage,
+      Map<String, String> offset
+  ) {
     notification(toStateJson);
   }
 }

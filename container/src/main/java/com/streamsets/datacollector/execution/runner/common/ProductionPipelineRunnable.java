@@ -22,13 +22,15 @@ package com.streamsets.datacollector.execution.runner.common;
 import com.streamsets.datacollector.el.PipelineEL;
 import com.streamsets.datacollector.execution.PipelineStatus;
 import com.streamsets.datacollector.execution.runner.standalone.StandaloneRunner;
+import com.streamsets.datacollector.store.PipelineInfo;
 import com.streamsets.datacollector.util.PipelineException;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.impl.Utils;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -66,7 +68,12 @@ public class ProductionPipelineRunnable implements Runnable {
     }
     String originalThreadName = Thread.currentThread().getName();
     try {
-      Thread.currentThread().setName(RUNNABLE_NAME + "-" + name);
+      PipelineInfo info = pipeline.getPipelineConf().getInfo();
+      if(info != null) {
+        Thread.currentThread().setName(Utils.format("{}-{}-{}", RUNNABLE_NAME, info.getUuid(), info.getTitle()));
+      } else {
+        Thread.currentThread().setName(Utils.format("{}-UNKNOWN_ID-{}", RUNNABLE_NAME, name));
+      }
       try {
         runningThread = Thread.currentThread();
         pipeline.run();
@@ -157,11 +164,17 @@ public class ProductionPipelineRunnable implements Runnable {
     //Update pipeline state accordingly
     if (pipeline.wasStopped()) {
       try {
-        String offset = pipeline.getCommittedOffset();
+        Map<String, String> offset = pipeline.getCommittedOffsets();
         String offsetStatus = "";
-        if (!StringUtils.isEmpty(offset)) {
-          offsetStatus = Utils.format("The last committed source offset is {}.", offset);
+
+        if (!offset.isEmpty()) {
+          if(offset.size() == 1 && offset.containsKey(Source.POLL_SOURCE_OFFSET_KEY)) {
+            offsetStatus = Utils.format("The last committed source offset is '{}'.", offset.get(Source.POLL_SOURCE_OFFSET_KEY));
+          } else {
+            offsetStatus = Utils.format("The last committed source offset is {}.", offset);
+          }
         }
+
         if (this.nodeProcessShutdown) {
           LOG.info("Changing state of pipeline '{}', '{}' to '{}'", name, rev, PipelineStatus.DISCONNECTED);
           pipeline.getStatusListener().stateChanged(

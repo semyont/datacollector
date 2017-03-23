@@ -22,6 +22,7 @@ package com.streamsets.pipeline.stage.origin.logtail;
 import com.codahale.metrics.Counter;
 import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.Source;
+import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.pipeline.config.DataFormat;
@@ -39,6 +40,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.api.support.membermodification.MemberMatcher;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.reflect.Whitebox;
@@ -66,6 +68,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RunWith(PowerMockRunner.class)
+@PowerMockIgnore("javax.management.*")
 @PrepareForTest({FileTailSource.class, GlobFileContextProvider.class})
 public class TestFileTailSource {
   private final static int SCAN_INTERVAL = 0; //using zero forces synchronous file discovery
@@ -1328,5 +1331,35 @@ public class TestFileTailSource {
     LOGGER.info("Total Pending Files Lag :" + totalBytesForPendingFiles);
 
     Assert.assertEquals(expectedRemainingBytesToRead, totalOffsetLag + totalBytesForPendingFiles);
+  }
+
+  // SDC-5457
+  @Test
+  public void testInitialFileAndPatterMode() throws Exception {
+    FileInfo fileInfo = new FileInfo();
+    fileInfo.fileFullPath = "/random/path";
+    fileInfo.fileRollMode = FileRollMode.PATTERN;
+    fileInfo.firstFile = "the-best-filename-ever.txt";
+    fileInfo.patternForToken = ".*";
+
+    FileTailConfigBean conf = new FileTailConfigBean();
+    conf.dataFormat = DataFormat.TEXT;
+    conf.multiLineMainPattern = "";
+    conf.batchSize = 25;
+    conf.maxWaitTimeSecs = 1;
+    conf.fileInfos = Arrays.asList(fileInfo);
+    conf.postProcessing = PostProcessingOptions.NONE;
+    conf.dataFormatConfig.textMaxLineLen = 1024;
+
+    FileTailSource source = new FileTailSource(conf, SCAN_INTERVAL);
+    SourceRunner runner = new SourceRunner.Builder(FileTailDSource.class, source)
+      .addOutputLane("lane")
+      .addOutputLane("metadata")
+      .build();
+
+    List<Stage.ConfigIssue> issues = runner.runValidateConfigs();
+    Assert.assertEquals(1, issues.size());
+    String issue = issues.get(0).toString();
+    Assert.assertTrue(issue, issue.contains("TAIL_08"));
   }
 }

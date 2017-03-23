@@ -100,6 +100,37 @@
             text-transform: capitalize;
             overflow: hidden;
           }
+
+          .circle {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            font-size: 10px;
+            color: white;
+            line-height: 15.5px;
+            text-align: center;
+            display: block;
+            top: 5px;
+            left: 64px;
+            font-weight: bolder;
+
+            &.origin {
+              background: @brand-info;
+            }
+
+            &.processor {
+              background: @brand-warning;
+            }
+
+            &.destination {
+              background: @brand-success;
+            }
+
+            &.executor {
+              background: @brand-success;
+            }
+
+          }
         }
       }
 

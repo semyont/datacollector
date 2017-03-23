@@ -25,7 +25,6 @@ import com.google.common.base.Optional;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import com.streamsets.pipeline.lib.el.VaultEL;
 import com.streamsets.pipeline.api.BatchMaker;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
@@ -34,7 +33,11 @@ import com.streamsets.pipeline.api.base.BaseSource;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.el.ELVars;
+import com.streamsets.pipeline.api.impl.Utils;
+import com.streamsets.pipeline.lib.el.VaultEL;
+import com.streamsets.pipeline.lib.http.AuthenticationFailureException;
 import com.streamsets.pipeline.lib.http.AuthenticationType;
+import com.streamsets.pipeline.lib.http.Errors;
 import com.streamsets.pipeline.lib.http.Groups;
 import com.streamsets.pipeline.lib.http.HttpMethod;
 import com.streamsets.pipeline.lib.http.JerseyClientUtil;
@@ -44,6 +47,7 @@ import com.streamsets.pipeline.lib.parser.DataParserFactory;
 import com.streamsets.pipeline.lib.util.ThreadUtil;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
+import com.streamsets.pipeline.stage.util.http.HttpStageUtil;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.client.oauth1.AccessToken;
@@ -53,6 +57,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -74,6 +79,9 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import static com.streamsets.pipeline.lib.parser.json.Errors.JSON_PARSER_00;
+import static com.streamsets.pipeline.lib.http.Errors.HTTP_21;
+import static com.streamsets.pipeline.lib.http.Errors.HTTP_22;
+import static com.streamsets.pipeline.lib.http.Errors.HTTP_24;
 
 /**
  * HTTP Client Origin implementation supporting streaming, polled, and paginated HTTP resources.
@@ -92,6 +100,9 @@ public class HttpClientSource extends BaseSource {
   private static final String BASIC_CONFIG_PREFIX = "conf.basic.";
   private static final String VAULT_EL_PREFIX = VaultEL.PREFIX + ":";
   private static final HashFunction HF = Hashing.sha256();
+  public static final String OAUTH2_GROUP = "OAUTH2";
+  public static final String CONF_CLIENT_OAUTH2_TOKEN_URL = "conf.client.oauth2.tokenUrl";
+  public static final String NO_ACCESS_TOKEN = "Access Token was not found in the response from the authorization server";
 
   private final HttpClientConfigBean conf;
   private Hasher hasher;
@@ -143,7 +154,7 @@ public class HttpClientSource extends BaseSource {
   @Override
   protected List<ConfigIssue> init() {
     List<ConfigIssue> issues = super.init();
-    errorRecordHandler = new DefaultErrorRecordHandler(getContext());
+    errorRecordHandler = new DefaultErrorRecordHandler(getContext()); // NOSONAR
 
     conf.basic.init(getContext(), Groups.HTTP.name(), BASIC_CONFIG_PREFIX, issues);
     conf.dataFormatConfig.init(getContext(), conf.dataFormat, Groups.HTTP.name(), DATA_FORMAT_CONFIG_PREFIX, issues);
@@ -209,16 +220,15 @@ public class HttpClientSource extends BaseSource {
 
     // Validation succeeded so configure the client.
     if (issues.isEmpty()) {
-      configureClient();
+      configureClient(issues);
     }
-
     return issues;
   }
 
   /**
    * Helper method to apply Jersey client configuration properties.
    */
-  private void configureClient() {
+  private void configureClient(List<ConfigIssue> issues) {
     ClientConfig clientConfig = new ClientConfig()
         .property(ClientProperties.CONNECT_TIMEOUT, conf.client.connectTimeoutMillis)
         .property(ClientProperties.READ_TIMEOUT, conf.client.readTimeoutMillis)
@@ -228,15 +238,13 @@ public class HttpClientSource extends BaseSource {
 
     clientBuilder = ClientBuilder.newBuilder().withConfig(clientConfig);
 
-    configureAuth(clientBuilder);
-
     if (conf.client.useProxy) {
       JerseyClientUtil.configureProxy(conf.client.proxy, clientBuilder);
     }
 
     JerseyClientUtil.configureSslContext(conf.client.sslConfig, clientBuilder);
 
-    client = clientBuilder.build();
+    configureAuthAndBuildClient(clientBuilder, issues);
 
     parserFactory = conf.dataFormatConfig.getParserFactory();
   }
@@ -246,17 +254,45 @@ public class HttpClientSource extends BaseSource {
    *
    * @param clientBuilder Jersey Client builder to configure
    */
-  private void configureAuth(ClientBuilder clientBuilder) {
+  private void configureAuthAndBuildClient(ClientBuilder clientBuilder, List<ConfigIssue> issues) {
     if (conf.client.authType == AuthenticationType.OAUTH) {
       authToken = JerseyClientUtil.configureOAuth1(conf.client.oauth, clientBuilder);
     } else if (conf.client.authType != AuthenticationType.NONE) {
       JerseyClientUtil.configurePasswordAuth(conf.client.authType, conf.client.basicAuth, clientBuilder);
     }
+    client = clientBuilder.build();
+    if (conf.client.useOAuth2) {
+      try {
+        conf.client.oauth2.init(getContext(), issues, client);
+      } catch (AuthenticationFailureException ex) {
+        LOG.error("OAuth2 Authentication failed", ex); // NOSONAR
+        issues.add(getContext().createConfigIssue(OAUTH2_GROUP, CONF_CLIENT_OAUTH2_TOKEN_URL, HTTP_21));
+      } catch (IOException ex) {
+        LOG.error(NO_ACCESS_TOKEN, ex);
+        issues.add(getContext().createConfigIssue(OAUTH2_GROUP, CONF_CLIENT_OAUTH2_TOKEN_URL, HTTP_22));
+      } catch (NotFoundException ex) {
+        LOG.error(Utils.format(HTTP_24.getMessage(),
+            conf.client.oauth2.tokenUrl, conf.client.oauth2.transferEncoding), ex);
+        issues.add(getContext().createConfigIssue(OAUTH2_GROUP,
+            CONF_CLIENT_OAUTH2_TOKEN_URL, HTTP_24, conf.client.oauth2.tokenUrl, conf.client.oauth2.transferEncoding));
+      }
+    }
   }
 
-  private void reconnectClient() {
+  private void reconnectClient() throws StageException {
     closeHttpResources();
     client = clientBuilder.build();
+    if (conf.client.useOAuth2) {
+      try {
+        conf.client.oauth2.reInit(client); // NotFoundException won't be thrown because one authentication happened during init()
+      } catch (AuthenticationFailureException ex) {
+        LOG.error("OAuth2 Authentication failed", ex);
+        throw new StageException(HTTP_21);
+      } catch (IOException ex) {
+        LOG.error(NO_ACCESS_TOKEN, ex);
+        throw new StageException(HTTP_22);
+      }
+    }
   }
 
   /** {@inheritDoc} */
@@ -404,18 +440,22 @@ public class HttpClientSource extends BaseSource {
   private void makeRequest(WebTarget target) throws StageException {
     hasher = HF.newHasher();
 
+    MultivaluedMap<String, Object> resolvedHeaders = resolveHeaders();
     final Invocation.Builder invocationBuilder = target
         .request()
         .property(OAuth1ClientSupport.OAUTH_PROPERTY_ACCESS_TOKEN, authToken)
-        .headers(resolveHeaders());
+        .headers(resolvedHeaders);
 
     boolean keepRequesting = !getContext().isStopped();
+    boolean gotNewToken = false;
     while (keepRequesting) {
       try {
         if (conf.requestBody != null && !conf.requestBody.isEmpty() && conf.httpMethod != HttpMethod.GET) {
           final String requestBody = bodyEval.eval(bodyVars, conf.requestBody, String.class);
+          final String contentType = HttpStageUtil.getContentTypeWithDefault(
+              resolvedHeaders, conf.defaultRequestContentType);
           hasher.putString(requestBody, Charset.forName(conf.dataFormatConfig.charset));
-          response = invocationBuilder.method(conf.httpMethod.getLabel(), Entity.json(requestBody));
+          response = invocationBuilder.method(conf.httpMethod.getLabel(), Entity.entity(requestBody, contentType));
         } else {
           response = invocationBuilder.method(conf.httpMethod.getLabel());
         }
@@ -423,7 +463,12 @@ public class HttpClientSource extends BaseSource {
         lastRequestTimedOut = false;
         final int status = response.getStatus();
         final boolean statusOk = status >= 200 && status < 300;
-        if (!statusOk && this.statusToActionConfigs.containsKey(status)) {
+        if (conf.client.useOAuth2 && status == 403) { // Token may have expired
+          if (gotNewToken) {
+            throw new StageException(HTTP_21);
+          }
+          gotNewToken = HttpStageUtil.getNewOAuth2Token(conf.client.oauth2, client);
+        } else if (!statusOk && this.statusToActionConfigs.containsKey(status)) {
           final HttpResponseActionConfigBean actionConf = this.statusToActionConfigs.get(status);
           final boolean statusChanged = lastStatus != status || lastRequestTimedOut;
 
@@ -579,7 +624,7 @@ public class HttpClientSource extends BaseSource {
     }
     try {
       int subRecordCount = 0;
-      Record record =  null;
+      Record record;
 
       do {
         record = parser.parse();
@@ -602,8 +647,9 @@ public class HttpClientSource extends BaseSource {
       if (record == null) {
         // Done reading this response
         cleanupResponse(in);
-        incrementSourceOffset(sourceOffset, subRecordCount);
       }
+
+      incrementSourceOffset(sourceOffset, subRecordCount);
     } catch (IOException e) {
       errorRecordHandler.onError(Errors.HTTP_00, e.toString(), e);
     }

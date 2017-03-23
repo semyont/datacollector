@@ -23,17 +23,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.sdk.PushSourceRunner;
 import com.streamsets.pipeline.sdk.RecordCreator;
-import com.streamsets.pipeline.sdk.SourceRunner;
-import com.streamsets.pipeline.sdk.StageRunner;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.mockito.Mockito;
 import org.powermock.reflect.Whitebox;
 
 import java.sql.Statement;
@@ -52,24 +48,6 @@ import java.util.UUID;
 public class ExtraOffsetConditionIT extends BaseTableJdbcSourceIT {
   private static final int BATCHES = 5;
   private static final String RANDOM_STRING_COLUMN = "random_string";
-
-  private static final Map<Field.Type, String> FIELD_TYPE_TO_SQL_TYPE_AND_STRING =
-      ImmutableMap.<Field.Type, String>builder()
-          .put(Field.Type.BOOLEAN, "BIT")
-          .put(Field.Type.CHAR, "CHAR")
-          .put(Field.Type.BYTE, "TINYINT")
-          .put(Field.Type.SHORT, "SMALLINT")
-          .put(Field.Type.INTEGER, "INT")
-          .put(Field.Type.LONG, "BIGINT")
-          .put(Field.Type.FLOAT, "FLOAT")
-          .put(Field.Type.DOUBLE, "DOUBLE")
-          .put(Field.Type.DECIMAL, "DECIMAL(20, 10)")
-          .put(Field.Type.STRING, "varchar(100)")
-          .put(Field.Type.BYTE_ARRAY, "BINARY")
-          .put(Field.Type.DATE, "DATE")
-          .put(Field.Type.TIME, "TIME")
-          .put(Field.Type.DATETIME, "DATETIME")
-          .build();
 
   //This will basically hold different date times that can be used for
   //creating offset fields
@@ -205,21 +183,6 @@ public class ExtraOffsetConditionIT extends BaseTableJdbcSourceIT {
     );
   }
 
-
-  @BeforeClass
-  public static void createSchema() throws Exception {
-    try (Statement statement = connection.createStatement()) {
-      statement.execute("CREATE SCHEMA IF NOT EXISTS TEST;");
-    }
-  }
-
-  @AfterClass
-  public static void deleteSchema() throws Exception {
-    try (Statement statement = connection.createStatement()) {
-      statement.execute("DROP SCHEMA IF EXISTS TEST;");
-    }
-  }
-
   @Before
   public void setupTables() throws Exception {
     try (Statement statement = connection.createStatement()) {
@@ -250,9 +213,8 @@ public class ExtraOffsetConditionIT extends BaseTableJdbcSourceIT {
 
       for (Record recordToInsert : recordsToInsert) {
         Map<String, Field> fields = recordToInsert.get().getValueAsListMap();
-        statement.addBatch(getInsertStatement("TEST", tableName, fields.values()));
+        statement.addBatch(getInsertStatement(database, tableName, fields.values()));
       }
-
       statement.executeBatch();
     }
   }
@@ -260,7 +222,7 @@ public class ExtraOffsetConditionIT extends BaseTableJdbcSourceIT {
   @After
   public void deleteTables() throws Exception {
     try (Statement statement = connection.createStatement()) {
-      statement.execute(String.format(DROP_STATEMENT_TEMPLATE, "TEST", tableName));
+      statement.execute(String.format(DROP_STATEMENT_TEMPLATE, database, tableName));
     }
   }
 
@@ -341,39 +303,37 @@ public class ExtraOffsetConditionIT extends BaseTableJdbcSourceIT {
 
   @Test
   public void testExtraOffsetConditions() throws Exception {
-    TableConfigBean tableConfigBean = new TableConfigBean();
-    tableConfigBean.tablePattern = tableName;
-    tableConfigBean.schema = database;
-    tableConfigBean.overridePartitionColumns = true;
-    tableConfigBean.partitionColumns = new ArrayList<>();
-    tableConfigBean.extraOffsetColumnConditions = extraOffsetConditions;
-
+    List<String> offsetColumns = new ArrayList<>();
     for (String partitionColumn : transactionOffsetFields.keySet()) {
-      tableConfigBean.partitionColumns.add(partitionColumn.toUpperCase());
+      offsetColumns.add(partitionColumn.toUpperCase());
     }
+    TableConfigBean tableConfigBean =  new TableJdbcSourceTestBuilder.TableConfigBeanTestBuilder()
+        .tablePattern(tableName)
+        .schema(database)
+        .overrideDefaultOffsetColumns(true)
+        .offsetColumns(offsetColumns)
+        .extraOffsetColumnConditions(extraOffsetConditions)
+        .build();
 
-    TableJdbcSource tableJdbcSource = Mockito.spy(
-        new TableJdbcSource(
-            TestTableJdbcSource.createHikariPoolConfigBean(JDBC_URL, USER_NAME, PASSWORD),
-            TestTableJdbcSource.createCommonSourceConfigBean(1, 1000, 1000, 1000),
-            TestTableJdbcSource.createTableJdbcConfigBean(ImmutableList.of(tableConfigBean), false, -1, TableOrderStrategy.NONE, BatchTableStrategy.SWITCH_TABLES)
-        )
-    );
-    SourceRunner runner = new SourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
-        .addOutputLane("a").build();
-    runner.runInit();
-    String lastOffset = "";
-    try {
-      for (int i = 0; i < BATCHES; i++) {
-        List<Record> expectedRecords = batchRecords.get(i);
+    TableJdbcSource tableJdbcSource = new TableJdbcSourceTestBuilder(JDBC_URL, true, USER_NAME, PASSWORD)
+        .tableConfigBeans(ImmutableList.of(tableConfigBean))
+        .build();
+    Map<String, String> offsets = Collections.emptyMap();
+    for (int i = 0; i < BATCHES; i++) {
+      PushSourceRunner runner = new PushSourceRunner.Builder(TableJdbcDSource.class, tableJdbcSource)
+          .addOutputLane("a").build();
+      runner.runInit();
+      JdbcPushSourceTestCallback callback = new JdbcPushSourceTestCallback(runner, 1);
+      try {
+        final List<Record> expectedRecords = batchRecords.get(i);
         setTimeContextForProduce(tableJdbcSource, i);
-        StageRunner.Output op = runner.runProduce(lastOffset, 1000);
-        List<Record> actualRecords = op.getRecords().get("a");
+        runner.runProduce(offsets, 1000, callback);
+        List<Record> actualRecords = callback.waitForAllBatchesAndReset().get(0);
         checkRecords(expectedRecords, actualRecords);
-        lastOffset = op.getNewOffset();
+        offsets = runner.getOffsets();
+      } finally {
+        runner.runDestroy();
       }
-    } finally {
-      runner.runDestroy();
     }
   }
 }

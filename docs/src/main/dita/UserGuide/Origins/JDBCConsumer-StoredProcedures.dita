@@ -16,11 +16,11 @@
 <concept id="concept_fll_lvk_bx">
  <title>Stored Procedures</title>
  <conbody>
-  <p><indexterm>JDBC Consumer origin<indexterm>stored
-                procedures</indexterm></indexterm><indexterm>stored procedures<indexterm>JDBC
+  <p><indexterm>JDBC Query Consumer origin<indexterm>stored
+                procedures</indexterm></indexterm><indexterm>stored procedures<indexterm>JDBC Query
                     Consumer origin</indexterm></indexterm>You can use stored procedures with the
-            JDBC Consumer origin. </p>
-        <p>You can call stored procedures from the SQL Query when using JDBC Consumer in full mode.
-            Do not call stored procedures when using the origin in incremental mode. </p>
+            JDBC Query Consumer origin. </p>
+        <p>You can call stored procedures from the SQL query when using JDBC Query Consumer in full
+            mode. Do not call stored procedures when using the origin in incremental mode. </p>
  </conbody>
 </concept>

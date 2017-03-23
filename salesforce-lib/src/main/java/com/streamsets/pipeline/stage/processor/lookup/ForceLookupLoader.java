@@ -24,31 +24,25 @@ import com.sforce.soap.partner.PartnerConnection;
 import com.sforce.soap.partner.QueryResult;
 import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
-import com.sforce.ws.bind.XmlObject;
 import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
+import com.streamsets.pipeline.lib.salesforce.DataType;
 import com.streamsets.pipeline.lib.salesforce.Errors;
 import com.streamsets.pipeline.lib.salesforce.ForceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 class ForceLookupLoader extends CacheLoader<String, Map<String, Field>> {
   private static final Logger LOG = LoggerFactory.getLogger(ForceLookupLoader.class);
 
-  private final Map<String, String> columnsToFields;
-  private final PartnerConnection partnerConnection;
+  private final ForceLookupProcessor processor;
 
-  ForceLookupLoader(
-      PartnerConnection partnerConnection,
-      Map<String, String> columnsToFields
-  ) {
-    this.partnerConnection = partnerConnection;
-    this.columnsToFields = columnsToFields;
+  ForceLookupLoader(ForceLookupProcessor processor) {
+    this.processor = processor;
   }
 
   @Override
@@ -57,39 +51,36 @@ class ForceLookupLoader extends CacheLoader<String, Map<String, Field>> {
   }
 
   private Map<String, Field> lookupValuesForRecord(String preparedQuery) throws StageException {
-    Map<String, Field> values = new HashMap<>();
+    Map<String, Field> fieldMap = new HashMap<>();
 
     try {
-      QueryResult queryResult = partnerConnection.query(preparedQuery);
+      QueryResult queryResult = processor.partnerConnection.query(preparedQuery);
 
       SObject[] records = queryResult.getRecords();
 
       LOG.info("Retrieved {} records", records.length);
 
       if (records.length > 0) {
-        SObject record = records[0];
+        // TODO - handle multiple records (SDC-4739)
 
-        Iterator<XmlObject> iter = record.getChildren();
-        while (iter.hasNext()) {
-          XmlObject obj = iter.next();
-
-          String key = obj.getName().getLocalPart();
-          if ("type".equals(key)) {
-            // Housekeeping field
-            continue;
+        fieldMap = ForceUtils.addFields(
+            records[0],
+            processor.metadataMap,
+            processor.conf.createSalesforceNsHeaders,
+            processor.conf.salesforceNsHeaderPrefix,
+            processor.columnsToTypes);
+      } else {
+        // Salesforce returns no row. Use default values.
+        for (String key : processor.columnsToFields.keySet()) {
+          String val = processor.columnsToDefaults.get(key);
+          try {
+            if (processor.columnsToTypes.get(key) != DataType.USE_SALESFORCE_TYPE) {
+              Field field = Field.create(Field.Type.valueOf(processor.columnsToTypes.get(key).getLabel()), val);
+              fieldMap.put(key, field);
+            }
+          } catch (IllegalArgumentException e) {
+            throw new OnRecordErrorException(Errors.FORCE_20, key, val, e);
           }
-
-          Object val = obj.getValue();
-          if (null == val) {
-            // Get a null Id if you don't include it in the SELECT
-            continue;
-          }
-          Field field = ForceUtils.createField(val);
-          if (field == null) {
-            throw new StageException(Errors.FORCE_04,
-                "Key: "+key+", unexpected type for val: " + val.getClass().toString());
-          }
-          values.put(key, field);
         }
       }
     } catch (ConnectionException e) {
@@ -97,6 +88,6 @@ class ForceLookupLoader extends CacheLoader<String, Map<String, Field>> {
       throw new OnRecordErrorException(Errors.FORCE_17, preparedQuery, e.getMessage());
     }
 
-    return values;
+    return fieldMap;
   }
 }

@@ -25,15 +25,15 @@ import com.streamsets.datacollector.main.RuntimeInfo;
 import com.streamsets.datacollector.main.UserGroupManager;
 import com.streamsets.datacollector.restapi.RestAPI;
 import com.streamsets.datacollector.stagelibrary.StageLibraryTask;
+import com.streamsets.datacollector.store.AclStoreTask;
 import com.streamsets.datacollector.store.PipelineStoreTask;
 import com.streamsets.datacollector.util.Configuration;
-
 import io.swagger.jaxrs.config.BeanConfig;
 import io.swagger.jaxrs.listing.ApiListingResource;
 import io.swagger.jaxrs.listing.SwaggerSerializers;
-
 import io.swagger.models.Info;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.glassfish.jersey.media.multipart.MultiPartFeature;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.filter.CsrfProtectionFilter;
 import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature;
@@ -48,6 +48,7 @@ public class RestAPIResourceConfig extends ResourceConfig {
       @Override
       protected void configure() {
         bindFactory(PipelineStoreInjector.class).to(PipelineStoreTask.class);
+        bindFactory(AclStoreInjector.class).to(AclStoreTask.class);
         bindFactory(StageLibraryInjector.class).to(StageLibraryTask.class);
         bindFactory(PrincipalInjector.class).to(Principal.class);
         bindFactory(URIInjector.class).to(URI.class);
@@ -61,6 +62,7 @@ public class RestAPIResourceConfig extends ResourceConfig {
 
     register(RolesAllowedDynamicFeature.class);
     register(CsrfProtectionFilter.class);
+    register(MultiPartFeature.class);
 
     //Hooking up Swagger-Core
     register(ApiListingResource.class);

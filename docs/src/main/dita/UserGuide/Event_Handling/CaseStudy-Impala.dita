@@ -14,25 +14,26 @@
 -->
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="concept_szz_xwm_lx">
-    <title>Case Study: Impala Metadata Updates for HDS</title>
+    <title>Case Study: Impala Metadata Updates for DDS for Hive</title>
     <conbody>
-        <p><indexterm>event framework case studies<indexterm>Impala-Hive Drift
-                Solution</indexterm></indexterm>You love the <xref
-                href="../Hive_Drift_Solution/HiveDrift-Overview.dita#concept_phk_bdf_2w">Hive Drift
-                Solution</xref> (HDS) because it automatically updates the Hive metastore when
-            needed. But if you've been using it with Impala, you've been trying to time the
-            Invalidate Metadata command after each metadata change and file write.</p>
-        <p>Instead of running the command manually, you use the event framework in your Hive Drift
-            Solution pipeline to execute the command automatically. </p>
+        <p><indexterm>event framework case studies<indexterm>Drift Synchronization Solution for Hive
+                    with Impala</indexterm></indexterm>You love the <xref
+                href="../Hive_Drift_Solution/HiveDrift-Overview.dita#concept_phk_bdf_2w">Drift
+                Synchronization Solution for Hive</xref> because it automatically updates the Hive
+            metastore when needed. But if you've been using it with Impala, you've been trying to
+            time the Invalidate Metadata command after each metadata change and file write.</p>
+        <p>Instead of running the command manually, you use the event framework in your Drift
+            Synchronization Solution for Hive pipeline to execute the command automatically. </p>
         <p>Enable both the Hive Metastore destination and the Hadoop FS destination to generate
             events. You can connect both event streams to a single Hive Query executor. The executor
             then runs the Invalidate Metadata command each time the Hive Metastore destination
             changes the Hive metastore and each time Hadoop FS writes a file to a Hive table.</p>
         <p>Here's how it works:</p>
-        <p>The following Hive Drift Solution pipeline reads files from a directory. The Hive
-            Metadata processor evaluates the data for structural changes. It passes data to Hadoop
-            FS and metadata records to the Hive Metastore destination. Hive Metastore creates and
-            updates tables in Hive based on the metadata records it receives:</p>
+        <p>The following Drift Synchronization Solution for Hive pipeline reads files from a
+            directory. The Hive Metadata processor evaluates the data for structural changes. It
+            passes data to Hadoop FS and metadata records to the Hive Metastore destination. Hive
+            Metastore creates and updates tables in Hive based on the metadata records it
+            receives:</p>
         <p><image href="../Graphics/Event-HDS-BasicPipe.png" id="image_lz5_414_lx" scale="75"/></p>
         <p>
             <ol id="ol_mtf_tzn_lx">
@@ -72,18 +73,18 @@
                     Expression Evaluator to the executor. Then configure the Hive Query
                         executor.<p>In the Hive Query executor, on the <wintitle>Hive</wintitle>
                         tab, configure the Hive configuration details. Then, on the
-                            <wintitle>Query</wintitle> tab, verify the query to use. By default, the
-                        executor uses the following
+                            <wintitle>Query</wintitle> tab, enter the following
                         query:<codeblock>invalidate metadata ${record:value('/table')}</codeblock></p><p>This
-                        is the query that we want, so we don't need to change a thing. </p><p>Here's
-                        how the final pipeline looks:</p><p><image
-                            href="../Graphics/Event-HDS-HiveQueryDeets.png" id="image_ccr_hpr_mx"
-                            scale="70"/></p><p>With these new event streams, each time the Hive
-                        Metastore destination creates a table, partition or column, and each time
-                        the Hadoop FS destination completes writing a file, the destinations
-                        generate event records. When the Hive Query executor receives an event
-                        record, it runs the Invalidate Metadata command so Impala can update its
-                        cache with the new information. Done!</p></li>
+                        query refreshes the Impala cache for the specified table. And the table is
+                        either the table in the Hive Metastore event record that was just updated or
+                        the table where Hadoop FS wrote a file.  </p><p>Here's the final
+                        pipeline:</p><p><image href="../Graphics/Event-HDS-HiveQueryDeets.png"
+                            id="image_ccr_hpr_mx" scale="70"/></p><p>With these new event streams,
+                        each time the Hive Metastore destination creates a table, partition or
+                        column, and each time the Hadoop FS destination completes writing a file,
+                        the destinations generate event records. When the Hive Query executor
+                        receives an event record, it runs the Invalidate Metadata command so Impala
+                        can update its cache with the new information. Done!</p></li>
             </ol>
         </p>
     </conbody>

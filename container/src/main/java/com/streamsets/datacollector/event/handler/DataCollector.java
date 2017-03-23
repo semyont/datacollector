@@ -19,13 +19,16 @@
  */
 package com.streamsets.datacollector.event.handler;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 
 import com.streamsets.datacollector.config.PipelineConfiguration;
 import com.streamsets.datacollector.config.RuleDefinitions;
+import com.streamsets.datacollector.event.dto.SyncAclEvent;
 import com.streamsets.datacollector.event.handler.remote.PipelineAndValidationStatus;
 import com.streamsets.datacollector.util.PipelineException;
+import com.streamsets.lib.security.acl.dto.Acl;
 import com.streamsets.pipeline.api.StageException;
 
 public interface DataCollector {
@@ -39,13 +42,15 @@ public interface DataCollector {
   void deleteHistory(String user, String name, String rev) throws PipelineException;
 
   void savePipeline(
-    String user,
-    String name,
-    String rev,
-    String description,
-    String offset,
-    PipelineConfiguration pipelineConfiguration,
-    RuleDefinitions ruleDefinitions) throws PipelineException;
+      String user,
+      String name,
+      String rev,
+      String description,
+      String offset,
+      PipelineConfiguration pipelineConfiguration,
+      RuleDefinitions ruleDefinitions,
+      Acl acl
+  ) throws PipelineException;
 
   void savePipelineRules(String name, String rev, RuleDefinitions ruleDefinitions) throws PipelineException;
 
@@ -55,8 +60,10 @@ public interface DataCollector {
 
   void stopAndDelete(String user, String name, String rev) throws PipelineException, StageException;
 
-  Collection<PipelineAndValidationStatus> getPipelines() throws PipelineException;
+  Collection<PipelineAndValidationStatus> getPipelines() throws PipelineException, IOException;
 
   List<PipelineAndValidationStatus> getRemotePipelinesWithChanges() throws PipelineException;
+
+  void syncAcl(Acl acl) throws PipelineException;
 
 }

@@ -21,6 +21,7 @@ package com.streamsets.datacollector.runner;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,8 @@ import com.streamsets.datacollector.email.EmailSender;
 import com.streamsets.datacollector.record.EventRecordImpl;
 import com.streamsets.datacollector.record.RecordImpl;
 import com.streamsets.datacollector.util.Configuration;
+import com.streamsets.pipeline.api.BatchContext;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.ErrorCode;
 import com.streamsets.pipeline.api.EventRecord;
 import com.streamsets.pipeline.api.ExecutionMode;
@@ -46,6 +49,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @SuppressWarnings("unchecked")
 public class TestStageContext {
@@ -67,18 +71,7 @@ public class TestStageContext {
 
   @Test
   public void testToErrorNonStageException() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
 
     ErrorSink errorSink = new ErrorSink();
     context.setErrorSink(errorSink);
@@ -96,18 +89,7 @@ public class TestStageContext {
 
   @Test
   public void testToErrorString() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
 
     ErrorSink errorSink = new ErrorSink();
     context.setErrorSink(errorSink);
@@ -123,18 +105,7 @@ public class TestStageContext {
 
   @Test
   public void testToErrorMessage() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
 
     ErrorSink errorSink = new ErrorSink();
     context.setErrorSink(errorSink);
@@ -149,18 +120,7 @@ public class TestStageContext {
   }
 
   private void testToErrorStageException(StageType type) throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        type,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
 
     ErrorSink errorSink = new ErrorSink();
     context.setErrorSink(errorSink);
@@ -205,14 +165,17 @@ public class TestStageContext {
     StageContext context = new StageContext(
       "stage",
       StageType.SOURCE,
+      -1,
       false,
       OnRecordError.TO_ERROR,
       Collections.EMPTY_LIST,
       Collections.EMPTY_MAP,
       Collections.<String, Object> emptyMap(),
       ExecutionMode.STANDALONE,
+      DeliveryGuarantee.AT_LEAST_ONCE,
       null,
-      sender
+      sender,
+      new Configuration()
     );
 
     try {
@@ -232,14 +195,17 @@ public class TestStageContext {
     StageContext context = new StageContext(
       "stage",
       StageType.SOURCE,
+      -1,
       false,
       OnRecordError.TO_ERROR,
       Collections.EMPTY_LIST,
       Collections.EMPTY_MAP,
       Collections.<String, Object> emptyMap(),
       ExecutionMode.STANDALONE,
+      DeliveryGuarantee.AT_LEAST_ONCE,
       null,
-      sender
+      sender,
+      new Configuration()
     );
 
     context.notify(ImmutableList.of("foo", "bar"), "SUBJECT", "BODY");
@@ -252,18 +218,7 @@ public class TestStageContext {
 
   @Test
   public void testEventRecordCreation() throws StageException, EmailException {
-    StageContext context = new StageContext(
-      "stage",
-      StageType.SOURCE,
-      false,
-      OnRecordError.TO_ERROR,
-      Collections.EMPTY_LIST,
-      Collections.EMPTY_MAP,
-      Collections.<String, Object> emptyMap(),
-      ExecutionMode.STANDALONE,
-      null,
-      new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
 
     EventRecord event = context.createEventRecord("custom_type", 2, "eventSourceId");
     Assert.assertNotNull(event);
@@ -274,18 +229,7 @@ public class TestStageContext {
 
   @Test
   public void testToEvent() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
 
     EventSink sink = new EventSink();
     context.setEventSink(sink);
@@ -293,8 +237,8 @@ public class TestStageContext {
     EventRecord event = new EventRecordImpl("custom-type", 1, "local-stage", "super-secret-id", null, null);
     event.set(Field.create(ImmutableMap.of("key", Field.create("value"))));
     context.toEvent(event);
-    Assert.assertEquals(1, sink.getEventRecords().size());
-    Record retrieved = sink.getEventRecords().get(0);
+    Assert.assertEquals(1, sink.getStageEvents("stage").size());
+    Record retrieved = sink.getStageEvents("stage").get(0);
 
     // Header is properly propagated
     Assert.assertEquals("custom-type", retrieved.getHeader().getAttribute(EventRecord.TYPE));
@@ -323,31 +267,20 @@ public class TestStageContext {
       Timer t = context.createTimer(metricName);
       t.update((long)value, TimeUnit.NANOSECONDS);
       return (T)t;
+    } else if (metricClass.equals(Histogram.class)) {
+      Histogram h = context.createHistogram(metricName);
+      h.update((long)value);
+      return (T)h;
     } else {
-      Gauge<Object> g = context.createGauge(metricName, new Gauge<Object>() {
-        @Override
-        public Object getValue() {
-          return value;
-        }
-      });
+      Gauge<Map<String, Object>> g = context.createGauge(metricName);
+      g.getValue().putAll(((Map)value));
       return (T)g;
     }
   }
 
   @Test
   public void testCreateAndGetMeter() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
     String metricName = "testCreateAndGetMetrics";
     //Check non existing
     Assert.assertNull(context.getMeter(metricName));
@@ -360,19 +293,7 @@ public class TestStageContext {
 
   @Test
   public void testCreateAndGetTimer() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
-
+    StageContext context = createStageContextForSDK();
     String metricName = "testCreateAndGetMetrics";
     //Check non existing
     Assert.assertNull(context.getTimer(metricName));
@@ -385,18 +306,7 @@ public class TestStageContext {
 
   @Test
   public void testCreateAndGetCounter() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
     String metricName = "testCreateAndGetMetrics";
     //Check non existing
     Assert.assertNull(context.getCounter(metricName));
@@ -408,19 +318,21 @@ public class TestStageContext {
   }
 
   @Test
+  public void testCreateAndGetHistogram() throws Exception {
+    StageContext context = createStageContextForSDK();
+    String metricName = "testCreateAndGetHistgoram";
+    //Check non existing
+    Assert.assertNull(context.getHistogram(metricName));
+    //Check existing
+    createMetrics(context, metricName, Histogram.class, 1000L);
+    Histogram h = context.getHistogram(metricName);
+    Assert.assertNotNull(h);
+    Assert.assertEquals(1, h.getCount());
+  }
+
+  @Test
   public void testCreateAndGetGauge() throws Exception {
-    StageContext context = new StageContext(
-        "stage",
-        StageType.SOURCE,
-        false,
-        OnRecordError.TO_ERROR,
-        Collections.EMPTY_LIST,
-        Collections.EMPTY_MAP,
-        Collections.<String, Object> emptyMap(),
-        ExecutionMode.STANDALONE,
-        null,
-        new EmailSender(new Configuration())
-    );
+    StageContext context = createStageContextForSDK();
     String metricName = "testCreateAndGetMetrics";
     //Check non existing
     Assert.assertNull(context.getGauge(metricName));
@@ -430,15 +342,88 @@ public class TestStageContext {
     gaugeMap.put("2", 2);
     gaugeMap.put("3", 3);
     createMetrics(context, metricName, Gauge.class, gaugeMap);
-    Gauge<Map<String, Integer>> g = context.getGauge(metricName);
+    Gauge<Map<String, Object>> g = context.getGauge(metricName);
     Assert.assertNotNull(g);
     Assert.assertEquals(gaugeMap, g.getValue());
-    Assert.assertSame(gaugeMap, g.getValue());
-    gaugeMap.remove("3");
+    g.getValue().remove("3");
     g =  context.getGauge(metricName);
     Assert.assertTrue(g.getValue().containsKey("1"));
     Assert.assertTrue(g.getValue().containsKey("2"));
     Assert.assertFalse(g.getValue().containsKey("3"));
   }
 
+  @Test
+  public void testGetConf() throws StageException, EmailException {
+    StageContext context = createStageContextForSDK();
+
+    Assert.assertNull(context.getConfig("jarcec"));
+    Assert.assertEquals("is awesome", context.getConfig("girish"));
+  }
+
+  @Test
+  public void testPushSourceContextDelegate() throws Exception {
+    StageContext context = createStageContextForSDK();
+
+    final AtomicBoolean startBatchCalled = new AtomicBoolean();
+    final AtomicBoolean processBatchCalled = new AtomicBoolean();
+    final AtomicBoolean commitOffsetCalled = new AtomicBoolean();
+
+    context.setPushSourceContextDelegate(new PushSourceContextDelegate() {
+      @Override
+      public BatchContext startBatch() {
+        startBatchCalled.set(true);
+        return null;
+      }
+
+      @Override
+      public boolean processBatch(BatchContext batchContext, String entity, String offset) {
+        processBatchCalled.set(true);
+        return false;
+      }
+
+      @Override
+      public void commitOffset(String entity, String offset) {
+        commitOffsetCalled.set(true);
+      }
+    });
+
+    context.startBatch();
+    Assert.assertTrue(startBatchCalled.get());
+
+    context.processBatch(null);
+    Assert.assertTrue(processBatchCalled.get());
+
+    context.commitOffset("entity", "offset");
+    Assert.assertTrue(commitOffsetCalled.get());
+  }
+
+  @Test
+  public void testIds() {
+    StageContext context = createStageContextForSDK();
+    Assert.assertEquals("stage", context.getStageInfo().getInstanceName());
+    Assert.assertEquals("mySDC", context.getSdcId());
+    Assert.assertEquals("myPipeline", context.getPipelineId());
+  }
+
+  private StageContext createStageContextForSDK() {
+    Configuration configuration = new Configuration();
+    configuration.set("stage.conf_girish", "is awesome");
+    configuration.set("stage.conf_arvind", "is Arvind");
+
+    return new StageContext(
+      "stage",
+      StageType.SOURCE,
+      -1,
+      false,
+      OnRecordError.TO_ERROR,
+      Collections.EMPTY_LIST,
+      Collections.EMPTY_MAP,
+      Collections.<String, Object> emptyMap(),
+      ExecutionMode.STANDALONE,
+      DeliveryGuarantee.AT_LEAST_ONCE,
+      null,
+      new EmailSender(new Configuration()),
+      configuration
+    );
+  }
 }

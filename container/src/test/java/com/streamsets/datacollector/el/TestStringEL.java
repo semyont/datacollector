@@ -110,6 +110,9 @@ public class TestStringEL {
 
     Assert.assertEquals("The.Streamsets.Inc", eval.eval(variables,
       "${str:replace(\"The Streamsets Inc\", ' ', '.')}", String.class));
+
+    // SDC-5165
+    Assert.assertEquals("12345", eval.eval(variables, "${str:replace(\"_12345_\",\"_\",\"\")}", String.class));
   }
 
   @Test
@@ -286,5 +289,57 @@ public class TestStringEL {
     Assert.assertTrue(eval.eval(variables, "${str:length(str:concat(\"abc\",\"def\"))}", Integer.class) == 6);
     Assert.assertTrue(eval.eval(variables, "${str:length(str:trim(\" abc \"))}", Integer.class) == 3);
     Assert.assertTrue(eval.eval(variables, "${str:length(str:substring(\"abcdef\", 0, 3))}", Integer.class) == 3);
+  }
+
+  @Test
+  public void testUrlEncode() throws Exception {
+    ELEvaluator eval = new ELEvaluator("testUrlEncode", StringEL.class);
+    ELVariables variables = new ELVariables();
+    Assert.assertEquals("", eval.eval(variables, "${str:urlEncode(\"\", \"UTF8\")}", String.class));
+    Assert.assertEquals("Ahoj+tady+medusa", eval.eval(variables, "${str:urlEncode(\"Ahoj tady medusa\", \"UTF8\")}", String.class));
+  }
+
+  @Test
+  public void testUrlDecode() throws Exception {
+    ELEvaluator eval = new ELEvaluator("testUrlDecode", StringEL.class);
+    ELVariables variables = new ELVariables();
+    Assert.assertEquals("", eval.eval(variables, "${str:urlDecode(\"\", \"UTF8\")}", String.class));
+    Assert.assertEquals("Ahoj tady medusa", eval.eval(variables, "${str:urlDecode(\"Ahoj+tady+medusa\", \"UTF8\")}", String.class));
+  }
+
+  @Test
+  public void testEscapeXml10() throws Exception {
+    ELEvaluator eval = new ELEvaluator("testXmlEscape10", StringEL.class);
+    ELVariables variables = new ELVariables();
+    Assert.assertEquals("", eval.eval(variables, "${str:escapeXML10(\"\")}", String.class));
+    Assert.assertEquals(
+        "&lt; abc &amp; def &gt; ", // the 0001 control char is removed because not compatible with XML 1.0
+        eval.eval(variables, "${str:escapeXML10(\"< abc & def > \u0001\")}", String.class)
+    );
+  }
+
+  @Test
+  public void testEscapeXml11() throws Exception {
+    ELEvaluator eval = new ELEvaluator("testXmlEscape10", StringEL.class);
+    ELVariables variables = new ELVariables();
+    Assert.assertEquals("", eval.eval(variables, "${str:escapeXML11(\"\")}", String.class));
+    Assert.assertEquals(
+        "&lt; abc &amp; def &gt; &#1;",
+        eval.eval(variables, "${str:escapeXML11(\"< abc & def > \u0001\")}", String.class)
+    );
+  }
+
+  @Test
+  public void testUnescapeXml() throws Exception {
+    ELEvaluator eval = new ELEvaluator("testXmlEscape10", StringEL.class);
+    ELVariables variables = new ELVariables();
+    Assert.assertEquals("", eval.eval(variables, "${str:unescapeXML(\"\")}", String.class));
+    Assert.assertEquals("< abc & def > \u0001",
+        eval.eval(
+            variables,
+            "${str:unescapeXML(\"&lt; abc &amp; def &gt; &#1;\")}",
+            String.class
+        )
+    );
   }
 }

@@ -24,9 +24,12 @@ import com.streamsets.datacollector.execution.StateEventListener;
 import com.streamsets.datacollector.util.Configuration;
 import com.streamsets.datacollector.util.PipelineException;
 import com.streamsets.dc.execution.manager.standalone.ThreadUsage;
+import com.streamsets.pipeline.api.Source;
 import com.streamsets.pipeline.api.impl.Utils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.inject.Inject;
 import java.util.ArrayList;
@@ -43,7 +46,7 @@ public class RemoteStateEventListener implements StateEventListener {
   private static final String REMOTE_EVENTS_QUEUE_CAPACITY = "remote.events.queue.capacity";
   private static final int REMOTE_EVENTS_QUEUE_CAPACITY_DEFAULT = 1000;
   private final int capacity;
-  private BlockingQueue<PipelineState> pipelineStateQueue;
+  private BlockingQueue<Pair<PipelineState, Map<String, String>>> pipelineStateQueue;
 
   @Inject
   public RemoteStateEventListener(Configuration conf) {
@@ -56,11 +59,15 @@ public class RemoteStateEventListener implements StateEventListener {
 
   @Override
   public void onStateChange(
-      PipelineState fromState, PipelineState toState, String toStateJson, ThreadUsage threadUsage
+      PipelineState fromState,
+      PipelineState toState,
+      String toStateJson,
+      ThreadUsage threadUsage,
+      Map<String, String> offset
   ) throws PipelineException {
     Object isRemote = toState.getAttributes().get(RemoteDataCollector.IS_REMOTE_PIPELINE);
     if ((isRemote == null) ? false : (boolean) isRemote) {
-      if (pipelineStateQueue.offer(toState)) {
+      if (pipelineStateQueue.offer(new ImmutablePair<>(toState, offset))) {
         LOG.debug(Utils.format("Adding status event for remote pipeline: '{}' in status: '{}'",
             toState.getName(),
             toState.getStatus()
@@ -72,13 +79,13 @@ public class RemoteStateEventListener implements StateEventListener {
     }
   }
 
-  public Collection<PipelineState> getPipelineStateEvents() {
-    List<PipelineState> pipelineStates = new ArrayList<>();
+  public Collection<Pair<PipelineState, Map<String, String>>> getPipelineStateEvents() {
+    List<Pair<PipelineState, Map<String, String>>> pipelineStates = new ArrayList<>();
     pipelineStateQueue.drainTo(pipelineStates);
     // Keep last state for a given pipeline
-    Map<String, PipelineState> map = new HashMap<>();
-    for (PipelineState pipelineState: pipelineStates) {
-      map.put(pipelineState.getName(), pipelineState);
+    Map<String, Pair<PipelineState, Map<String, String>>> map = new HashMap<>();
+    for (Pair<PipelineState, Map<String, String>> pipelineStateAndOffset: pipelineStates) {
+      map.put(pipelineStateAndOffset.getLeft().getName(), pipelineStateAndOffset);
     }
     return map.values();
   }

@@ -28,9 +28,11 @@ import com.streamsets.pipeline.config.DataFormat;
 import com.streamsets.pipeline.lib.parser.DataParserFactory;
 import com.streamsets.pipeline.lib.parser.DataParserFactoryBuilder;
 import com.streamsets.pipeline.lib.parser.xml.XmlDataParserFactory;
-import com.streamsets.pipeline.lib.xml.xpath.Constants;
+import com.streamsets.pipeline.lib.xml.Constants;
 import com.streamsets.pipeline.lib.xml.xpath.XPathValidatorUtil;
 import com.streamsets.pipeline.stage.common.DataFormatErrors;
+import com.streamsets.pipeline.stage.processor.common.MultipleValuesBehavior;
+import com.streamsets.pipeline.stage.processor.common.MultipleValuesBehaviorChooserValues;
 import org.apache.commons.lang.StringUtils;
 
 import java.nio.charset.Charset;
@@ -88,15 +90,37 @@ public class XmlParserConfig {
   public String xmlRecordElement = "";
 
   @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Include Field XPaths",
+      defaultValue = ""+XmlDataParserFactory.INCLUDE_FIELD_XPATH_ATTRIBUTES_DEFAULT,
+      description = Constants.INCLUDE_FIELD_XPATH_ATTRIBUTES_DESCRIPTION,
+      displayPosition = 43,
+      group = "XML"
+  )
+  public boolean includeFieldXpathAttributes = XmlDataParserFactory.INCLUDE_FIELD_XPATH_ATTRIBUTES_DEFAULT;
+
+  @ConfigDef(
       required = false,
       type = ConfigDef.Type.MAP,
       label = "Namespaces",
       description = Constants.XPATH_NAMESPACE_CONTEXT_DESCRIPTION,
       defaultValue = "{}",
-      displayPosition = 41,
+      displayPosition = 45,
       group = "XML"
   )
   public Map<String, String> xPathNamespaceContext = new HashMap<>();
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      label = "Output Field Attributes",
+      description = Constants.OUTPUT_FIELD_ATTRIBUTES_DESCRIPTION,
+      defaultValue = ""+XmlDataParserFactory.USE_FIELD_ATTRIBUTES_DEFAULT,
+      displayPosition = 48,
+      group = "XML"
+  )
+  public boolean outputFieldAttributes = XmlDataParserFactory.USE_FIELD_ATTRIBUTES_DEFAULT;
 
   @ConfigDef(
       required = true,
@@ -109,6 +133,18 @@ public class XmlParserConfig {
   )
   @FieldSelectorModel(singleValued = true)
   public String parsedFieldPath;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.MODEL,
+      label = "Multiple Values Behavior",
+      description = "How to handle multiple values produced by the parser",
+      defaultValue = "FIRST_ONLY",
+      displayPosition = 60,
+      group = "XML"
+  )
+  @ValueChooserModel(MultipleValuesBehaviorChooserValues.class)
+  public MultipleValuesBehavior multipleValuesBehavior = MultipleValuesBehavior.DEFAULT;
 
   public boolean init(Stage.Context context, List<Stage.ConfigIssue> issues) {
     boolean valid = true;
@@ -151,12 +187,14 @@ public class XmlParserConfig {
 
       builder.setCharset(Charset.forName(charset));
     } catch (UnsupportedCharsetException ex) {
-      throw new RuntimeException("It should not happen: " + ex.toString());
+      throw new RuntimeException("It should not happen: " + ex.toString(), ex);
     }
 
     builder.setRemoveCtrlChars(removeCtrlChars).setMaxDataLen(-1)
         .setConfig(XmlDataParserFactory.RECORD_ELEMENT_KEY, xmlRecordElement)
-        .setConfig(XmlDataParserFactory.RECORD_ELEMENT_XPATH_NAMESPACES_KEY, xPathNamespaceContext);
+        .setConfig(XmlDataParserFactory.INCLUDE_FIELD_XPATH_ATTRIBUTES_KEY, includeFieldXpathAttributes)
+        .setConfig(XmlDataParserFactory.RECORD_ELEMENT_XPATH_NAMESPACES_KEY, xPathNamespaceContext)
+        .setConfig(XmlDataParserFactory.USE_FIELD_ATTRIBUTES, outputFieldAttributes);
     return builder.build();
   }
 

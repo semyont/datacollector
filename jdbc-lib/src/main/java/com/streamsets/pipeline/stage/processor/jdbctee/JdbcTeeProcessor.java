@@ -30,16 +30,8 @@ import com.streamsets.pipeline.api.base.SingleLaneProcessor;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.el.ELVars;
 import com.streamsets.pipeline.lib.el.ELUtils;
-import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
-import com.streamsets.pipeline.lib.jdbc.JdbcErrors;
-import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
-import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnMapping;
-import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnParamMapping;
-import com.streamsets.pipeline.lib.jdbc.JdbcGenericRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcMultiRowRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcUtil;
-import com.streamsets.pipeline.lib.jdbc.MicrosoftJdbcRecordWriter;
+import com.streamsets.pipeline.lib.jdbc.*;
+import com.streamsets.pipeline.lib.operation.UnsupportedOperationAction;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import com.streamsets.pipeline.stage.destination.jdbc.Groups;
@@ -61,12 +53,15 @@ public class JdbcTeeProcessor extends SingleLaneProcessor {
   private static final String CONNECTION_STRING = HIKARI_CONFIG_PREFIX + "connectionString";
 
   private final boolean rollbackOnError;
-  private final boolean useMultiRowInsert;
+  private final boolean useMultiRowOp;
   private final int maxPrepStmtParameters;
+  private final int maxPrepStmtCache;
 
+  private final String schema;
   private final String tableNameTemplate;
   private final List<JdbcFieldColumnParamMapping> customMappings;
   private final List<JdbcFieldColumnMapping> generatedColumnMappings;
+  private final boolean caseSensitive;
 
   private final Properties driverProperties = new Properties();
   private final ChangeLogFormat changeLogFormat;
@@ -79,31 +74,57 @@ public class JdbcTeeProcessor extends SingleLaneProcessor {
   private HikariDataSource dataSource = null;
   private Connection connection = null;
 
+  private JDBCOperationType defaultOperation;
+  private UnsupportedOperationAction unsupportedAction;
+
   public JdbcTeeProcessor(
+      String schema,
       String tableNameTemplate,
       List<JdbcFieldColumnParamMapping> customMappings,
       List<JdbcFieldColumnMapping> generatedColumnMappings,
+      boolean caseSensitive,
       boolean rollbackOnError,
-      boolean useMultiRowInsert,
+      boolean useMultiRowOp,
       int maxPrepStmtParameters,
+      int maxPrepStmtCache,
       ChangeLogFormat changeLogFormat,
-      HikariPoolConfigBean hikariConfigBean
+      HikariPoolConfigBean hikariConfigBean,
+      JDBCOperationType defaultOp,
+      UnsupportedOperationAction unsupportedAction
   ) {
+    this.schema = schema;
     this.tableNameTemplate = tableNameTemplate;
     this.customMappings = customMappings;
     this.generatedColumnMappings = generatedColumnMappings;
+    this.caseSensitive = caseSensitive;
     this.rollbackOnError = rollbackOnError;
-    this.useMultiRowInsert = useMultiRowInsert;
+    this.useMultiRowOp = useMultiRowOp;
     this.maxPrepStmtParameters = maxPrepStmtParameters;
+    this.maxPrepStmtCache = maxPrepStmtCache;
     this.driverProperties.putAll(hikariConfigBean.driverProperties);
     this.changeLogFormat = changeLogFormat;
     this.hikariConfigBean = hikariConfigBean;
+    this.defaultOperation = defaultOp;
+    this.unsupportedAction = unsupportedAction;
   }
 
   class RecordWriterLoader extends CacheLoader<String, JdbcRecordWriter> {
     @Override
     public JdbcRecordWriter load(String tableName) throws Exception {
-      return createRecordWriter(tableName);
+      return JdbcRecordReaderWriterFactory.createJdbcRecordWriter(
+          hikariConfigBean.connectionString,
+          dataSource,
+          tableName,
+          customMappings,
+          generatedColumnMappings,
+          rollbackOnError,
+          useMultiRowOp,
+          maxPrepStmtParameters,
+          maxPrepStmtCache,
+          defaultOperation,
+          unsupportedAction,
+          JdbcRecordReaderWriterFactory.createRecordReader(changeLogFormat)
+      );
     }
   }
 
@@ -163,43 +184,10 @@ public class JdbcTeeProcessor extends SingleLaneProcessor {
     super.destroy();
   }
 
-  private JdbcRecordWriter createRecordWriter(String tableName) throws StageException {
-    JdbcRecordWriter recordWriter;
-
-    switch (changeLogFormat) {
-      case NONE:
-        if (!useMultiRowInsert) {
-          recordWriter = new JdbcGenericRecordWriter(hikariConfigBean.connectionString,
-              dataSource,
-              tableName,
-              rollbackOnError,
-              customMappings,
-              generatedColumnMappings
-          );
-        } else {
-          recordWriter = new JdbcMultiRowRecordWriter(hikariConfigBean.connectionString,
-              dataSource,
-              tableName,
-              rollbackOnError,
-              customMappings,
-              maxPrepStmtParameters,
-              generatedColumnMappings
-          );
-        }
-        break;
-      case MSSQL:
-        recordWriter = new MicrosoftJdbcRecordWriter(dataSource, tableName);
-        break;
-      default:
-        throw new IllegalStateException("Unrecognized format specified: " + changeLogFormat);
-    }
-    return recordWriter;
-  }
-
   /** {@inheritDoc} */
   @Override
   public void process(Batch batch, SingleLaneBatchMaker batchMaker) throws StageException {
-    JdbcUtil.write(batch, tableNameEval, tableNameVars, tableNameTemplate, recordWriters, errorRecordHandler);
+    JdbcUtil.write(batch, schema, tableNameEval, tableNameVars, tableNameTemplate, caseSensitive, recordWriters, errorRecordHandler);
 
     Iterator<Record> it = batch.getRecords();
     while (it.hasNext()) {

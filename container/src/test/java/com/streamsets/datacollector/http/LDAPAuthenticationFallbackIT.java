@@ -27,6 +27,7 @@ import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Arrays;
 
 
+@Ignore
 @RunWith(Parameterized.class)
 public class LDAPAuthenticationFallbackIT extends LdapAuthenticationBaseIT {
   /**
@@ -84,8 +86,8 @@ public class LDAPAuthenticationFallbackIT extends LdapAuthenticationBaseIT {
   public static void setUpClass() throws Exception {
     // create conf dir
     new File(confDir).mkdirs();
-    connection1 = setupLdapServer(server1, "ldap-server1-entries.ldif");
-    connection2 = setupLdapServer(server2, "ldap-server2-entries.ldif");
+    connection1 = setupLdapServer(server1, "ldif/ldap-server1-entries.ldif");
+    connection2 = setupLdapServer(server2, "ldif/ldap-server2-entries.ldif");
     String multipleLdapConf = "ldap {\n" + // information for server 1
         "  com.streamsets.datacollector.http.LdapLoginModule required\n" +
         "  debug=\"false\"\n" +

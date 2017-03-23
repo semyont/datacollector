@@ -44,7 +44,7 @@ public enum Errors implements ErrorCode {
   HIVE_18("Error when serializing AVRO schema to HDFS folder location: {}. Reason: {}"),
   HIVE_19("Unsupported Type: {}"),
   HIVE_20("Error executing SQL: {}, Reason:{}"),
-  HIVE_21("Type Mismatch, Expected: {}, Actual: {}"),
+  HIVE_21("Type Mismatch for column '{}', Expected: {}, Actual: {}"),
   HIVE_22("Cannot make connection with default hive database with URL:{}. Reason:{}"),
   HIVE_23("TBL Properties '{}' Mismatch: Actual: {} , Expected: {}"),
   HIVE_24("Type conversion from Hive.{} to Avro Type is not supported"),
@@ -58,6 +58,8 @@ public enum Errors implements ErrorCode {
   HIVE_32("Table {} is created using unsupported Storage Format Type {} "),
   HIVE_33("Record {} have unsupported root type {}"),
   HIVE_34("Connection to Hive have failed: {}"),
+  HIVE_35("Can't find database location: {}"),
+  HIVE_36("Can't parse partition location as URI: {}"),
   ;
   private final String msg;
 

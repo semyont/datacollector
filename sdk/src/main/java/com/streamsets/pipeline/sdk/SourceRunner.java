@@ -21,6 +21,7 @@ package com.streamsets.pipeline.sdk;
 
 import com.streamsets.datacollector.config.StageType;
 import com.streamsets.pipeline.api.BatchMaker;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.OffsetCommitter;
 import com.streamsets.pipeline.api.OnRecordError;
@@ -37,18 +38,56 @@ import java.util.Map;
 public class SourceRunner extends StageRunner<Source> {
   private static final Logger LOG = LoggerFactory.getLogger(SourceRunner.class);
 
-  public SourceRunner(Class<Source> sourceClass, Source source, Map<String, Object> configuration,
-                      List<String> outputLanes, boolean isPreview, OnRecordError onRecordError,
-                      Map<String, Object> constants, ExecutionMode executionMode, String resourcesDir) {
-    super(sourceClass, source, StageType.SOURCE, configuration, outputLanes, isPreview, onRecordError, constants,
-      executionMode, resourcesDir);
+  public SourceRunner(
+    Class<Source> sourceClass,
+    Source source,
+    Map<String, Object> configuration,
+    List<String> outputLanes,
+    boolean isPreview,
+    OnRecordError onRecordError,
+    Map<String, Object> constants,
+    ExecutionMode executionMode,
+    DeliveryGuarantee deliveryGuarantee,
+    String resourcesDir
+  ) {
+    super(
+      sourceClass,
+      source,
+      StageType.SOURCE,
+      configuration,
+      outputLanes,
+      isPreview,
+      onRecordError,
+      constants,
+      executionMode,
+      deliveryGuarantee,
+      resourcesDir
+    );
   }
 
-  public SourceRunner(Class<Source> sourceClass, Map<String, Object> configuration, List<String> outputLanes,
-      boolean isPreview, OnRecordError onRecordError, Map<String, Object> constants, ExecutionMode executionMode,
-      String resourcesDir) {
-    super(sourceClass, StageType.SOURCE, configuration, outputLanes, isPreview, onRecordError, constants,
-      executionMode, resourcesDir);
+  public SourceRunner(
+    Class<Source> sourceClass,
+    Map<String, Object> configuration,
+    List<String> outputLanes,
+    boolean isPreview,
+    OnRecordError onRecordError,
+    Map<String, Object> constants,
+    ExecutionMode executionMode,
+    DeliveryGuarantee deliveryGuarantee,
+    String resourcesDir
+  ) {
+    super(
+      sourceClass,
+      StageType.SOURCE,
+      configuration,
+      outputLanes,
+      isPreview,
+      onRecordError,
+      constants,
+      executionMode,
+      deliveryGuarantee,
+      resourcesDir
+    );
   }
 
   public Output runProduce(String lastOffset, int maxBatchSize) throws StageException {
@@ -60,7 +99,7 @@ public class SourceRunner extends StageRunner<Source> {
       if (getStage() instanceof OffsetCommitter) {
         ((OffsetCommitter)getStage()).commit(newOffset);
       }
-      return new Output(newOffset, batchMaker.getOutput());
+      return new Output(Source.POLL_SOURCE_OFFSET_KEY, newOffset, batchMaker.getOutput());
     } finally {
       LOG.debug("Stage '{}' produce ends", getInfo().getInstanceName());
     }
@@ -80,13 +119,33 @@ public class SourceRunner extends StageRunner<Source> {
     @Override
     public SourceRunner build() {
       Utils.checkState(!outputLanes.isEmpty(), "A Source must have at least one output stream");
-      return  (stage != null) ?
-        new SourceRunner(stageClass, stage, configs, outputLanes, isPreview, onRecordError, constants, executionMode,
-                         resourcesDir)
-        : new SourceRunner(stageClass, configs, outputLanes, isPreview, onRecordError, constants, executionMode,
-                           resourcesDir);
+      if (stage != null) {
+        return new SourceRunner(
+          stageClass,
+          stage,
+          configs,
+          outputLanes,
+          isPreview,
+          onRecordError,
+          constants,
+          executionMode,
+          deliveryGuarantee,
+          resourcesDir
+        );
+      } else {
+        return new SourceRunner(
+          stageClass,
+          configs,
+          outputLanes,
+          isPreview,
+          onRecordError,
+          constants,
+          executionMode,
+          deliveryGuarantee,
+          resourcesDir
+        );
+      }
     }
-
   }
 
   public static BatchMaker createTestBatchMaker(String... outputLanes) {

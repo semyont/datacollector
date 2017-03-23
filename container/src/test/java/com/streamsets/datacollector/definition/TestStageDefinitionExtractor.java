@@ -35,11 +35,13 @@ import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.HideConfigs;
 import com.streamsets.pipeline.api.Label;
 import com.streamsets.pipeline.api.OffsetCommitTrigger;
+import com.streamsets.pipeline.api.OffsetCommitter;
 import com.streamsets.pipeline.api.RawSource;
 import com.streamsets.pipeline.api.RawSourcePreviewer;
 import com.streamsets.pipeline.api.StageDef;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.StageUpgrader;
+import com.streamsets.pipeline.api.base.BasePushSource;
 import com.streamsets.pipeline.api.base.BaseSource;
 import com.streamsets.pipeline.api.base.BaseTarget;
 import com.streamsets.pipeline.api.base.BaseExecutor;
@@ -48,6 +50,7 @@ import org.junit.Test;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 public class TestStageDefinitionExtractor {
@@ -238,6 +241,24 @@ public class TestStageDefinitionExtractor {
     }
   }
 
+  @StageDef(version = 1, label = "L", onlineHelpRefUrl = "")
+  public static class OffsetCommitterPushSource extends BasePushSource implements OffsetCommitter {
+    @Override
+    public void commit(String offset) throws StageException {
+
+    }
+
+    @Override
+    public int getNumberOfThreads() {
+      return 0;
+    }
+
+    @Override
+    public void produce(Map<String, String> lastOffsets, int maxBatchSize) throws StageException {
+
+    }
+  }
+
   @StageDef(version = 1, label = "L", onlineHelpRefUrl = "", producesEvents = true)
   public static class ProducesEventsTarger extends BaseTarget {
     @Override
@@ -300,6 +321,37 @@ public class TestStageDefinitionExtractor {
     Assert.assertFalse(def.hasPreconditions());
     Assert.assertTrue(def.getUpgrader() instanceof Source2Upgrader);
     Assert.assertFalse(def.isProducingEvents());
+  }
+
+  @Test
+  public void testExtractSource2DisablePrivateCL() {
+    String noPrivateCLProperty = Source2.class.getCanonicalName() + ".no.private.classloader";
+    System.setProperty(noPrivateCLProperty, "");
+    try {
+      StageDefinition def = StageDefinitionExtractor.get().extract(MOCK_LIB_DEF, Source2.class, "x");
+      Assert.assertFalse(def.isPrivateClassLoader());
+      Assert.assertEquals(Source2.class.getName(), def.getClassName());
+      Assert.assertEquals(StageDefinitionExtractor.getStageName(Source2.class), def.getName());
+      Assert.assertEquals(2, def.getVersion());
+      Assert.assertEquals("LL", def.getLabel());
+      Assert.assertEquals("DD", def.getDescription());
+      Assert.assertNotNull(def.getRawSourceDefinition());
+      Assert.assertEquals(1, def.getConfigGroupDefinition().getGroupNames().size());
+      Assert.assertEquals(3, def.getConfigDefinitions().size());
+      Assert.assertEquals(2, def.getOutputStreams());
+      Assert.assertEquals(2, def.getExecutionModes().size());
+      Assert.assertEquals("TargetIcon.svg", def.getIcon());
+      Assert.assertEquals(TwoOutputStreams.class.getName(), def.getOutputStreamLabelProviderClass());
+      Assert.assertEquals(null, def.getOutputStreamLabels());
+      Assert.assertEquals(StageType.SOURCE, def.getType());
+      Assert.assertFalse(def.isVariableOutputStreams());
+      Assert.assertFalse(def.hasOnRecordError());
+      Assert.assertFalse(def.hasPreconditions());
+      Assert.assertTrue(def.getUpgrader() instanceof Source2Upgrader);
+      Assert.assertFalse(def.isProducingEvents());
+    } finally {
+      System.clearProperty(noPrivateCLProperty);
+    }
   }
 
   @Test
@@ -371,6 +423,16 @@ public class TestStageDefinitionExtractor {
   @Test(expected = IllegalArgumentException.class)
   public void testNonTargetOffsetCommit() {
     StageDefinitionExtractor.get().extract(MOCK_LIB_DEF, OffsetCommitSource.class, "x");
+  }
+
+  @Test
+  public void testPushOriginMarkedWithOffsetCommitter() {
+    try {
+      StageDefinitionExtractor.get().extract(MOCK_LIB_DEF, OffsetCommitterPushSource.class, "x");
+      Assert.fail("Should fail with invalid use of OffsetCommitter");
+    } catch(IllegalArgumentException ex) {
+      Assert.assertTrue(ex.getMessage(), ex.getMessage().contains("OffsetCommitter can only be a (Pull) Source"));
+    }
   }
 
   @Test

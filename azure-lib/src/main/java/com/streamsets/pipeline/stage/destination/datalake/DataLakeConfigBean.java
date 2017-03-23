@@ -30,7 +30,10 @@ import com.streamsets.pipeline.config.TimeZoneChooserValues;
 import com.streamsets.pipeline.lib.el.RecordEL;
 import com.streamsets.pipeline.lib.el.TimeEL;
 import com.streamsets.pipeline.lib.el.TimeNowEL;
+import com.streamsets.pipeline.lib.el.VaultEL;
 import com.streamsets.pipeline.stage.destination.lib.DataGeneratorFormatConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -42,11 +45,11 @@ public class DataLakeConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
-      evaluation = ConfigDef.Evaluation.EXPLICIT,
       defaultValue = "",
       label = "Client ID",
       description = "Azure Client ID.",
       displayPosition = 10,
+      elDefs = VaultEL.class,
       group = "#0"
   )
   public String clientId;
@@ -54,11 +57,11 @@ public class DataLakeConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
-      evaluation = ConfigDef.Evaluation.EXPLICIT,
       defaultValue = "https://login.microsoftonline.com/example-example",
       label = "Auth Token Endpoint",
       description = "Azure Auth Token Endpoint.",
       displayPosition = 20,
+      elDefs = VaultEL.class,
       group = "#0"
   )
   public String authTokenEndpoint;
@@ -66,11 +69,11 @@ public class DataLakeConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
-      evaluation = ConfigDef.Evaluation.EXPLICIT,
       defaultValue = "example.azuredatalakestore.net",
       label = "Account FQDN",
       description = "full account FQDN, not just the account name.",
       displayPosition = 30,
+      elDefs = VaultEL.class,
       group = "#0"
   )
   public String accountFQDN;
@@ -78,11 +81,11 @@ public class DataLakeConfigBean {
   @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
-      evaluation = ConfigDef.Evaluation.EXPLICIT,
       defaultValue = "",
       label = "Client Key",
       description = "Azure Client Key.",
       displayPosition = 40,
+      elDefs = VaultEL.class,
       group = "#0"
   )
   public String clientKey;
@@ -99,6 +102,30 @@ public class DataLakeConfigBean {
   public String uniquePrefix;
 
   @ConfigDef(
+      required = false,
+      type = ConfigDef.Type.STRING,
+      label = "Files Suffix",
+      defaultValue = "",
+      description = "File name suffix e.g.'txt'",
+      displayPosition = 101,
+      group = "OUTPUT",
+      dependsOn = "dataFormat",
+      triggeredByValue = {"TEXT", "JSON", "DELIMITED", "AVRO", "BINARY", "PROTOBUF"}
+  )
+  public String fileNameSuffix;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      defaultValue = "false",
+      label = "Directory in Header",
+      description = "The directory is defined by the '" + DataLakeTarget.TARGET_DIRECTORY_HEADER + "' record header attribute instead of the Directory Template configuration property.",
+      displayPosition = 102,
+      group = "OUTPUT"
+  )
+  public boolean dirPathTemplateInHeader;
+
+  @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
       elDefs = {RecordEL.class, TimeEL.class, TimeNowEL.class},
@@ -106,7 +133,9 @@ public class DataLakeConfigBean {
       defaultValue = "/tmp/out/${YYYY()}-${MM()}-${DD()}-${hh()}",
       label = "Directory Template",
       displayPosition = 110,
-      group = "OUTPUT"
+      group = "OUTPUT",
+      dependsOn = "dirPathTemplateInHeader",
+      triggeredByValue = "false"
   )
   public String dirPathTemplate;
 
@@ -138,6 +167,56 @@ public class DataLakeConfigBean {
 
   @ConfigDef(
       required = true,
+      type = ConfigDef.Type.NUMBER,
+      defaultValue = "0",
+      label = "Max Records in File",
+      description = "Number of records that triggers the creation of a new file. Use 0 to opt out.",
+      displayPosition = 135,
+      group = "OUTPUT",
+      min = 0,
+      dependsOn = "dataFormat",
+      triggeredByValue = {"TEXT", "JSON", "DELIMITED", "AVRO", "BINARY", "PROTOBUF"}
+  )
+  public long maxRecordsPerFile;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      defaultValue = "false",
+      label = "Use Roll Attribute",
+      description = "Closes the current file and creates a new file when processing a record with the specified roll attribute",
+      displayPosition = 137,
+      group = "OUTPUT"
+  )
+  public boolean rollIfHeader;
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.STRING,
+      defaultValue = "roll",
+      label = "Roll Attribute Name",
+      description = "Name of the roll attribute",
+      displayPosition = 137,
+      group = "OUTPUT",
+      dependsOn = "rollIfHeader",
+      triggeredByValue = "true"
+  )
+  public String rollHeaderName;
+
+
+  @ConfigDef(
+      required = true,
+      type = ConfigDef.Type.BOOLEAN,
+      defaultValue = "true",
+      label = "Validate Directory Permissions",
+      description = "When checked, ADLS destination will create test file in configured target directory to verify access privileges.",
+      displayPosition = 140,
+      group = "OUTPUT"
+  )
+  public boolean checkPermission;
+
+  @ConfigDef(
+      required = true,
       type = ConfigDef.Type.MODEL,
       defaultValue = "JSON",
       label = "Data Format",
@@ -152,6 +231,13 @@ public class DataLakeConfigBean {
   public DataGeneratorFormatConfig dataFormatConfig = new DataGeneratorFormatConfig();
 
   public void init(Stage.Context context, List<Stage.ConfigIssue> issues) {
+    if (uniquePrefix == null) {
+      uniquePrefix = "";
+    }
+
+    if (fileNameSuffix == null) {
+      fileNameSuffix = "";
+    }
     dataFormatConfig.init(
         context,
         dataFormat,
@@ -159,6 +245,5 @@ public class DataLakeConfigBean {
         ADLS_DATA_FORMAT_CONFIG_PREFIX,
         issues
     );
-
   }
 }

@@ -26,15 +26,19 @@ import com.streamsets.pipeline.api.HideConfigs;
 import com.streamsets.pipeline.api.StageDef;
 
 @StageDef(
-    version = 3,
+    version = 6,
     label = "Write to Elasticsearch",
     description = "",
     icon = "",
     onlineHelpRefUrl = "index.html#Destinations/Elasticsearch.html#task_uns_gtv_4r",
-    upgrader = ElasticSearchDTargetUpgrader.class
+    upgrader = ElasticsearchDTargetUpgrader.class
 )
 @ErrorStage
-@HideConfigs(preconditions = true, onErrorRecord = true)
+@HideConfigs(
+    preconditions = true,
+    onErrorRecord = true,
+    value = {"elasticSearchConfig.defaultOperation", "elasticSearchConfig.unsupportedAction"}
+)
 @GenerateResourceBundle
 public class ToErrorElasticSearchDTarget extends ElasticSearchDTarget {
 

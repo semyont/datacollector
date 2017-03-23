@@ -90,6 +90,11 @@ public class SlaveStandaloneRunner implements Runner, PipelineInfo  {
   }
 
   @Override
+  public Map<String, String> getCommittedOffsets() throws PipelineException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public PipelineState getState() throws PipelineStoreException {
     return standaloneRunner.getState();
   }
@@ -132,7 +137,12 @@ public class SlaveStandaloneRunner implements Runner, PipelineInfo  {
   }
 
   @Override
-  public void start() throws PipelineRunnerException, PipelineStoreException, PipelineRuntimeException, StageException {
+  public void start() throws PipelineException, StageException {
+    start(null);
+  }
+
+  @Override
+  public void start(Map<String, Object> runtimeConstants) throws PipelineException, StageException {
     String callbackServerURL = configuration.get(Constants.CALLBACK_SERVER_URL_KEY, Constants.CALLBACK_SERVER_URL_DEFAULT);
     String clusterToken = configuration.get(Constants.PIPELINE_CLUSTER_TOKEN_KEY, null);
     if (callbackServerURL != null) {
@@ -144,7 +154,18 @@ public class SlaveStandaloneRunner implements Runner, PipelineInfo  {
       throw new RuntimeException(
         "No callback server URL is passed. SDC in Slave mode requires callback server URL (callback.server.url).");
     }
-    standaloneRunner.start();
+    standaloneRunner.start(runtimeConstants);
+  }
+
+  @Override
+  public void startAndCaptureSnapshot(
+      Map<String, Object> runtimeConstants,
+      String snapshotName,
+      String snapshotLabel,
+      int batches,
+      int batchSize
+  ) throws PipelineException, StageException {
+    standaloneRunner.captureSnapshot(snapshotName, snapshotLabel, batches, batchSize);
   }
 
   @Override
@@ -210,7 +231,7 @@ public class SlaveStandaloneRunner implements Runner, PipelineInfo  {
   }
 
   @Override
-  public List<AlertInfo> getAlerts() throws PipelineStoreException {
+  public List<AlertInfo> getAlerts() throws PipelineException {
     return standaloneRunner.getAlerts();
   }
 

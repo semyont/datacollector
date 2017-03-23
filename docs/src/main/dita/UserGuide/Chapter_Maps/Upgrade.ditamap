@@ -8,12 +8,19 @@
     <shortdesc/>
    </topicmeta>
   </topicref>
+  <topicref href="../Upgrade/PreUpgrade.dita" chunk="to-content">
+   <topicmeta>
+    <shortdesc/>
+   </topicmeta>
+   <topicref href="../Upgrade/PreUpgrade-InstallRequirements.dita"/>
+   <topicref href="../Upgrade/PreUpgrade-Java8.dita"/>
+  </topicref>
   <topicref href="../Upgrade/Tarball.dita" chunk="to-content">
    <topicmeta>
     <shortdesc/>
    </topicmeta>
-   <topicref href="../Upgrade/Tarball-Step1-VerifyDirs.dita"/>
-   <topicref href="../Upgrade/Tarball-Step2-Shutdown.dita"/>
+   <topicref href="../Upgrade/Tarball-Step1-Shutdown.dita"/>
+   <topicref href="../Upgrade/Tarball-Step2-BackUp.dita"/>
    <topicref href="../Upgrade/Tarball-Step3-Install.dita">
     <topicref href="../Upgrade/Tarball-ManualStart.dita"/>
     <topicref href="../Upgrade/Tarball-ServiceStart.dita"/>
@@ -28,12 +35,13 @@
     <shortdesc/>
    </topicmeta>
    <topicref href="../Upgrade/RPM-Step1-Shutdown.dita"/>
-   <topicref href="../Upgrade/RPM-Step2-BackupEnvConfig.dita"/>
+   <topicref href="../Upgrade/RPM-Step2-BackUp.dita"/>
    <topicref href="../Upgrade/RPM-Step3-Install.dita"/>
    <topicref href="../Upgrade/RPM-Step4-EnvConfig.dita"/>
    <topicref href="../Upgrade/RPM-Step5-ConfigFiles.dita"/>
    <topicref href="../Upgrade/RPM-Step6-AdditionalLibraries.dita"/>
-   <topicref href="../Upgrade/RPM-Step7-Start.dita"/>
+   <topicref href="../Upgrade/RPM-Step7-RemovePreviousLibraries.dita"/>
+   <topicref href="../Upgrade/RPM-Step8-Start.dita"/>
   </topicref>
   <topicref href="../Upgrade/CMUpgrade.dita" chunk="to-content">
    <topicmeta>
@@ -48,8 +56,18 @@
    <topicmeta>
     <shortdesc/>
    </topicmeta>
+   <topicref href="../Upgrade/2410DockerAuthentication.dita"/>
+   <topicref href="../Upgrade/2400-PipelinePermissions.dita"/>
+   <topicref href="../Upgrade/PostUpgrade-Elasticsearch.dita"/>
    <topicref href="../Upgrade/PostUpgrade-Kudu.dita"/>
    <topicref href="../Upgrade/PostUpgrade-Vault.dita"/>
   </topicref>
+  <topicref href="../Upgrade/Upgrade-ExternalSystems.dita" chunk="to-content">
+   <topicmeta>
+    <shortdesc/>
+   </topicmeta>
+   <topicref href="../Upgrade/UpgradeMapR.dita"/>
+  </topicref>
+  <topicref href="../Upgrade/UpgradeTroubleshooting.dita" chunk="to-content"/>
  </topicref>
 </map>

@@ -45,6 +45,7 @@ import com.streamsets.pipeline.lib.el.TimeNowEL;
 import com.streamsets.pipeline.stage.destination.hdfs.writer.ActiveRecordWriters;
 import com.streamsets.pipeline.stage.destination.hdfs.writer.RecordWriterManager;
 import com.streamsets.pipeline.stage.destination.lib.DataGeneratorFormatConfig;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
@@ -432,6 +433,17 @@ public class HdfsTargetConfigBean {
   )
   public String permissionEL = "";
 
+  @ConfigDef(
+    required = true,
+    type = ConfigDef.Type.BOOLEAN,
+    label = "Skip file recovery",
+    defaultValue = "false",
+    description = "Set to true to skip finding old temporary files that were written to and automatically recover them.",
+    displayPosition = 1000,
+    group = "OUTPUT_FILES"
+  )
+  public boolean skipOldTempFileRecovery = false;
+
   @ConfigDefBean()
   public DataGeneratorFormatConfig dataGeneratorFormatConfig;
 
@@ -439,6 +451,7 @@ public class HdfsTargetConfigBean {
 
   private Configuration hdfsConfiguration;
   private UserGroupInformation loginUgi;
+  private UserGroupInformation userUgi;
   private FileSystem fs;
   private long lateRecordsLimitSecs;
   private long idleTimeSecs = -1;
@@ -453,7 +466,7 @@ public class HdfsTargetConfigBean {
 
   //public API
 
-  public void init(Stage.Context context, List<Stage.ConfigIssue> issues) {
+  public void init(final Stage.Context context, List<Stage.ConfigIssue> issues) {
     boolean hadoopFSValidated = validateHadoopFS(context, issues);
     String fileNameEL = "";
 
@@ -511,7 +524,7 @@ public class HdfsTargetConfigBean {
         issues
     );
 
-    if (dataFormat == DataFormat.WHOLE_FILE) {
+    if (dataFormat == DataFormat.WHOLE_FILE || fileType == HdfsFileType.WHOLE_FILE) {
       validateStageForWholeFileFormat(context, issues);
       fileNameEL = dataGeneratorFormatConfig.fileNameEL;
     }
@@ -701,7 +714,7 @@ public class HdfsTargetConfigBean {
     if (issues.isEmpty()) {
 
       try {
-        getUGI().doAs(new PrivilegedExceptionAction<Void>() {
+        userUgi.doAs(new PrivilegedExceptionAction<Void>() {
           @Override
           public Void run() throws Exception {
             getCurrentWriters().commitOldFiles(fs);
@@ -720,16 +733,45 @@ public class HdfsTargetConfigBean {
       lateRecordsCounter = context.createCounter("lateRecords");
       lateRecordsMeter = context.createMeter("lateRecords");
     }
+
+    if (issues.isEmpty()) {
+      try {
+        // Recover previously written files (promote all _tmp_ to their final form).
+        //
+        // We want to run the recovery only if
+        // * This is not a WHOLE_FILE since it doesn't make sense there (tmp files will be discarded instead)
+        // * User explicitly did not disabled the recovery in configuration
+        // * We do have the directory template available (e.g. it's not in header)
+        // * Only for the first runner, since it would be empty operation for the others
+        if(dataFormat != DataFormat.WHOLE_FILE && !skipOldTempFileRecovery && !dirPathTemplateInHeader && context.getRunnerId() == 0) {
+          userUgi.doAs((PrivilegedExceptionAction<Void>) () -> {
+            getCurrentWriters().getWriterManager().handleAlreadyExistingFiles();
+            return null;
+          });
+        }
+      } catch (Exception ex) {
+        LOG.error(Errors.HADOOPFS_59.getMessage(), ex);
+        issues.add(
+            context.createConfigIssue(
+              Groups.OUTPUT_FILES.name(),
+              getTargetConfigBeanPrefix() + "dirPathTemplate",
+              Errors.HADOOPFS_59,
+              ex.toString(),
+              ex
+            )
+        );
+      }
+    }
   }
 
   public void destroy() {
     LOG.info("Destroy");
     try {
-      if(getUGI() == null) {
+      if(userUgi == null) {
         return;
       }
 
-      getUGI().doAs(new PrivilegedExceptionAction<Void>() {
+      userUgi.doAs(new PrivilegedExceptionAction<Void>() {
         @Override
         public Void run() throws Exception {
           try {
@@ -817,7 +859,7 @@ public class HdfsTargetConfigBean {
   }
 
   UserGroupInformation getUGI() {
-    return (hdfsUser.isEmpty()) ? loginUgi : HadoopSecurityUtil.getProxyUser(hdfsUser, loginUgi);
+    return userUgi;
   }
 
   protected ActiveRecordWriters getCurrentWriters() {
@@ -853,6 +895,11 @@ public class HdfsTargetConfigBean {
     // when we run a shutdown hook on app kill
     //See https://issues.streamsets.com/browse/SDC-4057
     conf.setBoolean("fs.automatic.close", false);
+
+    // See SDC-5451, we set hadoop.treat.subject.external automatically to take advantage of HADOOP-13805
+    // Not using constant to make this code compile even for stage libraries that does not have HADOOP-13805 available.
+    conf.setBoolean("hadoop.treat.subject.external", true);
+
     if (hdfsKerberos) {
       conf.set(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION,
         UserGroupInformation.AuthenticationMethod.KERBEROS.name());
@@ -934,6 +981,19 @@ public class HdfsTargetConfigBean {
           }
         }
       }
+    } else {
+      String fsDefaultFS = hdfsConfigs.get(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY);
+      if (StringUtils.isEmpty(hdfsUri) && StringUtils.isEmpty(fsDefaultFS)) {
+        // No URI, no config dir, and no fs.defaultFS config param
+        // Avoid defaulting to writing to file:/// (SDC-5143)
+        issues.add(
+            context.createConfigIssue(
+                Groups.HADOOP_FS.name(),
+                getTargetConfigBeanPrefix() + "hdfsUri",
+                Errors.HADOOPFS_61
+            )
+        );
+      }
     }
     for (Map.Entry<String, String> config : hdfsConfigs.entrySet()) {
       conf.set(config.getKey(), config.getValue());
@@ -952,6 +1012,19 @@ public class HdfsTargetConfigBean {
               getTargetConfigBeanPrefix() + "fileType",
               Errors.HADOOPFS_53,
               fileType,
+              HdfsFileType.WHOLE_FILE.getLabel(),
+              DataFormat.WHOLE_FILE.getLabel()
+          )
+      );
+    }
+    if (dataFormat != DataFormat.WHOLE_FILE) {
+      issues.add(
+          context.createConfigIssue(
+              Groups.DATA_FORMAT.name(),
+              getTargetConfigBeanPrefix() + "dataFormat",
+              Errors.HADOOPFS_60,
+              dataFormat.name(),
+              DataFormat.WHOLE_FILE.getLabel(),
               HdfsFileType.WHOLE_FILE.getLabel()
           )
       );
@@ -1001,6 +1074,19 @@ public class HdfsTargetConfigBean {
     try {
       // forcing UGI to initialize with the security settings from the stage
       loginUgi = HadoopSecurityUtil.getLoginUser(hdfsConfiguration);
+      userUgi = HadoopSecurityUtil.getProxyUser(
+        hdfsUser,
+        context,
+        loginUgi,
+        issues,
+        Groups.HADOOP_FS.name(),
+        getTargetConfigBeanPrefix() + "hdfsUser"
+      );
+
+      if(!issues.isEmpty()) {
+        return false;
+      }
+
       if (hdfsKerberos) {
         logMessage.append("Using Kerberos");
         if (loginUgi.getAuthenticationMethod() != UserGroupInformation.AuthenticationMethod.KERBEROS) {
@@ -1050,7 +1136,7 @@ public class HdfsTargetConfigBean {
     dirPathTemplate = (dirPathTemplate.isEmpty()) ? "/" : dirPathTemplate;
     try {
       final Path dir = new Path(dirPathTemplate);
-      getUGI().doAs(new PrivilegedExceptionAction<Void>() {
+      userUgi.doAs(new PrivilegedExceptionAction<Void>() {
                   @Override
                   public Void run() throws Exception {
           // Based on whether the target directory exists or not, we'll do different check
@@ -1106,7 +1192,7 @@ public class HdfsTargetConfigBean {
 
   private FileSystem createFileSystem() throws Exception {
     try {
-      return getUGI().doAs(new PrivilegedExceptionAction<FileSystem>() {
+      return userUgi.doAs(new PrivilegedExceptionAction<FileSystem>() {
         @Override
         public FileSystem run() throws Exception {
           return FileSystem.newInstance(new URI(hdfsUri), hdfsConfiguration);

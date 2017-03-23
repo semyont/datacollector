@@ -51,14 +51,10 @@ export SDC_FILE_LIMIT="${SDC_FILE_LIMIT:-32768}"
 
 # JVM options for the data collector process
 #
-export SDC_JAVA_OPTS="-Xmx1024m -Xms1024m -server ${SDC_JAVA_OPTS}"
+export SDC_JAVA_OPTS="-Xmx1024m -Xms1024m -server -XX:-OmitStackTraceInFastThrow ${SDC_JAVA_OPTS}"
 
 # Indicate that MapR Username/Password security is enabled
-#export SDC_JAVA_OPTS="-Dmaprlogin.password.enabled=true"
-
-# Java 7 (JDK 1.7) specific options
-# by default, set MaxPermSize to 512m and use CMS garbage collector
-export SDC_JAVA7_OPTS=${SDC_JAVA7_OPTS:-"-Dhttps.protocols=TLSv1.2,TLSv1.1 -XX:PermSize=256m -XX:MaxPermSize=512m -XX:+UseConcMarkSweepGC -XX:+UseParNewGC"}
+#export SDC_JAVA_OPTS="-Dmaprlogin.password.enabled=true ${SDC_JAVA_OPTS}"
 
 # Java 8 (JDK 1.8) specific options
 # by default, use CMS garbage collector
@@ -67,3 +63,12 @@ export SDC_JAVA8_OPTS=${SDC_JAVA8_OPTS:-"-XX:+UseConcMarkSweepGC -XX:+UseParNewG
 # Enables/disables the JVM security manager
 #
 export SDC_SECURITY_MANAGER_ENABLED=true
+
+# Produce heap dump when SDC will die on OutOfMemoryError
+export SDC_HEAPDUMP_ON_OOM=true
+
+# Optional path for the heap dump file, default is $SDC_LOG/heapdump
+#export SDC_HEAPDUMP_PATH=
+
+# Enable GC logging automatically
+export SDC_GC_LOGGING=true

@@ -63,13 +63,14 @@ public enum Errors implements ErrorCode {
 
   HADOOPFS_29("Path template uses the '{}' function, it must use the '{}' function"),
   HADOOPFS_30("The 'every(<UNIT>, <VALUE>)' function can be used only once in the path"),
-  HADOOPFS_31("The 'every(<UNIT>, <VALUE>)' function must use YYYY(), YY(), MM(), DD(), hh(), mm() or ss() as <UNIT>"),
+  HADOOPFS_31("The 'every(<UNIT>, <VALUE>)' function must use hh(), mm() or ss() as <UNIT>"),
   HADOOPFS_32("The 'every(<UNIT>, <VALUE>)' function has the <VALUE> argument out of range, it must be between '1' and '{}'"),
   HADOOPFS_33("The 'every(<UNIT>, <VALUE>)' function must use the smallest unit in the path template"),
   HADOOPFS_34("The 'every(<UNIT>, <VALUE>)' function value must be a sub-multiple of the maximum value of the <UNIT>"),
   HADOOPFS_35("Failed to retrieve increment time unit and value from the path template: {}"),
   HADOOPFS_36("The 'ss()' function cannot be used within and outside of the 'every()' function at the same time"),
   HADOOPFS_37("The 'mm()' function cannot be used within and outside of the 'every()' function at the same time"),
+  HADOOPFS_38("The 'hh()' function cannot be used within and outside of the 'every()' function at the same time"),
 
   HADOOPFS_40("Base directory path must be absolute"),
   HADOOPFS_41("Base directory path could not be created"),
@@ -86,11 +87,15 @@ public enum Errors implements ErrorCode {
   HADOOPFS_50("Directory template header '" + HdfsTarget.TARGET_DIRECTORY_HEADER + "' missing"),
   HADOOPFS_51("Missing roll header name"),
   HADOOPFS_52("Invalid setting for idle timeout"),
-  HADOOPFS_53("Invalid Setting {}, should be {} for Whole File Data Format."),
+  HADOOPFS_53("Invalid Setting for File Type {}, should be {} for Data Format {}."),
   HADOOPFS_54("The path {} already exists."),
   HADOOPFS_55("Invalid permission EL {} for the file"),
   HADOOPFS_56("Invalid permission value {} for the file"),
   HADOOPFS_57("Files Suffix contains '/' or starts with '.'"),
+  HADOOPFS_58("Flush failed on file: '{}' due to '{}'"),
+  HADOOPFS_59("Recovery failed to rename old _tmp_ files"),
+  HADOOPFS_60("Invalid Data Format {}, should be {} for File Type {}."),
+  HADOOPFS_61("You must specify at least one of Hadoop FS URI, Hadoop FS Configuration Directory or fs.defaultFS"),
 
   ;
 

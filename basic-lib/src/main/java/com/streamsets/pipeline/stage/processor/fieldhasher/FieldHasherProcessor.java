@@ -299,6 +299,11 @@ public class FieldHasherProcessor extends SingleLaneRecordProcessor {
       String headerAttribute,
       boolean includeRecordHeader
   ) throws StageException {
+    // If there is nothing to hash, don't create bogus output hash
+    if(fieldsToHashForThisConfig.isEmpty()) {
+      return;
+    }
+
     String hashVal = generateHash(record, hashType, fieldsToHashForThisConfig, includeRecordHeader);
     if (!targetField.isEmpty()) {
       Field newField = Field.create(hashVal);
@@ -328,7 +333,7 @@ public class FieldHasherProcessor extends SingleLaneRecordProcessor {
       HashingUtil.RecordFunnel recordFunnel = HashingUtil.getRecordFunnel(fieldsToHash, includeRecordHeader);
       return hasher.hashObject(record, recordFunnel).toString();
     } catch (IllegalArgumentException e) {
-      throw new StageException(Errors.HASH_00, hashType.getDigest(), e.toString(), e);
+      throw new OnRecordErrorException(Errors.HASH_00, hashType.getDigest(), e.toString(), e);
     }
   }
 }

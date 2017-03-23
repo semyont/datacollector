@@ -38,21 +38,6 @@ import java.util.Map;
 public class TestJythonProcessor {
 
   @Test
-  public void testOutErr() throws Exception {
-    Processor processor = new JythonProcessor(
-        ProcessingMode.RECORD,
-        "for record in records:\n" +
-            "  output.write(record)\n" +
-            "  record.value = 'Bye'\n" +
-            "  output.write(record)\n" +
-            "  record.value = 'Error'\n" +
-            "  error.write(record, 'error')\n"
-    );
-
-    ScriptingProcessorTestUtil.verifyWriteErrorRecord(JythonDProcessor.class, processor);
-  }
-
-  @Test
   public void testJythonMapArray() throws Exception {
     Processor processor = new JythonProcessor(
         ProcessingMode.RECORD,
@@ -466,4 +451,49 @@ public class TestJythonProcessor {
     ScriptingProcessorTestUtil.verifyRecordHeaderAttribute(JythonProcessor.class, processor, RecordCreator.create());
   }
 
+  @Test
+  public void testInitDestroy() throws Exception {
+    String initScript = "state['initValue'] = 'init'";
+    String script = "for record in records:\n" +
+        "  record.value['initValue'] = state['initValue']\n" +
+        "  output.write(record)\n";
+
+    Processor processor = new JythonProcessor(
+        ProcessingMode.BATCH,
+        script,
+        initScript,
+        ""
+    );
+    ScriptingProcessorTestUtil.verifyInitDestroy(JythonProcessor.class, processor);
+  }
+
+  private static final String WRITE_ERROR_SCRIPT = "for record in records:\n  error.write(record, 'oops')\n";
+
+  @Test
+  public void testErrorRecordStopPipeline() throws Exception {
+    Processor processor = new JythonProcessor(
+      ProcessingMode.RECORD,
+      WRITE_ERROR_SCRIPT
+    );
+    ScriptingProcessorTestUtil.verifyErrorRecordStopPipeline(JythonProcessor.class, processor);
+  }
+
+  @Test
+  public void testErrorRecordDiscard() throws Exception {
+    Processor processor = new JythonProcessor(
+      ProcessingMode.RECORD,
+      WRITE_ERROR_SCRIPT
+    );
+    ScriptingProcessorTestUtil.verifyErrorRecordDiscard(JythonProcessor.class, processor);
+  }
+
+
+  @Test
+  public void testErrorRecordErrorSink() throws Exception {
+    Processor processor = new JythonProcessor(
+      ProcessingMode.RECORD,
+      WRITE_ERROR_SCRIPT
+    );
+    ScriptingProcessorTestUtil.verifyErrorRecordErrorSink(JythonProcessor.class, processor);
+  }
 }

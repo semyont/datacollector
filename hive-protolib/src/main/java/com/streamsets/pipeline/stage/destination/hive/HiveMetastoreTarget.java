@@ -29,7 +29,6 @@ import com.streamsets.pipeline.api.impl.Utils;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import com.streamsets.pipeline.stage.lib.hive.Errors;
-import com.streamsets.pipeline.stage.lib.hive.Groups;
 import com.streamsets.pipeline.stage.lib.hive.HiveMetastoreUtil;
 import com.streamsets.pipeline.stage.lib.hive.HiveQueryExecutor;
 import com.streamsets.pipeline.stage.lib.hive.cache.HMSCache;
@@ -59,6 +58,7 @@ public class HiveMetastoreTarget extends BaseTarget {
 
   private final HMSTargetConfigBean conf;
 
+  private HiveQueryExecutor queryExecutor;
   private ErrorRecordHandler defaultErrorRecordHandler;
   private HMSCache hmsCache;
 
@@ -73,6 +73,9 @@ public class HiveMetastoreTarget extends BaseTarget {
     conf.init(getContext(), CONF, issues);
     if (issues.isEmpty()) {
       try {
+        // We have exactly one instance of the query executor per stage to calculate it's metrics
+        queryExecutor = new HiveQueryExecutor(conf.hiveConfigBean, getContext());
+
         hmsCache = HMSCache.newCacheBuilder()
             .addCacheTypeSupport(
                 Arrays.asList(
@@ -82,7 +85,7 @@ public class HiveMetastoreTarget extends BaseTarget {
                 )
             )
             .maxCacheSize(conf.hiveConfigBean.maxCacheSize)
-            .build(new HiveQueryExecutor(conf.hiveConfigBean));
+            .build(queryExecutor);
       } catch (StageException e) {
         issues.add(getContext().createConfigIssue(
             Groups.HIVE.name(),
@@ -106,8 +109,6 @@ public class HiveMetastoreTarget extends BaseTarget {
         String databaseName = HiveMetastoreUtil.getDatabaseName(metadataRecord);
         String qualifiedTableName = HiveMetastoreUtil.getQualifiedTableName(databaseName, tableName);
         String location = HiveMetastoreUtil.getLocation(metadataRecord);
-
-        HiveQueryExecutor hiveQueryExecutor = new HiveQueryExecutor(conf.hiveConfigBean);
 
         TBLPropertiesInfoCacheSupport.TBLPropertiesInfo tblPropertiesInfo = HiveMetastoreUtil.getCacheInfo(
             hmsCache,
@@ -141,11 +142,11 @@ public class HiveMetastoreTarget extends BaseTarget {
               location,
               databaseName,
               tableName,
-              hiveQueryExecutor,
+              queryExecutor,
               tblPropertiesInfo
           );
         } else {
-          handlePartitionAddition(metadataRecord, qualifiedTableName, location, hiveQueryExecutor);
+          handlePartitionAddition(metadataRecord, qualifiedTableName, location, queryExecutor);
         }
       } catch (HiveStageCheckedException e) {
         LOG.error("Error processing record: {}", e);
@@ -218,6 +219,8 @@ public class HiveMetastoreTarget extends BaseTarget {
       // Generate new table event
       HiveMetastoreEvents.NEW_TABLE.create(getContext())
         .with("table", qualifiedTableName)
+        .withStringMap("columns", Collections.<String, Object>unmodifiableMap(newColumnTypeInfo))
+        .withStringMap("partitions", Collections.<String, Object>unmodifiableMap(partitionTypeInfo))
         .createAndSend();
 
     } else {
@@ -299,7 +302,11 @@ public class HiveMetastoreTarget extends BaseTarget {
       if (cachedPartitionInfo != null) {
         cachedPartitionInfo.updateState(partitionInfoDiff);
       } else {
-        hmsCache.put(hmsCacheType, qualifiedTableName, new PartitionInfoCacheSupport.PartitionInfo(partitionInfoDiff));
+        hmsCache.put(
+            hmsCacheType,
+            qualifiedTableName,
+            new PartitionInfoCacheSupport.PartitionInfo(partitionInfoDiff, queryExecutor, qualifiedTableName)
+        );
       }
 
       HiveMetastoreEvents.NEW_PARTITION.create(getContext())

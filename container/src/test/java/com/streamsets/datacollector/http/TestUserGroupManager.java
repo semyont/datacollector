@@ -45,7 +45,7 @@ import java.io.Writer;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 @SuppressWarnings("unchecked")
@@ -153,15 +153,16 @@ public class TestUserGroupManager {
         .request()
         .get();
     Assert.assertEquals(200, response.getStatus());
-    Map<String, UserJson> usersList = response.readEntity(new GenericType<Map<String, UserJson>>(){});
+    List<UserJson> usersList = response.readEntity(new GenericType<List<UserJson>>(){});
     Assert.assertNotNull(usersList);
     Assert.assertEquals(2, usersList.size());
 
-    UserJson adminUser = usersList.get("admin");
+    UserJson adminUser = usersList.get(0);
     Assert.assertEquals("admin", adminUser.getName());
-    Assert.assertEquals(2, adminUser.getRoles().size());
-    Assert.assertEquals(2, adminUser.getGroups().size());
-    Assert.assertEquals("group1", adminUser.getGroups().get(0));
-    Assert.assertEquals("group2", adminUser.getGroups().get(1));
+    Assert.assertEquals(1, adminUser.getRoles().size());
+    Assert.assertEquals(3, adminUser.getGroups().size());
+    Assert.assertEquals("all", adminUser.getGroups().get(0));
+    Assert.assertEquals("group1", adminUser.getGroups().get(1));
+    Assert.assertEquals("group2", adminUser.getGroups().get(2));
   }
 }

@@ -23,6 +23,7 @@ import com.streamsets.datacollector.config.StageType;
 import com.streamsets.datacollector.email.EmailSender;
 import com.streamsets.datacollector.runner.StageContext;
 import com.streamsets.datacollector.util.Configuration;
+import com.streamsets.pipeline.api.DeliveryGuarantee;
 import com.streamsets.pipeline.api.ExecutionMode;
 import com.streamsets.pipeline.api.OnRecordError;
 import com.streamsets.pipeline.api.Processor;
@@ -80,14 +81,17 @@ public class ContextInfoCreator {
     return new StageContext(
         instanceName,
         stageType,
+        0,
         isPreview,
         onRecordError,
         outputLanes,
         configToElDefMap,
-        new HashMap<String, Object>(),
+        new HashMap<>(),
         ExecutionMode.STANDALONE,
+        DeliveryGuarantee.AT_LEAST_ONCE,
         resourcesDir,
-        new EmailSender(new Configuration())
+        new EmailSender(new Configuration()),
+        new Configuration()
     );
   }
 
